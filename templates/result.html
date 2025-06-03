@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlanktoScan</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap.css') }}">    
+    <link rel="stylesheet" href="{{ url_for('static', path='lib/all.css') }}">
+
+    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body style="letter-spacing: 1px;">
+    <div class="background">
+        <img src="{{ url_for('static', path='assets/background.png') }}" alt="background" class="background-image">
+    </div>
+
+    <nav class="navbar navbar-expand-sm navbar-light bg-light">
+        <div class="container-fluid mx-4">
+            <a class="navbar-brand" href="#"><img src="{{ url_for('static', path='assets/logo.png') }}" alt=""></a>
+            <button class="btn btn-success btn-back">Kembali</button>
+        </div>
+    </nav>
+
+    <main class='main'>
+        <div class="main-content d-flex justify-content-center align-items-center flex-column">
+            <div class="predict-result d-flex justify-content-center align-items-center">
+                <div class="image">
+                    <p class="title my-1">Area Klasifikasi:</p>
+                    <img src="{{ img_path }}" alt="Gambar Plankton">
+                </div>
+                <div class="probability-result">
+                    <table class="table table-hover table-bordered">
+                        <thead>
+                            <tr>
+                                <th scope="col">Jenis Plankton</th>
+                                <th scope="col">Probabilitas</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td >{{class1}}</td>
+                                <th scope="row">{{probability1}}</th>
+                            </tr>
+                            <tr>
+                                <td>{{class2}}</td>
+                                <th scope="row">{{probability2}}</th>
+                            </tr>
+                            <tr>
+                                <td>{{class3}}</td>
+                                <th scope="row">{{probability3}}</th>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="response-llm">
+                <p>{{response}}</p>
+            </div>
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
+    <script src="{{ url_for('static', path='lib/bootstrap.js') }}"></script>
+    <script src="{{ url_for('static', path='lib/popper.js') }}"></script>
+    <script src="{{ url_for('static', path='lib/swal.js') }}"></script>
+
+    <script src="{{ url_for('static', path='script.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlanktoScan</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap.css') }}"">    
+    <link rel="stylesheet" href="{{ url_for('static', path='lib/all.css') }}"">
+    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}"">
+</head>
+<body style='letter-spacing: 1px'>
+    <div class="background">
+        <img src="{{ url_for('static', path='assets/background.png') }}" alt="background" class="background-image">
+    </div>
+
+    <div id="load">
+        <div>G</div>
+        <div>N</div>
+        <div>I</div>
+        <div>D</div>
+        <div>A</div>
+        <div>O</div>
+        <div>L</div>
+    </div>    
+    <div id="transparant-bg"></div  >
+
+    <nav class="navbar navbar-expand-sm navbar-light bg-light">
+        <div class="container mx-4">
+            <a class="navbar-brand" href="#"><img src="{{ url_for('static', path='assets/logo.png') }}" alt=""></a>
+        </div>
+    </nav>
+    
+    <main>
+        <div class="activity d-flex align-items-center justify-content-center flex-column">
+            <div class="title-section d-flex justify-content-center align-items-center py-2">
+                <img src="{{ url_for('static', path='assets/judul.png') }}" alt="">
+            </div>
+            <div class="main-activity py-5 justify-content-center align-items-center d-flex flex-wrap">
+                <div class="upload-container d-flex flex-column align-items-center">
+                    <input type="text" id="image-upload" placeholder="Unggah gambar Anda disini..." disabled>
+                    <div class="dropdown d-flex justify-content-center align-items-center flex-wrap">
+                        <div class="model-dropdown-container">
+                            <label for="deep-learning-model">Model Deep Learning</label>
+                            <select id="deep-learning-model">
+                                <option value="bit">BigTransfer M-R101x1</option>
+                                <option value="conv">ConvNeXt Tiny-1K</option>
+                                <option value="regnet">RegNetY 800MF</option>
+                                <option value="swin">Swin Transformers S3</option>
+                                <option value="vit">Vision Transformers R26-S32</option>
+                            </select>
+                        </div>
+                        <div class="model-dropdown-container">
+                            <label for="llm-model">Model LLM</label>
+                            <select id="llm-model">
+                                <option value="qwen2">Qwen2 72B Instruct</option>
+                                <option value="qwen25">Qwen2.5 72B Instruct</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="button-ml-container d-flex flex-column justify-content-center align-items-center">
+                    <input type="file" id="file-image-upload" accept="image/*" style="display: none;">
+                    <button class="btn primary-btn text-white btn-upload-image" onclick="document.getElementById('file-image-upload').click();">Unggah Gambar</button>
+                    <button class="btn primary-btn text-white btn-predict-image">Prediksi Gambar</button>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
+    <script src="{{ url_for('static', path='lib/bootstrap.js') }}"></script>
+    <script src="{{ url_for('static', path='lib/popper.js') }}""></script>
+    <script src="{{ url_for('static', path='lib/swal.js') }}"></script>
+
+    <script src="{{ url_for('static', path='script.js') }}"></script>
+</body>
+</html>
