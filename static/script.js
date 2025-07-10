@@ -12,6 +12,7 @@ $(document).ready(function () {
     const $uploadZone = $('.upload-zone');
     const $fileInfo = $('#file-info');
     const $fileName = $('#file-name');
+    const $cancelUpload = $('#cancel-upload');
 
     let uploadedImagePath = '';
 
@@ -112,6 +113,8 @@ $(document).ready(function () {
         // Show uploading state
         $fileName.text('Uploading...');
         $fileInfo.show();
+        $uploadZone.addClass('uploading');
+        $predictButton.prop('disabled', true);
         
         $.ajax({
             url: '/upload',
@@ -121,10 +124,12 @@ $(document).ready(function () {
             contentType: false,
             success: (data) => {
                 uploadedImagePath = data.img_path;
-                $imageUploadInput.val(file.name);
+                $imageUploadInput.val(uploadedImagePath);
                 $fileName.text(file.name);
                 $fileInfo.show();
                 $predictButton.prop('disabled', false);
+                $uploadZone.removeClass('uploading');
+                $uploadZone.addClass('success');
                 
                 // Update upload zone appearance
                 $uploadZone.html(`
@@ -136,8 +141,8 @@ $(document).ready(function () {
                 `);
             },
             error: () => {
-                $fileInfo.hide();
-                $predictButton.prop('disabled', true);
+                resetFileUpload();
+                $uploadZone.removeClass('uploading');
                 swal({
                     title: "Upload Error",
                     text: "Failed to upload image. Please try again.",
@@ -222,6 +227,33 @@ $(document).ready(function () {
             }
         });
     });
+
+    // Cancel upload button handler
+    $cancelUpload.on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        resetFileUpload();
+        
+        // Show a brief feedback message
+        swal({
+            title: "Upload Canceled",
+            text: "File upload has been canceled",
+            icon: "info",
+            timer: 2000,
+            buttons: false
+        });
+    });
+
+    // Function to reset file upload state
+    function resetFileUpload() {
+        $fileInput.val(''); // Clear the file input
+        $imageUploadInput.val(''); // Clear the hidden input
+        uploadedImagePath = '';
+        $fileInfo.hide();
+        $fileName.text('No file selected');
+        $uploadZone.removeClass('success');
+        $predictButton.attr('disabled', true);
+    }
 
     // Monitor dropdown changes for debugging
     $modelSelect.on('change', function() {

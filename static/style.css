@@ -188,10 +188,11 @@ body {
     transform: scale(1.05);
 }
 
+/* Main card title logo style */
 .card-title-logo {
-    height: 60px;
+    height: auto;
     width: auto;
-    max-width: 250px;
+    max-width: 280px;
     transition: transform 0.3s ease;
     filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.1));
     margin-bottom: 0;
@@ -233,7 +234,7 @@ body {
     border: 1px solid rgba(93, 173, 226, 0.2);
     width: 95%;
     max-width: 600px; /* reduce max width */
-    margin: 0 auto;
+    margin: 30px auto 0; /* Added 2rem top margin */
     position: relative;
     transition: all 0.3s ease;
 }
@@ -253,7 +254,7 @@ body {
     text-align: center;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     background: linear-gradient(135deg, rgba(236, 240, 241, 0.8), rgba(247, 249, 250, 0.9));
-    margin-bottom: 2.5rem;
+    margin-bottom: 1.5rem;
     cursor: pointer;
     position: relative;
     overflow: hidden;
@@ -290,6 +291,31 @@ body {
     box-shadow: 
         0 20px 40px rgba(39, 174, 96, 0.3),
         inset 0 0 20px rgba(39, 174, 96, 0.1);
+}
+
+.upload-zone.uploading {
+    border-color: #3498DB;
+    background: linear-gradient(135deg, rgba(231, 240, 248, 0.95), rgba(212, 223, 239, 0.9));
+    box-shadow: 
+        0 15px 35px rgba(52, 152, 219, 0.3),
+        inset 0 0 20px rgba(52, 152, 219, 0.1);
+}
+
+.upload-zone.uploading::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(52, 152, 219, 0.2), transparent);
+    animation: loading-shine 1.5s infinite;
+}
+
+@keyframes loading-shine {
+    100% {
+        left: 100%;
+    }
 }
 
 .upload-icon {
@@ -334,7 +360,7 @@ body {
 }
 
 .form-group {
-    margin-bottom: 2rem;
+    margin-bottom: 0;
     position: relative;
 }
 
@@ -519,7 +545,7 @@ body {
     border: 2px solid #27AE60;
     border-radius: 15px;
     padding: 20px;
-    margin-top: 1.5rem;
+    margin-bottom   : 1.5rem;
     display: none;
     animation: slideInUp 0.4s ease-out;
     box-shadow: 0 8px 20px rgba(39, 174, 96, 0.2);
@@ -531,6 +557,8 @@ body {
     gap: 15px;
     font-weight: 600;
     color: #2C3E50;
+    position: relative;
+    width: 100%;
 }
 
 .file-icon {
@@ -539,17 +567,27 @@ body {
     animation: pulse 2s infinite;
 }
 
-.card-title-logo {
-    max-width: 280px;
-    height: auto;
-    margin-bottom: 1rem;
-    filter: drop-shadow(0 4px 15px rgba(0, 0, 0, 0.1));
+.file-cancel-btn {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: #E74C3C;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: all 0.3s ease;
 }
 
-.card-title-logo:hover {
-    transform: scale(1.05);
-    filter: drop-shadow(0 6px 20px rgba(52, 152, 219, 0.2));
+.file-cancel-btn:hover {
+    background-color: #E74C3C;
+    color: white;
+    transform: scale(1.1);
 }
 
 /* Animation keyframes */
@@ -571,7 +609,7 @@ body {
 
 /* Enhanced card layout */
 .text-center.mb-4 {
-    margin-bottom: 2.5rem !important;
+    margin-bottom: 1.5rem !important;
 }
 
 .text-muted {
@@ -594,7 +632,7 @@ body {
 
 /* Button container styling */
 .d-flex.gap-3 {
-    margin-top: 2.5rem;
+    margin-top: 1rem;
     justify-content: center;
 }
 
@@ -657,6 +695,7 @@ body {
 }
 
 @media (max-width: 768px) {
+    /* Upload card mobile styling */
     .upload-card {
         margin: 1rem 0.5rem;
         padding: 2rem 1.5rem;
@@ -679,7 +718,7 @@ body {
     }
     
     .form-group {
-        margin-bottom: 1.5rem;
+        margin-bottom: 0;
     }
     
     .form-select-modern {
@@ -697,6 +736,12 @@ body {
     
     .card-title-logo {
         max-width: 240px;
+    }
+    
+    /* Button size adjustments */
+    .btn {
+        font-size: 0.9rem;
+        padding: 0.5rem 1rem;
     }
 }
 
@@ -1230,5 +1275,176 @@ select {
     .col-lg-5.col-md-6 {
         flex: 0 0 45%;
         max-width: 45%;
+    }
+}
+
+.results-container {
+    min-height: 100vh;
+    background: url("{{ url_for('static', path='assets/background.png') }}");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    position: relative;
+}
+
+.results-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(52, 152, 219, 0.1);
+    z-index: 1;
+}
+
+.results-content {
+    position: relative;
+    z-index: 2;
+    padding: 2rem 0;
+}
+
+.navbar-results {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 20px rgba(52, 152, 219, 0.2);
+}
+
+.results-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 20px;
+    padding: 2rem;
+    box-shadow: 0 20px 60px rgba(52, 152, 219, 0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(93, 173, 226, 0.3);
+    margin-bottom: 2rem;
+}
+
+.image-preview {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.image-preview img {
+    max-width: 100%;
+    max-height: 300px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+
+.image-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 1rem;
+}
+
+.results-table {
+    background: white;
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.table-modern {
+    margin-bottom: 0;
+}
+
+.table-modern thead th {
+    background: linear-gradient(45deg, #3498DB, #5DADE2);
+    color: white;
+    border: none;
+    font-weight: 600;
+    padding: 1rem;
+}
+
+.table-modern tbody td {
+    padding: 1rem;
+    border-color: #f8f9fa;
+    vertical-align: middle;
+}
+
+.table-modern tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.probability-bar {
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+}
+
+.probability-fill {
+    height: 100%;
+    background: linear-gradient(45deg, #28a745, #20c997);
+    border-radius: 4px;
+    transition: width 0.8s ease;
+}
+
+.btn-modern {
+    padding: 12px 25px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 10px;
+    border: none;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+}
+
+.btn-primary-modern {
+    background: linear-gradient(45deg, #3498DB, #5DADE2);
+    color: white;
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+}
+
+.btn-primary-modern:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(52, 152, 219, 0.4);
+    color: white;
+    background: linear-gradient(45deg, #2980B9, #3498DB);
+}
+
+.btn-secondary-modern {
+    background: #6c757d;
+    color: white;
+    box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
+}
+
+.btn-secondary-modern:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(108, 117, 125, 0.4);
+    color: white;
+    background: #5a6268;
+}
+
+.species-rank {
+    display: inline-block;
+    width: 30px;
+    height: 30px;
+    background: linear-gradient(45deg, #3498DB, #5DADE2);
+    color: white;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 30px;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+@media (max-width: 768px) {
+    .results-card {
+        margin: 1rem;
+        padding: 1.5rem;
+    }
+    
+    .image-preview img {
+        max-height: 200px;
+    }
+    
+    .table-responsive {
+        font-size: 0.9rem;
     }
 }
