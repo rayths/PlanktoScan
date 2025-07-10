@@ -6,7 +6,6 @@ import cv2
 
 from tensorflow import image as tfi
 from tensorflow import data as tfd
-from gradio_client import Client
 from tf_keras.preprocessing.image import load_img, img_to_array
 from tf_keras.applications.imagenet_utils import preprocess_input
 

@@ -6,7 +6,6 @@ $(document).ready(function () {
     const $imageUploadInput = $('#image-upload');
     const $predictButton = $('.btn-predict-image');
     const $modelSelect = $('#classification-model');
-    const $llmSelect = $('#llm-model');
     const $segmentationSelect = $('#segmentation-model');
     const $loading = $('#load');
     const $transparant = $('#transparant-bg');
@@ -22,16 +21,12 @@ $(document).ready(function () {
         if (!$modelSelect.val() || $modelSelect.val() === '') {
             $modelSelect.val('efficientnetv2b0');
         }
-        if (!$llmSelect.val() || $llmSelect.val() === '') {
-            $llmSelect.val('qwen2');
-        }
         if (!$segmentationSelect.val() || $segmentationSelect.val() === '') {
             $segmentationSelect.val('deeplab');
         }
         
         console.log('Dropdowns initialized:', {
             classification: $modelSelect.val(),
-            llm: $llmSelect.val(),
             segmentation: $segmentationSelect.val()
         });
     }
@@ -167,12 +162,10 @@ $(document).ready(function () {
 
         // Get values from dropdowns
         const modelOption = $modelSelect.val() || 'efficientnetv2b0';
-        const llmOption = $llmSelect.val() || 'qwen2';
         const segmentationOption = $segmentationSelect.val() || 'deeplab';
 
         console.log('=== Prediction Values ===');
         console.log('modelOption:', modelOption);
-        console.log('llmOption:', llmOption);
         console.log('segmentationOption:', segmentationOption);
 
         // Final validation
@@ -180,14 +173,6 @@ $(document).ready(function () {
             return swal({
                 title: "Model Error",
                 text: "Classification model not properly selected. Please refresh and try again.",
-                icon: "error"
-            });
-        }
-
-        if (!llmOption || llmOption === 'null' || llmOption === 'undefined') {
-            return swal({
-                title: "LLM Error", 
-                text: "Language model not properly selected. Please refresh and try again.",
                 icon: "error"
             });
         }
@@ -205,13 +190,11 @@ $(document).ready(function () {
         
         // Ensure no undefined values are sent
         formData.append('model_option', String(modelOption));
-        formData.append('llm_option', String(llmOption));
         formData.append('segmentation_model', String(segmentationOption));
 
         console.log('Sending prediction request with data:', {
             img_path: uploadedImagePath,
             model_option: String(modelOption),
-            llm_option: String(llmOption),
             segmentation_model: String(segmentationOption)
         });
 
@@ -245,10 +228,6 @@ $(document).ready(function () {
         console.log('Classification model changed to:', $(this).val());
     });
     
-    $llmSelect.on('change', function() {
-        console.log('LLM model changed to:', $(this).val());
-    });
-    
     $segmentationSelect.on('change', function() {
         console.log('Segmentation model changed to:', $(this).val());
     });
@@ -257,7 +236,6 @@ $(document).ready(function () {
     setTimeout(() => {
         console.log('=== Final Initialization Check ===');
         console.log('Classification model:', $modelSelect.val());
-        console.log('LLM model:', $llmSelect.val());
         console.log('Segmentation model:', $segmentationSelect.val());
         
         // Force re-initialization if any value is still empty

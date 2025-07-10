@@ -6,7 +6,7 @@
     <title>PlanktoScan - Analysis Dashboard</title>
 
     <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap.css') }}">    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="{{ url_for('static', path='lib/fontawesome/css/all.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
 
 </head>
@@ -68,7 +68,7 @@
                                     <i class="fas fa-cloud-upload-alt"></i>
                                 </div>
                                 <div class="upload-text">Click to upload or drag and drop</div>
-                                <div class="upload-subtext">PNG, JPG or JPEG (MAX. 10MB)</div>
+                                <div class="upload-subtext">PNG, JPG or JPEG (max. 10MB)</div>
                             </div>
                             
                             <div class="file-info" id="file-info">
@@ -81,8 +81,8 @@
                             <input type="file" id="file-image-upload" accept="image/*" style="display: none;">
                             <input type="hidden" id="image-upload">
                             
-                            <div class="row">
-                                <div class="col-md-4">
+                            <div class="row g-4 justify-content-center">
+                                <div class="col-lg-5 col-md-6">
                                     <div class="form-group">
                                         <label class="form-label" for="classification-model">
                                             <i class="fas fa-brain"></i> Classification Model
@@ -98,7 +98,7 @@
                                             <option value="convnext_small">ConvNeXt Small</option>
                                             <option value="convnext_tiny">ConvNeXt Tiny</option>
                                             <option value="densenet121">DenseNet121</option>
-                                            <option value="efficientnetv2b0" selected>EfficientNetV2B0 (Recommended)</option>
+                                            <option value="efficientnetv2b0" selected>EfficientNetV2B0</option>
                                             <option value="inceptionv3">InceptionV3</option>
                                             <option value="mobilenet">MobileNet</option>
                                             <option value="mobilenetv2">MobileNetV2</option>
@@ -111,13 +111,13 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-lg-5 col-md-6">
                                     <div class="form-group">
                                         <label class="form-label" for="segmentation-model">
                                             <i class="fas fa-cut"></i> Segmentation Model
                                         </label>
                                         <select id="segmentation-model" class="form-select-modern">
-                                            <option value="deeplab" selected>DeepLab V3+ (Recommended)</option>
+                                            <option value="deeplab" selected>DeepLab V3+</option>
                                             <option value="segnet">SegNet</option>
                                             <option value="unet">U-Net</option>
                                         </select>
@@ -140,9 +140,8 @@
     
     <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
     <script src="{{ url_for('static', path='lib/bootstrap.js') }}"></script>
-    <script src="{{ url_for('static', path='lib/popper.js') }}""></script>
+    <script src="{{ url_for('static', path='lib/popper.js') }}"></script>
     <script src="{{ url_for('static', path='lib/swal.js') }}"></script>
-
     <script src="{{ url_for('static', path='script.js') }}"></script>
     
     <script>
