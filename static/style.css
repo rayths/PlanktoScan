@@ -26,7 +26,7 @@ body {
 }
 
 .background {
-    position: fixed;
+    position: absolute;
     width: 100%;
     height: 100%;
     z-index: -99;
@@ -232,7 +232,7 @@ body {
     backdrop-filter: blur(15px);
     border: 1px solid rgba(93, 173, 226, 0.2);
     width: 95%;
-    max-width: 900px;
+    max-width: 600px; /* reduce max width */
     margin: 0 auto;
     position: relative;
     transition: all 0.3s ease;
@@ -296,14 +296,14 @@ body {
     font-size: 3.5rem;
     color: #3498DB;
     margin-bottom: 1.5rem;
-    transition: all 0.3s ease;
+    transition: all 0.6s ease;
     position: relative;
     z-index: 1;
 }
 
 .upload-zone:hover .upload-icon {
     color: #27AE60;
-    transform: scale(1.1) rotateY(180deg);
+    transform: scale(1.1) rotateY(360deg);
 }
 
 .upload-text {
@@ -661,7 +661,7 @@ body {
         margin: 1rem 0.5rem;
         padding: 2rem 1.5rem;
         border-radius: 20px;
-        width: calc(100% - 1rem);
+        width: 90%;
         max-width: none;
     }
     
@@ -703,7 +703,7 @@ body {
 @media (min-width: 769px) and (max-width: 1200px) {
     .upload-card {
         width: 90%;
-        max-width: 900px;
+        max-width: 600px; /* reduce for mid-range screens */
         padding: 2.5rem 2rem;
     }
     
@@ -714,17 +714,11 @@ body {
 
 @media (min-width: 1201px) {
     .upload-card {
-        width: 85%;
-        max-width: 1100px;
+        max-width: 650px; /* cap maximum */
+        min-width: 600px; /* ensure minimum */
     }
 }
 
-@media (min-width: 1201px) {
-    .upload-card {
-        min-width: 800px;
-        max-width: 1000px;
-    }
-}
 .activity .btn {
     padding-left: 2rem;
     padding-right: 2rem;

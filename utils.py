@@ -73,40 +73,60 @@ def load_segmentation_model_safe(model_path):
             raise e2
 
 def predict_mask(model, image_path, IMAGE_SIZE=(192, 288)):
-    image = load_image_for_prediction(image_path, IMAGE_SIZE=IMAGE_SIZE)
-    
-    # Handle tf.saved_model differently
-    if hasattr(model, 'signatures'):
-        # Ini adalah SavedModel yang dimuat dengan tf.saved_model.load
-        # Gunakan signature default
-        serving_default = model.signatures['serving_default']
-        # Konversi input ke tensor
-        input_tensor = tf.convert_to_tensor(image[np.newaxis, ...], dtype=tf.float32)
-        # Pastikan nama input sesuai dengan model
-        # Biasanya nama input adalah input_1 atau inputs, coba keduanya
-        try:
-            predicted_mask = serving_default(input_1=input_tensor)
-            # Ambil output pertama jika ada beberapa output
-            if isinstance(predicted_mask, dict):
-                predicted_mask = list(predicted_mask.values())[0]
-        except:
+    try:
+        image = load_image_for_prediction(image_path, IMAGE_SIZE=IMAGE_SIZE)
+        
+        # Handle tf.saved_model differently
+        if hasattr(model, 'signatures'):
+            # Ini adalah SavedModel yang dimuat dengan tf.saved_model.load
+            # Gunakan signature default
+            serving_default = model.signatures['serving_default']
+            # Konversi input ke tensor
+            input_tensor = tf.convert_to_tensor(image[np.newaxis, ...], dtype=tf.float32)
+            # Pastikan nama input sesuai dengan model
+            # Biasanya nama input adalah input_1 atau inputs, coba keduanya
             try:
-                predicted_mask = serving_default(inputs=input_tensor)
+                predicted_mask = serving_default(input_1=input_tensor)
+                # Ambil output pertama jika ada beberapa output
                 if isinstance(predicted_mask, dict):
                     predicted_mask = list(predicted_mask.values())[0]
             except:
-                # Jika nama input tidak diketahui, gunakan key pertama dari signature
-                input_key = list(serving_default.structured_input_signature[1].keys())[0]
-                predicted_mask = serving_default(**{input_key: input_tensor})
-                if isinstance(predicted_mask, dict):
-                    predicted_mask = list(predicted_mask.values())[0]
+                try:
+                    predicted_mask = serving_default(inputs=input_tensor)
+                    if isinstance(predicted_mask, dict):
+                        predicted_mask = list(predicted_mask.values())[0]
+                except Exception as e:
+                    print(f"Error with standard input names: {str(e)}")
+                    # Jika nama input tidak diketahui, gunakan key pertama dari signature
+                    try:
+                        input_key = list(serving_default.structured_input_signature[1].keys())[0]
+                        predicted_mask = serving_default(**{input_key: input_tensor})
+                        if isinstance(predicted_mask, dict):
+                            predicted_mask = list(predicted_mask.values())[0]
+                    except Exception as e2:
+                        print(f"Failed to use signature: {str(e2)}")
+                        # Last resort: provide a blank mask
+                        return np.zeros(IMAGE_SIZE + (1,), dtype=np.float32)
+            
+            predicted_mask = predicted_mask.numpy()[0]
+        else:
+            # Ini adalah model biasa
+            try:
+                predicted_mask = model.predict(image[np.newaxis, ...])[0]
+            except Exception as e:
+                print(f"Error in regular model prediction: {str(e)}")
+                # Return a blank mask as fallback
+                return np.zeros(IMAGE_SIZE + (1,), dtype=np.float32)
         
-        predicted_mask = predicted_mask.numpy()[0]
-    else:
-        # Ini adalah model biasa
-        predicted_mask = model.predict(image[np.newaxis, ...])[0]
-    
-    return predicted_mask
+        # Ensure the mask is properly normalized between 0 and 1
+        if predicted_mask.max() > 1.0:
+            predicted_mask = predicted_mask / 255.0
+            
+        return predicted_mask
+    except Exception as e:
+        print(f"Error in predict_mask: {str(e)}")
+        # Return a blank mask as fallback
+        return np.zeros(IMAGE_SIZE + (1,), dtype=np.float32)
 
 def input_image(img_path, l_model):
     actual_image = np.asarray(load_img(img_path))
@@ -115,38 +135,94 @@ def input_image(img_path, l_model):
     cv2.imwrite('static/uploads/predicted_mask.jpg', predicted_mask * 255)
     
 def display_roi_image(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    contours, _ = cv2.findContours(gray, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    largest_contour = None
-    largest_area = 0
-    
-    for contour in contours:
-        x, y, w, h = cv2.boundingRect(contour)
-        area = w * h
-        if area > largest_area:
-            largest_area = area
-            largest_contour = contour
-    
-    if largest_contour is not None:
-        x, y, w, h = cv2.boundingRect(largest_contour)
-        return (x, y, w, h)
-    else:
-        print("Tidak ada kontur yang ditemukan.")
+    try:
+        if image is None:
+            print("Warning: Null image passed to display_roi_image")
+            return None
+            
+        # Check if image is already grayscale
+        if len(image.shape) == 3 and image.shape[2] == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image
+            
+        # Apply thresholding to ensure binary image
+        _, binary = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+        
+        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if not contours:
+            print("Warning: No contours found in the image")
+            return None
+            
+        largest_contour = None
+        largest_area = 0
+        
+        for contour in contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            area = w * h
+            if area > largest_area:
+                largest_area = area
+                largest_contour = contour
+        
+        if largest_contour is not None:
+            x, y, w, h = cv2.boundingRect(largest_contour)
+            # Add a small margin around the ROI
+            margin = 10
+            x = max(0, x - margin)
+            y = max(0, y - margin)
+            w = min(w + 2*margin, image.shape[1] - x)
+            h = min(h + 2*margin, image.shape[0] - y)
+            return (x, y, w, h)
+        else:
+            print("Warning: No valid contour found")
+            return None
+    except Exception as e:
+        print(f"Error in display_roi_image: {str(e)}")
         return None
 
 def return_roi_image():
-    img_image = cv2.imread('static/uploads/original_image.jpg')
-    mask_image = cv2.imread('static/uploads/predicted_mask.jpg')
-    
-    img = cv2.resize(img_image, (1728, 1152))
-    mask = cv2.resize(mask_image, (1728, 1152))
+    try:
+        img_image = cv2.imread('static/uploads/original_image.jpg')
+        mask_image = cv2.imread('static/uploads/predicted_mask.jpg')
+        
+        if img_image is None or mask_image is None:
+            print("Warning: Failed to read image or mask file")
+            # Return a blank image if the files couldn't be read
+            return np.zeros((224, 224, 3), dtype=np.uint8), (0, 0, 224, 224)
+        
+        img = cv2.resize(img_image, (1728, 1152))
+        mask = cv2.resize(mask_image, (1728, 1152))
 
-    x, y, w, h = display_roi_image(mask)
+        roi_info = display_roi_image(mask)
+        
+        if roi_info is None:
+            print("Warning: No contours found in mask, using full image")
+            # If no contours are found, use the full image
+            x, y = 0, 0
+            w, h = img.shape[1], img.shape[0]
+        else:
+            x, y, w, h = roi_info
 
-    roi = img[y:y+h, x:x+w]
-    roi = cv2.resize(roi, (224, 224))
-    return roi, (x, y, w, h)
+        # Ensure we're not exceeding image bounds
+        x = max(0, x)
+        y = max(0, y)
+        w = min(w, img.shape[1] - x)
+        h = min(h, img.shape[0] - y)
+        
+        # Check if ROI has valid dimensions
+        if w <= 0 or h <= 0:
+            print("Warning: Invalid ROI dimensions, using full image")
+            x, y = 0, 0
+            w, h = img.shape[1], img.shape[0]
+            
+        roi = img[y:y+h, x:x+w]
+        roi = cv2.resize(roi, (224, 224))
+        return roi, (x, y, w, h)
+    except Exception as e:
+        print(f"Error in return_roi_image: {str(e)}")
+        # Return a blank image in case of error
+        return np.zeros((224, 224, 3), dtype=np.uint8), (0, 0, 224, 224)
 
 def implement_roi_image(img_path, segmentation_model='deeplab'):
     """
@@ -347,6 +423,11 @@ def predict_img(model_option, img_path, segmentation_model='deeplab'):
         
         actual_class = [class_names[str(i)] for i in np.argsort(predictions[0])[-3:][::-1]]
         probability_class = np.sort(predictions[0])[-3:][::-1].tolist()
+        
+        # Generate response message for the UI
+        response = f"Hasil prediksi: {actual_class[0]} ({probability_class[0]:.2%})"
+        
+        return actual_class, probability_class, response
 
     except Exception as e:
         print(f"Error in predict_img: {str(e)}")

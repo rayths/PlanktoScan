@@ -65,7 +65,15 @@ async def predict(
         logger.info(f"Processing prediction for: {img_path}, model: {model_option}, segmentation: {segmentation_model}")
         
         roi, _ = implement_roi_image(img_path, segmentation_model)
-        actual_class, probability_class, response = predict_img(model_option, roi)
+        
+        try:
+            actual_class, probability_class, response = predict_img(model_option, roi)
+        except Exception as prediction_error:
+            logger.error(f"Error during prediction: {str(prediction_error)}")
+            # Provide default values to prevent unpacking errors
+            actual_class = ["Error", "Unknown", "Unknown"]
+            probability_class = [0.0, 0.0, 0.0]
+            response = f"Error during prediction: {str(prediction_error)}"
 
         result_id = str(uuid4())
         result_cache[result_id] = {
@@ -90,22 +98,35 @@ async def result_by_id(request: Request, result_id: str):
     if not data:
         raise HTTPException(status_code=404, detail="Result not found")
 
-    detect_and_save_contours(
-        "static/uploads/original_image.jpg",
-        "static/uploads/predicted_mask.jpg",
-        "static/uploads/output_image.jpg"
-    )
+    try:
+        detect_and_save_contours(
+            "static/uploads/original_image.jpg",
+            "static/uploads/predicted_mask.jpg",
+            "static/uploads/output_image.jpg"
+        )
+    except Exception as e:
+        logger.error(f"Error generating contour image: {str(e)}")
+
+    # Ensure all expected keys exist in the data with safe defaults
+    actual_class = data.get("actual_class", ["Unknown", "Unknown", "Unknown"])
+    probability_class = data.get("probability_class", [0.0, 0.0, 0.0])
+    
+    # Make sure we have at least 3 values for each
+    while len(actual_class) < 3:
+        actual_class.append("Unknown")
+    while len(probability_class) < 3:
+        probability_class.append(0.0)
 
     return templates.TemplateResponse("result.html", {
         "request": request,
         "img_path": "/static/uploads/output_image.jpg",
-        "class1": data["actual_class"][0],
-        "probability1": f'{float(data["probability_class"][0]):.6f}',
-        "class2": data["actual_class"][1],
-        "probability2": f'{float(data["probability_class"][1]):.6f}',
-        "class3": data["actual_class"][2],
-        "probability3": f'{float(data["probability_class"][2]):.6f}',
-        "response": data["response"]
+        "class1": actual_class[0],
+        "probability1": f'{float(probability_class[0]):.6f}',
+        "class2": actual_class[1],
+        "probability2": f'{float(probability_class[1]):.6f}',
+        "class3": actual_class[2],
+        "probability3": f'{float(probability_class[2]):.6f}',
+        "response": data.get("response", "No response available")
     })
 
 @router.get("/segmentation-models")
