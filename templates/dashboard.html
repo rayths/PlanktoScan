@@ -3,70 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PlanktoScan</title>
+    <title>PlanktoScan - Analysis Dashboard</title>
 
-    <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap.css') }}"">    
-    <link rel="stylesheet" href="{{ url_for('static', path='lib/all.css') }}"">
-    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}"">
+    <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap.css') }}">    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous">
+    <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+
 </head>
-<body style='letter-spacing: 1px'>
-    <div class="background">
-        <img src="{{ url_for('static', path='assets/background.png') }}" alt="background" class="background-image">
+<body>
+    <!-- Welcome Popup -->
+    <div class="welcome-popup" id="welcomePopup">
+        <div class="popup-content">
+            <button class="popup-close" onclick="closeWelcomePopup()">&times;</button>
+            <h1 class="popup-title">Welcome to</h1>
+            <img src="{{ url_for('static', path='assets/judul.png') }}" alt="PlanktoScan" class="popup-logo">
+            <p class="popup-subtitle">Plankton Detection & Classification System</p>
+            <button class="btn-start-popup" onclick="closeWelcomePopup()">
+                <span>Start Analysis</span>
+                <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
     </div>
 
-    <div id="load">
-        <div>G</div>
-        <div>N</div>
-        <div>I</div>
-        <div>D</div>
-        <div>A</div>
-        <div>O</div>
-        <div>L</div>
-    </div>    
-    <div id="transparant-bg"></div  >
-
-    <nav class="navbar navbar-expand-sm navbar-light bg-light">
-        <div class="container mx-4">
-            <a class="navbar-brand" href="#"><img src="{{ url_for('static', path='assets/logo.png') }}" alt=""></a>
+    <div class="dashboard-container">
+        <div class="background">
+            <img src="{{ url_for('static', path='assets/background.png') }}" alt="background" class="background-image">
         </div>
-    </nav>
-    
-    <main>
-        <div class="activity d-flex align-items-center justify-content-center flex-column">
-            <div class="title-section d-flex justify-content-center align-items-center py-2">
-                <img src="{{ url_for('static', path='assets/judul.png') }}" alt="">
+        <div class="dashboard-overlay"></div>
+
+        <!-- Loading Overlay -->
+        <div id="load" class="loading-overlay">
+            <div class="loading-spinner">
+                <div>G</div>
+                <div>N</div>
+                <div>I</div>
+                <div>D</div>
+                <div>A</div>
+                <div>O</div>
+                <div>L</div>
             </div>
-            <div class="main-activity py-5 justify-content-center align-items-center d-flex flex-wrap">
-                <div class="upload-container d-flex flex-column align-items-center">
-                    <input type="text" id="image-upload" placeholder="Unggah gambar Anda disini..." disabled>
-                    <div class="dropdown d-flex justify-content-center align-items-center flex-wrap">
-                        <div class="model-dropdown-container">
-                            <label for="deep-learning-model">Model Deep Learning</label>
-                            <select id="deep-learning-model">
-                                <option value="bit">BigTransfer M-R101x1</option>
-                                <option value="conv">ConvNeXt Tiny-1K</option>
-                                <option value="regnet">RegNetY 800MF</option>
-                                <option value="swin">Swin Transformers S3</option>
-                                <option value="vit">Vision Transformers R26-S32</option>
-                            </select>
-                        </div>
-                        <div class="model-dropdown-container">
-                            <label for="llm-model">Model LLM</label>
-                            <select id="llm-model">
-                                <option value="qwen2">Qwen2 72B Instruct</option>
-                                <option value="qwen25">Qwen2.5 72B Instruct</option>
-                            </select>
+        </div>
+        <div id="transparant-bg" style="display: none;"></div>
+
+        <nav class="navbar navbar-expand-lg navbar-light navbar-dashboard">
+            <div class="container">
+                <a class="navbar-brand" href="https://www.brin.go.id" target="_blank" rel="noopener noreferrer">
+                    <img src="{{ url_for('static', path='assets/logo_brin.png') }}" alt="BRIN" class="main-logo">
+                </a>
+            </div>
+        </nav>
+        
+        <main class="dashboard-content">
+            <div class="container">
+                <div class="row justify-content-center">
+                    <div class="col-lg-12">
+                        <div class="upload-card">
+                            <div class="text-center mb-4">
+                                <img src="{{ url_for('static', path='assets/judul.png') }}" alt="PlanktoScan" class="card-title-logo">
+                                <p class="text-muted">Upload your plankton image and select analysis models</p>
+                            </div>
+                            
+                            <div class="upload-zone" onclick="document.getElementById('file-image-upload').click();">
+                                <div class="upload-icon">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                </div>
+                                <div class="upload-text">Click to upload or drag and drop</div>
+                                <div class="upload-subtext">PNG, JPG or JPEG (MAX. 10MB)</div>
+                            </div>
+                            
+                            <div class="file-info" id="file-info">
+                                <div class="file-info-content">
+                                    <i class="fas fa-check-circle file-icon"></i>
+                                    <span id="file-name">No file selected</span>
+                                </div>
+                            </div>
+                            
+                            <input type="file" id="file-image-upload" accept="image/*" style="display: none;">
+                            <input type="hidden" id="image-upload">
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label" for="classification-model">
+                                            <i class="fas fa-brain"></i> Classification Model
+                                        </label>
+                                        <select id="classification-model" class="form-select-modern">
+                                            <!-- Model Folder -->
+                                            <option value="bit">BigTransfer M-R101x1</option>
+                                            <option value="conv">ConvNeXt Tiny-1K</option>
+                                            <option value="regnet">RegNetY 800MF</option>
+                                            <option value="swin">Swin Transformers S3</option>
+                                            <option value="vit">Vision Transformers R26-S32</option>
+                                            <!-- Model .keras Files -->
+                                            <option value="convnext_small">ConvNeXt Small</option>
+                                            <option value="convnext_tiny">ConvNeXt Tiny</option>
+                                            <option value="densenet121">DenseNet121</option>
+                                            <option value="efficientnetv2b0" selected>EfficientNetV2B0 (Recommended)</option>
+                                            <option value="inceptionv3">InceptionV3</option>
+                                            <option value="mobilenet">MobileNet</option>
+                                            <option value="mobilenetv2">MobileNetV2</option>
+                                            <option value="mobilenetv3_large">MobileNetV3 Large</option>
+                                            <option value="mobilenetv3_small">MobileNetV3 Small</option>
+                                            <option value="resnet50">ResNet50</option>
+                                            <option value="resnet101">ResNet101</option>
+                                            <option value="resnet50v2">ResNet50V2</option>
+                                            <option value="resnet101v2">ResNet101V2</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label class="form-label" for="segmentation-model">
+                                            <i class="fas fa-cut"></i> Segmentation Model
+                                        </label>
+                                        <select id="segmentation-model" class="form-select-modern">
+                                            <option value="deeplab" selected>DeepLab V3+ (Recommended)</option>
+                                            <option value="segnet">SegNet</option>
+                                            <option value="unet">U-Net</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex gap-3 justify-content-center flex-wrap mt-4">
+                                <button class="btn btn-success-modern btn-modern btn-predict-image" disabled>
+                                    <i class="fas fa-search"></i>
+                                    <span>Analyze Image</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="button-ml-container d-flex flex-column justify-content-center align-items-center">
-                    <input type="file" id="file-image-upload" accept="image/*" style="display: none;">
-                    <button class="btn primary-btn text-white btn-upload-image" onclick="document.getElementById('file-image-upload').click();">Unggah Gambar</button>
-                    <button class="btn primary-btn text-white btn-predict-image">Prediksi Gambar</button>
-                </div>
             </div>
-        </div>
-    </main>
+        </main>
+    </div>
     
     <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
     <script src="{{ url_for('static', path='lib/bootstrap.js') }}"></script>
@@ -74,5 +144,32 @@
     <script src="{{ url_for('static', path='lib/swal.js') }}"></script>
 
     <script src="{{ url_for('static', path='script.js') }}"></script>
+    
+    <script>
+        // Welcome Popup Functions
+        function showWelcomePopup() {
+            document.getElementById('welcomePopup').style.display = 'flex';
+        }
+        
+        function closeWelcomePopup() {
+            document.getElementById('welcomePopup').style.display = 'none';
+        }
+        
+        // Show popup on page load if show_welcome is true
+        document.addEventListener('DOMContentLoaded', function() {
+            {% if show_welcome %}
+                showWelcomePopup();
+            {% else %}
+                document.getElementById('welcomePopup').style.display = 'none';
+            {% endif %}
+        });
+        
+        // Close popup when clicking outside
+        document.getElementById('welcomePopup').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeWelcomePopup();
+            }
+        });
+    </script>
 </body>
 </html>
