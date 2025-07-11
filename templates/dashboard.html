@@ -4,8 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PlanktoScan - Analysis Dashboard</title>
-
-    <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap.css') }}">    
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', path='assets/judul.png') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', path='assets/judul.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap/css/bootstrap.css') }}">    
     <link rel="stylesheet" href="{{ url_for('static', path='lib/fontawesome/css/all.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
 
@@ -31,19 +34,17 @@
         </div>
         <div class="dashboard-overlay"></div>
 
-        <!-- Loading Overlay -->
-        <div id="load" class="loading-overlay">
-            <div class="loading-spinner">
-                <div>G</div>
-                <div>N</div>
-                <div>I</div>
-                <div>D</div>
-                <div>A</div>
-                <div>O</div>
-                <div>L</div>
-            </div>
-        </div>
-        <div id="transparant-bg" style="display: none;"></div>
+
+    <div id="load">
+        <div>G</div>
+        <div>N</div>
+        <div>I</div>
+        <div>D</div>
+        <div>A</div>
+        <div>O</div>
+        <div>L</div>
+    </div>    
+    <div id="transparant-bg"></div>
 
         <nav class="navbar navbar-expand-lg navbar-light navbar-dashboard">
             <div class="container">
@@ -142,8 +143,8 @@
     </div>
     
     <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
-    <script src="{{ url_for('static', path='lib/bootstrap.js') }}"></script>
-    <script src="{{ url_for('static', path='lib/popper.js') }}"></script>
+    <script src="{{ url_for('static', path='lib/bootstrap/js/bootstrap.js') }}"></script>
+    <script src="https://unpkg.com/@popperjs/core@2/dist/umd/popper.js"></script>
     <script src="{{ url_for('static', path='lib/swal.js') }}"></script>
     <script src="{{ url_for('static', path='script.js') }}"></script>
     

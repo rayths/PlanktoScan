@@ -17,8 +17,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PlanktoScan - Analysis Results</title>
-
-    <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap.css') }}">    
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', path='assets/judul.png') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', path='assets/judul.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap/css/bootstrap.css') }}">    
     <link rel="stylesheet" href="{{ url_for('static', path='lib/fontawesome/css/all.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
 
@@ -37,7 +40,7 @@
                 </a>
                 <div class="d-flex align-items-center ms-auto">
                     <div class="navbar-nav">
-                        <button class="btn btn-primary-modern btn-modern" onclick="window.location.href='/dashboard'">
+                        <button class="btn btn-primary-modern btn-modern" onclick="window.location.href='/'">
                             <i class="fas fa-plus"></i> New Analysis
                         </button>
                     </div>
@@ -49,9 +52,9 @@
             <div class="container">
                 <div class="row">
                     <div class="col-12">
-                        <div class="text-center mb-4">
+                        <div class="text-center mb-0">
                             <img src="{{ url_for('static', path='assets/judul.png') }}" alt="PlanktoScan" class="card-title-logo">
-                            <p class="text-white-50">Plankton identification and classification results</p>
+                            <p class="text-muted mt-0 mb-0">Plankton identification and classification results</p>
                         </div>
                     </div>
                 </div>
@@ -60,9 +63,9 @@
                     <div class="col-lg-4">
                         <div class="results-card">
                             <div class="image-preview">
-                                <p class="image-title">
+                                <h5 class="fw-bold mb-3">
                                     <i class="fas fa-microscope"></i> Classification Area
-                                </p>
+                                </h5>
                                 <img src="{{ img_path }}" alt="Plankton Image" class="img-fluid">
                             </div>
                         </div>
@@ -70,16 +73,15 @@
                     
                     <div class="col-lg-8">
                         <div class="results-card">
-                            <h3 class="h4 fw-bold mb-3">
+                            <h5 class="fw-bold mb-3">
                                 <i class="fas fa-chart-bar"></i> Species Identification Results
-                            </h3>
+                            </h5>
                             <div class="results-table">
                                 <table class="table table-modern">
                                     <thead>
                                         <tr>
                                             <th scope="col">Rank</th>
                                             <th scope="col">Plankton Species</th>
-                                            <th scope="col">Confidence</th>
                                             <th scope="col">Probability</th>
                                         </tr>
                                     </thead>
@@ -95,7 +97,6 @@
                                                     <div class="probability-fill" style="width: {{probability1|replace('%', '')}}%"></div>
                                                 </div>
                                             </td>
-                                            <td>{{probability1}}</td>
                                         </tr>
                                         <tr>
                                             <td>
@@ -103,12 +104,11 @@
                                             </td>
                                             <td class="fw-semibold">{{class2}}</td>
                                             <td>
-                                                <span class="fw-bold text-warning">{{probability2}}</span>
+                                                <span class="fw-bold">{{probability2}}</span>
                                                 <div class="probability-bar">
                                                     <div class="probability-fill" style="width: {{probability2|replace('%', '')}}%"></div>
                                                 </div>
                                             </td>
-                                            <td>{{probability2}}</td>
                                         </tr>
                                         <tr>
                                             <td>
@@ -116,12 +116,11 @@
                                             </td>
                                             <td class="fw-semibold">{{class3}}</td>
                                             <td>
-                                                <span class="fw-bold text-info">{{probability3}}</span>
+                                                <span class="fw-bold">{{probability3}}</span>
                                                 <div class="probability-bar">
                                                     <div class="probability-fill" style="width: {{probability3|replace('%', '')}}%"></div>
                                                 </div>
                                             </td>
-                                            <td>{{probability3}}</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -129,13 +128,10 @@
                         </div>
                         
                         <div class="results-card">
-                            <div class="llm-response">
-                                <h4>
-                                    <i class="fas fa-robot"></i>
-                                    AI Analysis & Insights
-                                </h4>
-                                <p class="mb-0">{{response}}</p>
-                            </div>
+                            <h5 class="fw-bold mb-3">
+                                <i class="fas fa-robot"></i> Insights
+                            </h5>
+                            <p class="mb-0">{{response}}</p>
                         </div>
                     </div>
                 </div>
@@ -144,10 +140,9 @@
     </div>
 
     <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
-    <script src="{{ url_for('static', path='lib/bootstrap.js') }}"></script>
-    <script src="{{ url_for('static', path='lib/popper.js') }}"></script>
+    <script src="{{ url_for('static', path='lib/bootstrap/js/bootstrap.js') }}"></script>
+    <script src="https://unpkg.com/@popperjs/core@2/dist/umd/popper.js"></script>
     <script src="{{ url_for('static', path='lib/swal.js') }}"></script>
-
     <script src="{{ url_for('static', path='script.js') }}"></script>
 </body>
 </html>
