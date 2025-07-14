@@ -5,8 +5,8 @@ $(document).ready(function () {
     const $fileInput = $('#file-image-upload');
     const $imageUploadInput = $('#image-upload');
     const $predictButton = $('.btn-predict-image');
-    const $modelSelect = $('#classification-model');
-    const $segmentationSelect = $('#segmentation-model');
+    const $modelSelect = $('#classification-model'); // Now hidden input
+    const $segmentationSelect = $('#segmentation-model'); // Now hidden input
     const $loading = $('#load');
     const $transparant = $('#transparant-bg');
     const $uploadZone = $('.upload-zone');
@@ -255,6 +255,46 @@ $(document).ready(function () {
         $predictButton.attr('disabled', true);
     }
 
+    // Bootstrap Dropdown Event Handlers
+    $(document).on('click', '.dropdown-item', function(e) {
+        e.preventDefault();
+        
+        const $item = $(this);
+        const value = $item.attr('data-value');
+        const text = $item.text();
+        const $dropdown = $item.closest('.dropdown');
+        const $button = $dropdown.find('.dropdown-toggle');
+        
+        // Find the correct hidden input
+        let $hiddenInput;
+        const dropdownId = $button.attr('id');
+        if (dropdownId === 'classificationDropdown') {
+            $hiddenInput = $('#classification-model');
+        } else if (dropdownId === 'segmentationDropdown') {
+            $hiddenInput = $('#segmentation-model');
+        }
+        
+        // Update button text
+        $button.text(text);
+        
+        // Update hidden input value
+        if ($hiddenInput && $hiddenInput.length) {
+            $hiddenInput.val(value);
+            $hiddenInput.trigger('change');
+        }
+        
+        // Update active state
+        $dropdown.find('.dropdown-item').removeClass('active');
+        $item.addClass('active');
+        
+        console.log('Dropdown updated:', {
+            button: dropdownId,
+            value: value,
+            text: text,
+            hiddenInputExists: $hiddenInput && $hiddenInput.length > 0
+        });
+    });
+
     // Monitor dropdown changes for debugging
     $modelSelect.on('change', function() {
         console.log('Classification model changed to:', $(this).val());
@@ -272,5 +312,32 @@ $(document).ready(function () {
         
         // Force re-initialization if any value is still empty
         initializeDropdowns();
+        
+        // Ensure dropdown buttons show correct text
+        const classificationValue = $modelSelect.val();
+        const segmentationValue = $segmentationSelect.val();
+        
+        console.log('Setting initial dropdown texts:', {
+            classificationValue,
+            segmentationValue
+        });
+        
+        if (classificationValue) {
+            const $activeClassItem = $(`.dropdown-item[data-value="${classificationValue}"]`).first();
+            if ($activeClassItem.length) {
+                $('#classificationDropdown').text($activeClassItem.text());
+                $activeClassItem.addClass('active');
+                console.log('Set classification dropdown to:', $activeClassItem.text());
+            }
+        }
+        
+        if (segmentationValue) {
+            const $activeSegItem = $(`.dropdown-item[data-value="${segmentationValue}"]`).first();
+            if ($activeSegItem.length) {
+                $('#segmentationDropdown').text($activeSegItem.text());
+                $activeSegItem.addClass('active');
+                console.log('Set segmentation dropdown to:', $activeSegItem.text());
+            }
+        }
     }, 100);
 });

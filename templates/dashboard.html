@@ -11,6 +11,12 @@
     <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap/css/bootstrap.css') }}">    
     <link rel="stylesheet" href="{{ url_for('static', path='lib/fontawesome/css/all.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+    
+    <style>
+        .text-label {
+            font-size: 1rem;
+        }
+    </style>
 
 </head>
 <body>
@@ -85,46 +91,56 @@
                             <input type="file" id="file-image-upload" accept="image/*" style="display: none;">
                             <input type="hidden" id="image-upload">
                             
-                            <div class="row g-4 justify-content-center">
+                            <div class="row g-4 justify-content-center align-items-end">
                                 <div class="col-lg-5 col-md-6">
                                     <div class="form-group">
-                                        <label class="form-label" for="classification-model">
+                                        <label class="text-label">
                                             <i class="fas fa-brain"></i> Classification Model
                                         </label>
-                                        <select id="classification-model" class="form-select-modern">
-                                            <!-- Model Folder -->
-                                            <option value="bit">BigTransfer M-R101x1</option>
-                                            <option value="conv">ConvNeXt Tiny-1K</option>
-                                            <option value="regnet">RegNetY 800MF</option>
-                                            <option value="swin">Swin Transformers S3</option>
-                                            <option value="vit">Vision Transformers R26-S32</option>
-                                            <!-- Model .keras Files -->
-                                            <option value="convnext_small">ConvNeXt Small</option>
-                                            <option value="convnext_tiny">ConvNeXt Tiny</option>
-                                            <option value="densenet121">DenseNet121</option>
-                                            <option value="efficientnetv2b0" selected>EfficientNetV2B0</option>
-                                            <option value="inceptionv3">InceptionV3</option>
-                                            <option value="mobilenet">MobileNet</option>
-                                            <option value="mobilenetv2">MobileNetV2</option>
-                                            <option value="mobilenetv3_large">MobileNetV3 Large</option>
-                                            <option value="mobilenetv3_small">MobileNetV3 Small</option>
-                                            <option value="resnet50">ResNet50</option>
-                                            <option value="resnet101">ResNet101</option>
-                                            <option value="resnet50v2">ResNet50V2</option>
-                                            <option value="resnet101v2">ResNet101V2</option>
-                                        </select>
+                                        <div class="dropdown">
+                                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="classificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                                EfficientNetV2B0
+                                            </button>
+                                            <ul class="dropdown-menu" aria-labelledby="classificationDropdown">
+                                                <li><a class="dropdown-item" href="#" data-value="bit">BigTransfer M-R101x1</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="conv">ConvNeXt Tiny-1K</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="regnet">RegNetY 800MF</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="swin">Swin Transformers S3</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="vit">Vision Transformers R26-S32</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="convnext_small">ConvNeXt Small</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="convnext_tiny">ConvNeXt Tiny</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="densenet121">DenseNet121</a></li>
+                                                <li><a class="dropdown-item active" href="#" data-value="efficientnetv2b0">EfficientNetV2B0</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="inceptionv3">InceptionV3</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="mobilenet">MobileNet</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="mobilenetv2">MobileNetV2</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="mobilenetv3_large">MobileNetV3 Large</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="mobilenetv3_small">MobileNetV3 Small</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="resnet50">ResNet50</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="resnet101">ResNet101</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="resnet50v2">ResNet50V2</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="resnet101v2">ResNet101V2</a></li>
+                                            </ul>
+                                        </div>
+                                        <input type="hidden" id="classification-model" value="efficientnetv2b0">
                                     </div>
                                 </div>
                                 <div class="col-lg-5 col-md-6">
                                     <div class="form-group">
-                                        <label class="form-label" for="segmentation-model">
+                                        <label class="text-label">
                                             <i class="fas fa-cut"></i> Segmentation Model
                                         </label>
-                                        <select id="segmentation-model" class="form-select-modern">
-                                            <option value="deeplab" selected>DeepLab V3+</option>
-                                            <option value="segnet">SegNet</option>
-                                            <option value="unet">U-Net</option>
-                                        </select>
+                                        <div class="dropdown">
+                                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="segmentationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                                DeepLab V3+
+                                            </button>
+                                            <ul class="dropdown-menu" aria-labelledby="segmentationDropdown">
+                                                <li><a class="dropdown-item active" href="#" data-value="deeplab">DeepLab V3+</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="segnet">SegNet</a></li>
+                                                <li><a class="dropdown-item" href="#" data-value="unet">U-Net</a></li>
+                                            </ul>
+                                        </div>
+                                        <input type="hidden" id="segmentation-model" value="deeplab">
                                     </div>
                                 </div>
                             </div>
@@ -143,8 +159,8 @@
     </div>
     
     <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
     <script src="{{ url_for('static', path='lib/bootstrap/js/bootstrap.js') }}"></script>
-    <script src="https://unpkg.com/@popperjs/core@2/dist/umd/popper.js"></script>
     <script src="{{ url_for('static', path='lib/swal.js') }}"></script>
     <script src="{{ url_for('static', path='script.js') }}"></script>
     

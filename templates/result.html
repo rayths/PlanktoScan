@@ -1,18 +1,5 @@
-<!DOCTYPE ht        .results-container {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #5DADE2 0%, #3498DB 100%);
-            position: relative;
-        }
-        
-        .results-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(52, 152, 219, 0.1);
-            z-index: 1;
-        }="en">
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,6 +12,11 @@
     <link rel="stylesheet" href="{{ url_for('static', path='lib/fontawesome/css/all.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
 
+    <style>
+        .text-label i {
+            font-size: 1.2rem;
+        }
+    </style>
 </head>
 <body>
     <div class="results-container">
@@ -52,7 +44,7 @@
             <div class="container">
                 <div class="row">
                     <div class="col-12">
-                        <div class="text-center mb-0">
+                        <div class="text-center mb-3">
                             <img src="{{ url_for('static', path='assets/judul.png') }}" alt="PlanktoScan" class="card-title-logo">
                             <p class="text-muted mt-0 mb-0">Plankton identification and classification results</p>
                         </div>
@@ -63,9 +55,9 @@
                     <div class="col-lg-4">
                         <div class="results-card">
                             <div class="image-preview">
-                                <h5 class="fw-bold mb-3">
+                                <label class="text-label">
                                     <i class="fas fa-microscope"></i> Classification Area
-                                </h5>
+                                </label>
                                 <img src="{{ img_path }}" alt="Plankton Image" class="img-fluid">
                             </div>
                         </div>
@@ -73,9 +65,9 @@
                     
                     <div class="col-lg-8">
                         <div class="results-card">
-                            <h5 class="fw-bold mb-3">
+                            <label class="text-label">
                                 <i class="fas fa-chart-bar"></i> Species Identification Results
-                            </h5>
+                            </label>
                             <div class="results-table">
                                 <table class="table table-modern">
                                     <thead>
@@ -128,9 +120,9 @@
                         </div>
                         
                         <div class="results-card">
-                            <h5 class="fw-bold mb-3">
-                                <i class="fas fa-robot"></i> Insights
-                            </h5>
+                            <label class="text-label">
+                                <i class="fas fa-lightbulb"></i> Insights
+                            </label>
                             <p class="mb-0">{{response}}</p>
                         </div>
                     </div>
@@ -140,8 +132,8 @@
     </div>
 
     <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
     <script src="{{ url_for('static', path='lib/bootstrap/js/bootstrap.js') }}"></script>
-    <script src="https://unpkg.com/@popperjs/core@2/dist/umd/popper.js"></script>
     <script src="{{ url_for('static', path='lib/swal.js') }}"></script>
     <script src="{{ url_for('static', path='script.js') }}"></script>
 </body>
