@@ -70,12 +70,40 @@
                                 <p class="text-muted">Upload your plankton image and select analysis models</p>
                             </div>
                             
-                            <div class="upload-zone" onclick="document.getElementById('file-image-upload').click();">
+                            <!-- Upload Mode Switch -->
+                            <div class="upload-mode-switch">
+                                <button class="mode-btn active" id="file-mode-btn" onclick="switchToFileMode()">
+                                    <i class="fas fa-upload"></i> Upload File
+                                </button>
+                                <button class="mode-btn" id="camera-mode-btn" onclick="switchToCameraMode()">
+                                    <i class="fas fa-camera"></i> Use Camera
+                                </button>
+                            </div>
+                            
+                            <!-- File Upload Zone -->
+                            <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-image-upload').click();">
                                 <div class="upload-icon">
                                     <i class="fas fa-cloud-upload-alt"></i>
                                 </div>
                                 <div class="upload-text">Click to upload or drag and drop</div>
                                 <div class="upload-subtext">PNG, JPG or JPEG (max. 10MB)</div>
+                            </div>
+                            
+                            <!-- Camera Container -->
+                            <div class="camera-container" id="camera-container">
+                                <video class="camera-preview" id="camera-preview" autoplay playsinline></video>
+                                <canvas id="camera-canvas" style="display: none;"></canvas>
+                                <div class="camera-controls">
+                                    <button class="camera-btn" onclick="switchCamera()" title="Switch Camera">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                    <button class="camera-btn capture" onclick="capturePhoto()" title="Capture Photo">
+                                        <i class="fas fa-camera"></i>
+                                    </button>
+                                    <button class="camera-btn" onclick="stopCamera()" title="Close Camera">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <div class="file-info" id="file-info">
@@ -165,29 +193,16 @@
     <script src="{{ url_for('static', path='script.js') }}"></script>
     
     <script>
-        // Welcome Popup Functions
-        function showWelcomePopup() {
-            document.getElementById('welcomePopup').style.display = 'flex';
-        }
-        
-        function closeWelcomePopup() {
-            document.getElementById('welcomePopup').style.display = 'none';
-        }
-        
-        // Show popup on page load if show_welcome is true
+        // Handle welcome popup based on server-side variable
         document.addEventListener('DOMContentLoaded', function() {
             {% if show_welcome %}
                 showWelcomePopup();
             {% else %}
-                document.getElementById('welcomePopup').style.display = 'none';
+                const welcomePopup = document.getElementById('welcomePopup');
+                if (welcomePopup) {
+                    welcomePopup.style.display = 'none';
+                }
             {% endif %}
-        });
-        
-        // Close popup when clicking outside
-        document.getElementById('welcomePopup').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeWelcomePopup();
-            }
         });
     </script>
 </body>

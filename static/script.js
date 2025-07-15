@@ -341,3 +341,178 @@ $(document).ready(function () {
         }
     }, 100);
 });
+
+// Camera variables and functions (moved from dashboard.html)
+let currentStream = null;
+let currentMode = 'file'; // 'file' or 'camera'
+let facingMode = 'environment'; // 'user' for front camera, 'environment' for back camera
+
+// Welcome Popup Functions
+function showWelcomePopup() {
+    const welcomePopup = document.getElementById('welcomePopup');
+    if (welcomePopup) {
+        welcomePopup.style.display = 'flex';
+    }
+}
+
+function closeWelcomePopup() {
+    const welcomePopup = document.getElementById('welcomePopup');
+    if (welcomePopup) {
+        welcomePopup.style.display = 'none';
+    }
+}
+
+// Camera Functions
+function switchToFileMode() {
+    currentMode = 'file';
+    const fileModeBtn = document.getElementById('file-mode-btn');
+    const cameraModeBtn = document.getElementById('camera-mode-btn');
+    const uploadZone = document.getElementById('upload-zone');
+    const cameraContainer = document.getElementById('camera-container');
+    
+    if (fileModeBtn) fileModeBtn.classList.add('active');
+    if (cameraModeBtn) cameraModeBtn.classList.remove('active');
+    if (uploadZone) uploadZone.style.display = 'block';
+    if (cameraContainer) cameraContainer.style.display = 'none';
+    stopCamera();
+}
+
+function switchToCameraMode() {
+    currentMode = 'camera';
+    const fileModeBtn = document.getElementById('file-mode-btn');
+    const cameraModeBtn = document.getElementById('camera-mode-btn');
+    const uploadZone = document.getElementById('upload-zone');
+    const cameraContainer = document.getElementById('camera-container');
+    
+    if (cameraModeBtn) cameraModeBtn.classList.add('active');
+    if (fileModeBtn) fileModeBtn.classList.remove('active');
+    if (uploadZone) uploadZone.style.display = 'none';
+    if (cameraContainer) cameraContainer.style.display = 'block';
+    startCamera();
+}
+
+async function startCamera() {
+    try {
+        const constraints = {
+            video: {
+                facingMode: facingMode,
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        };
+        
+        currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const video = document.getElementById('camera-preview');
+        if (video) {
+            video.srcObject = currentStream;
+        }
+        
+        // Show camera container with animation
+        const container = document.getElementById('camera-container');
+        if (container) {
+            container.style.opacity = '0';
+            container.style.display = 'block';
+            setTimeout(() => {
+                container.style.transition = 'opacity 0.3s ease';
+                container.style.opacity = '1';
+            }, 10);
+        }
+        
+    } catch (error) {
+        console.error('Error accessing camera:', error);
+        alert('Error accessing camera. Please make sure you have granted camera permissions.');
+        switchToFileMode();
+    }
+}
+
+function stopCamera() {
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+    }
+}
+
+function switchCamera() {
+    facingMode = facingMode === 'user' ? 'environment' : 'user';
+    stopCamera();
+    startCamera();
+}
+
+function capturePhoto() {
+    const video = document.getElementById('camera-preview');
+    const canvas = document.getElementById('camera-canvas');
+    
+    if (!video || !canvas) {
+        console.error('Camera preview or canvas not found');
+        return;
+    }
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas dimensions to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    // Draw video frame to canvas
+    ctx.drawImage(video, 0, 0);
+    
+    // Convert to blob and create file
+    canvas.toBlob(function(blob) {
+        const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
+        
+        // Create file input event to trigger existing upload logic
+        const fileInput = document.getElementById('file-image-upload');
+        if (fileInput) {
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
+            
+            // Trigger change event to process the captured image
+            const event = new Event('change', { bubbles: true });
+            fileInput.dispatchEvent(event);
+        }
+        
+        // Switch back to file mode and show preview
+        switchToFileMode();
+        
+        // Show success message
+        const fileName = document.getElementById('file-name');
+        const fileInfo = document.getElementById('file-info');
+        if (fileName) fileName.textContent = 'Camera capture: ' + file.name;
+        if (fileInfo) fileInfo.style.display = 'block';
+        
+        // Enable analyze button
+        const analyzeBtn = document.querySelector('.btn-predict-image');
+        if (analyzeBtn) {
+            analyzeBtn.disabled = false;
+        }
+        
+    }, 'image/jpeg', 0.8);
+}
+
+// Initialize camera functionality when DOM is loaded
+$(document).ready(function() {
+    // Clean up camera when page unloads
+    $(window).on('beforeunload', function() {
+        stopCamera();
+    });
+    
+    // Handle welcome popup click outside to close
+    const welcomePopup = document.getElementById('welcomePopup');
+    if (welcomePopup) {
+        welcomePopup.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeWelcomePopup();
+            }
+        });
+    }
+});
+
+// Make functions globally available for onclick handlers
+window.showWelcomePopup = showWelcomePopup;
+window.closeWelcomePopup = closeWelcomePopup;
+window.switchToFileMode = switchToFileMode;
+window.switchToCameraMode = switchToCameraMode;
+window.switchCamera = switchCamera;
+window.capturePhoto = capturePhoto;
+window.stopCamera = stopCamera;
