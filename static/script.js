@@ -424,6 +424,25 @@ function switchToFileMode() {
     if (cameraModeBtn) cameraModeBtn.classList.remove('active');
     if (uploadZone) uploadZone.style.display = 'block';
     if (cameraContainer) cameraContainer.style.display = 'none';
+    
+    // Hide camera preview overlay if exists
+    const previewOverlay = document.getElementById('camera-preview-overlay');
+    if (previewOverlay) {
+        previewOverlay.style.display = 'none';
+    }
+    
+    // Show video again if exists
+    const video = document.getElementById('camera-preview');
+    if (video) {
+        video.style.display = 'block';
+    }
+    
+    // Show camera controls again
+    const cameraControls = document.querySelector('.camera-controls');
+    if (cameraControls) {
+        cameraControls.style.display = 'flex';
+    }
+    
     stopCamera();
 }
 
@@ -437,6 +456,10 @@ function switchToCameraMode() {
     if (fileModeBtn) fileModeBtn.classList.remove('active');
     if (uploadZone) uploadZone.style.display = 'none';
     if (cameraContainer) cameraContainer.style.display = 'block';
+    
+    // Clean camera state to ensure fresh start
+    cleanCameraState();
+    
     startCamera();
 }
 
@@ -509,12 +532,10 @@ function capturePhoto() {
     canvas.toBlob(function(blob) {
         const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
         
-        // Show image preview from canvas
+        // Show image preview from canvas in camera container
         const dataURL = canvas.toDataURL('image/jpeg', 1);
         showCameraPreview(dataURL);
         
-        // Switch back to file mode and show preview
-        switchToFileMode();
         
         // Upload the captured image using the same process as file upload
         const formData = new FormData();
@@ -549,10 +570,14 @@ function capturePhoto() {
                 $uploadZone.removeClass('uploading');
                 $uploadZone.addClass('success');
                 
-                // Update upload zone with success indicator
-                window.updateUploadZoneSuccess();
+                // Update camera preview with success indicator
+                updateCameraPreviewSuccess();
                 
                 console.log('Camera image uploaded successfully:', data.img_path);
+
+                // Stop camera after successful upload
+                stopCamera();
+                console.log('Camera stopped after successful upload');
             },
             error: () => {
                 $uploadZone.removeClass('uploading');
@@ -565,46 +590,90 @@ function capturePhoto() {
             }
         });
         
-    }, 'image/jpeg', 0.8);
+    }, 'image/jpeg', 0.9);
 }
 
 // Function to show camera capture preview
 function showCameraPreview(dataURL) {
-    const $uploadZone = $('#upload-zone');
+    const cameraContainer = document.getElementById('camera-container');
+    const video = document.getElementById('camera-preview');
     
-    $uploadZone.html(`
-        <div class="image-preview-container">
-            <img src="${dataURL}" alt="Camera Capture" class="image-preview" style="
+    if (!cameraContainer) return;
+    
+    // Hide the video element
+    if (video) {
+        video.style.display = 'none';
+    }
+    
+    // Hide camera controls
+    const cameraControls = document.querySelector('.camera-controls');
+    if (cameraControls) {
+        cameraControls.style.display = 'none';
+    }
+    
+    // Create or update camera preview overlay
+    let previewOverlay = document.getElementById('camera-preview-overlay');
+    if (!previewOverlay) {
+        previewOverlay = document.createElement('div');
+        previewOverlay.id = 'camera-preview-overlay';
+        cameraContainer.appendChild(previewOverlay);
+    }
+    
+    // Set overlay styles
+    previewOverlay.style.position = 'absolute';
+    previewOverlay.style.top = '0';
+    previewOverlay.style.left = '0';
+    previewOverlay.style.width = '100%';
+    previewOverlay.style.height = '100%';
+    previewOverlay.style.zIndex = '20';
+    previewOverlay.style.background = '#000';
+    previewOverlay.style.borderRadius = '15px';
+    
+    previewOverlay.innerHTML = `
+        <div class="camera-image-preview" style="
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            cursor: pointer;
+            pointer-events: auto;
+        ">
+            <img src="${dataURL}" alt="Camera Capture" style="
                 width: 100%;
                 height: 100%;
-                border-radius: 15px;
                 object-fit: cover;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                border-radius: 15px;
+                display: block;
+                pointer-events: none;
             ">
-            <div class="success-indicator" style="
+            <div class="camera-success-indicator" style="
                 position: absolute;
-                top: 10px;
-                right: 10px;
+                top: 15px;
+                right: 15px;
                 background: #27AE60;
                 color: white;
                 border-radius: 50%;
-                width: 30px;
-                height: 30px;
+                width: 40px;
+                height: 40px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 1rem;
-                box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+                font-size: 1.2rem;
+                box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+                z-index: 30;
+                pointer-events: none;
             ">
                 <i class="fas fa-camera"></i>
             </div>
-            <div class="upload-overlay" style="
+            <div class="camera-overlay" style="
                 position: absolute;
                 top: 0;
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0,0,0,0.7);
+                background: rgba(0,0,0,0.8);
                 color: white;
                 display: flex;
                 flex-direction: column;
@@ -613,30 +682,73 @@ function showCameraPreview(dataURL) {
                 opacity: 0;
                 transition: opacity 0.3s ease;
                 border-radius: 15px;
-                cursor: pointer;
+                z-index: 25;
+                pointer-events: none;
             ">
-                <i class="fas fa-camera" style="font-size: 2rem; margin-bottom: 10px; color: #27AE60;"></i>
-                <div style="color: #27AE60;">Photo captured!</div>
-                <div style="font-size: 0.9rem; margin-top: 5px;">Click to take another photo</div>
+                <i class="fas fa-camera" style="font-size: 3rem; margin-bottom: 15px; color: #27AE60;"></i>
+                <div style="font-size: 1.2rem; color: #27AE60; margin-bottom: 5px;">Photo Captured!</div>
+                <div style="font-size: 1rem; color: #fff; text-align: center;">Click to take another photo</div>
             </div>
         </div>
-    `);
+    `;
     
-    // Add hover effect and click functionality
-    $uploadZone.off('mouseenter mouseleave click').on('mouseenter', function() {
-        $(this).find('.upload-overlay').css('opacity', '1');
-    }).on('mouseleave', function() {
-        $(this).find('.upload-overlay').css('opacity', '0');
-    }).on('click', function() {
-        if ($(this).hasClass('success')) {
-            // If it's a successful upload/capture, allow user to upload/capture again
-            $('#file-image-upload').click();
+    // Remove any existing click listeners first
+    previewOverlay.onclick = null;
+    $(previewOverlay).off('click');
+    
+    // Add click functionality to retake photo with proper event delegation
+    previewOverlay.onclick = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        console.log('Retake photo clicked');
+        
+        // Reset upload state
+        uploadedImagePath = '';
+        const $imageUploadInput = $('#image-upload');
+        const $fileName = $('#file-name');
+        const $fileInfo = $('#file-info');
+        const $uploadZone = $('.upload-zone');
+        const $predictButton = $('.btn-predict-image');
+        
+        $imageUploadInput.val('');
+        $fileName.text('No file selected');
+        $fileInfo.hide();
+        $uploadZone.removeClass('success uploading');
+        $predictButton.prop('disabled', true);
+        
+        // Clean camera state completely
+        cleanCameraState();
+        
+        // Restart camera stream to ensure it's active
+        if (currentStream) {
+            stopCamera();
+            setTimeout(() => {
+                startCamera();
+            }, 200);
+        } else {
+            startCamera();
         }
-    });
+        
+        console.log('Camera reset for retake photo completed');
+    };
     
-    // Set position and classes
-    $uploadZone.css('position', 'relative');
-    $uploadZone.removeClass('uploading').addClass('success');
+    // Add hover effect with proper event handling
+    const overlay = previewOverlay.querySelector('.camera-overlay');
+    if (overlay) {
+        previewOverlay.onmouseenter = function() {
+            overlay.style.opacity = '1';
+        };
+        previewOverlay.onmouseleave = function() {
+            overlay.style.opacity = '0';
+        };
+    }
+    
+    // Ensure the overlay is visible and clickable
+    previewOverlay.style.display = 'block';
+    previewOverlay.style.pointerEvents = 'auto';
+    
+    console.log('Camera preview overlay created and event listeners attached');
 }
 
 // Initialize camera functionality when DOM is loaded
@@ -698,3 +810,53 @@ window.updateUploadZoneSuccess = function() {
         <div style="font-size: 0.9rem; margin-top: 5px;">Click to change image</div>
     `);
 };
+
+// Global function for updating camera preview success
+window.updateCameraPreviewSuccess = function() {
+    const previewOverlay = document.getElementById('camera-preview-overlay');
+    if (!previewOverlay) return;
+    
+    // Update the success indicator to show checkmark
+    const successIndicator = previewOverlay.querySelector('.camera-success-indicator');
+    if (successIndicator) {
+        successIndicator.innerHTML = '<i class="fas fa-check"></i>';
+        successIndicator.style.background = '#27AE60';
+    }
+    
+    // Update overlay text to show upload success but keep retake functionality
+    const overlay = previewOverlay.querySelector('.camera-overlay');
+    if (overlay) {
+        overlay.innerHTML = `
+            <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 15px; color: #27AE60;"></i>
+            <div style="font-size: 1.2rem; color: #27AE60; margin-bottom: 5px;">Upload Successful!</div>
+            <div style="font-size: 1rem; color: #fff; text-align: center;">Click to take another photo</div>
+        `;
+    }
+    
+    console.log('Camera preview updated with success indicator');
+};
+
+// Helper function to clean camera state
+function cleanCameraState() {
+    // Remove any existing preview overlays
+    const existingOverlays = document.querySelectorAll('#camera-preview-overlay');
+    existingOverlays.forEach(overlay => overlay.remove());
+    
+    // Ensure video is visible
+    const video = document.getElementById('camera-preview');
+    if (video) {
+        video.style.display = 'block';
+        video.style.visibility = 'visible';
+        video.style.opacity = '1';
+        video.style.zIndex = '1';
+    }
+    
+    // Ensure camera controls are visible
+    const cameraControls = document.querySelector('.camera-controls');
+    if (cameraControls) {
+        cameraControls.style.display = 'flex';
+        cameraControls.style.visibility = 'visible';
+    }
+    
+    console.log('Camera state cleaned');
+}
