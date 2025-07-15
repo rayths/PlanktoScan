@@ -50,7 +50,7 @@ $(document).ready(function () {
     );
 
     // Routing navigation
-    $start.click(() => window.location.href = '/dashboard');
+    $start.click(() => window.location.href = '/');
     $home.click(() => window.location.href = '/');
 
     // Drag and drop functionality

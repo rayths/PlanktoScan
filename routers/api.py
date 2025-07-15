@@ -19,19 +19,20 @@ result_cache = {}
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
+    """Main dashboard route, no welcome popup and includes cleanup of previous uploads"""
+    try:
+        for file in os.listdir('static/uploads'):
+            if file not in {'original_image.jpg', 'predicted_mask.jpg', 'output_image.jpg'}:
+                os.remove(os.path.join('static/uploads', file))
+    except Exception as e:
+        logger.warning(f"Error cleaning up uploads: {str(e)}")
+    
+    return templates.TemplateResponse("dashboard.html", {"request": request, "show_welcome": False})
+
+@router.get("/welcome", response_class=HTMLResponse)
+async def welcome(request: Request):
+    """Route khusus untuk first visit dengan welcome popup - digunakan untuk akses pertama kali"""
     return templates.TemplateResponse("dashboard.html", {"request": request, "show_welcome": True})
-
-@router.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request, "show_welcome": False})
-
-@router.get("/home", response_class=HTMLResponse)
-async def delete_upload(request: Request):
-    for file in os.listdir('static/uploads'):
-        if file not in {'original_image.jpg', 'predicted_mask.jpg', 'output_image.jpg'}:
-            os.remove(os.path.join('static/uploads', file))
-            
-    return templates.TemplateResponse("dashboard.html", {"request": request, "show_welcome": False})
 
 @router.post("/upload")
 async def upload_image(file: UploadFile = File(...)):
