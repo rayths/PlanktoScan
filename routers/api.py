@@ -108,7 +108,7 @@ async def result_by_id(request: Request, result_id: str):
     except Exception as e:
         logger.error(f"Error generating contour image: {str(e)}")
 
-    # Ensure all expected keys exist in the data with safe defaults
+    # Ensure all expected keys exist in the data with safe default
     actual_class = data.get("actual_class", ["Unknown", "Unknown", "Unknown"])
     probability_class = data.get("probability_class", [0.0, 0.0, 0.0])
     

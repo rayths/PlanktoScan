@@ -9,7 +9,7 @@ from tensorflow import data as tfd
 from tf_keras.preprocessing.image import load_img, img_to_array
 from tf_keras.applications.imagenet_utils import preprocess_input
 
-# Import preprocess_input dengan alias spesifik seperti di notebook
+# Import preprocess_input dengan alias spesifik
 from tf_keras.applications.efficientnet import preprocess_input as preprocess_input_efficientnet
 from tf_keras.applications.efficientnet_v2 import preprocess_input as preprocess_input_efficientnetv2
 from tf_keras.applications.mobilenet import preprocess_input as preprocess_input_mobilenet
@@ -21,7 +21,7 @@ from tf_keras.applications.convnext import preprocess_input as preprocess_input_
 from tf_keras.applications.inception_v3 import preprocess_input as preprocess_input_inceptionv3
 from tf_keras.applications.densenet import preprocess_input as preprocess_input_densenet
 
-# Mapping nama model ke fungsi preprocess_input seperti di notebook
+# Mapping nama model ke fungsi preprocess_input
 PREPROCESS_FUNCTIONS = {
     'EfficientNetV2B0': preprocess_input_efficientnetv2,
     'EfficientNetV1': preprocess_input_efficientnet,

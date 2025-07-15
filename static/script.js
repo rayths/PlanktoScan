@@ -479,7 +479,6 @@ async function startCamera() {
             video.srcObject = currentStream;
         }
         
-        // Show camera container with animation
         const container = document.getElementById('camera-container');
         if (container) {
             container.style.opacity = '0';

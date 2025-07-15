@@ -16,7 +16,6 @@ app.add_middleware(
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Favicon route
 @app.get('/favicon.ico', include_in_schema=False)
 async def favicon():
     return FileResponse('static/assets/judul.png')
