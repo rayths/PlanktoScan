@@ -1,3 +1,6 @@
+// Global variables
+let uploadedImagePath = '';
+
 $(document).ready(function () {
     const $btn = $('.btn');
     const $start = $('.btn-start');
@@ -13,8 +16,6 @@ $(document).ready(function () {
     const $fileInfo = $('#file-info');
     const $fileName = $('#file-name');
     const $cancelUpload = $('#cancel-upload');
-
-    let uploadedImagePath = '';
 
     // Initialize dropdown values immediately
     function initializeDropdowns() {
@@ -107,6 +108,9 @@ $(document).ready(function () {
             return;
         }
 
+        // Show image preview immediately
+        showImagePreview(file);
+
         const formData = new FormData();
         formData.append('file', file);
 
@@ -131,14 +135,8 @@ $(document).ready(function () {
                 $uploadZone.removeClass('uploading');
                 $uploadZone.addClass('success');
                 
-                // Update upload zone appearance
-                $uploadZone.html(`
-                    <div class="upload-icon">
-                        <i class="fas fa-check-circle" style="color: #27AE60;"></i>
-                    </div>
-                    <div class="upload-text" style="color: #27AE60;">File uploaded successfully!</div>
-                    <div class="upload-subtext">Click to upload a different image</div>
-                `);
+                // Update upload zone with success message and keep preview
+                window.updateUploadZoneSuccess();
             },
             error: () => {
                 resetFileUpload();
@@ -150,6 +148,60 @@ $(document).ready(function () {
                 });
             }
         });
+    }
+
+    // Function to show image preview
+    function showImagePreview(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            $uploadZone.html(`
+                <div class="image-preview-container">
+                    <img src="${e.target.result}" alt="Preview" class="image-preview" style="
+                        width: 100%;
+                        height: 100%;
+                        border-radius: 15px;
+                        object-fit: cover;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                    ">
+                    <div class="upload-overlay" style="
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        background: rgba(0,0,0,0.7);
+                        color: white;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        opacity: 0;
+                        transition: opacity 0.3s ease;
+                        border-radius: 15px;
+                        cursor: pointer;
+                    ">
+                        <i class="fas fa-upload" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                        <div>Click to change image</div>
+                    </div>
+                </div>
+            `);
+            
+            // Add hover effect and click functionality
+            $uploadZone.off('mouseenter mouseleave click').on('mouseenter', function() {
+                $(this).find('.upload-overlay').css('opacity', '1');
+            }).on('mouseleave', function() {
+                $(this).find('.upload-overlay').css('opacity', '0');
+            }).on('click', function() {
+                if ($(this).hasClass('success')) {
+                    // If it's a successful upload, allow user to upload again
+                    $('#file-image-upload').click();
+                }
+            });
+            
+            // Ensure the upload zone remains clickable
+            $uploadZone.css('position', 'relative');
+        };
+        reader.readAsDataURL(file);
     }
 
     // Predict
@@ -344,7 +396,6 @@ $(document).ready(function () {
 
 // Camera variables and functions (moved from dashboard.html)
 let currentStream = null;
-let currentMode = 'file'; // 'file' or 'camera'
 let facingMode = 'environment'; // 'user' for front camera, 'environment' for back camera
 
 // Welcome Popup Functions
@@ -364,7 +415,6 @@ function closeWelcomePopup() {
 
 // Camera Functions
 function switchToFileMode() {
-    currentMode = 'file';
     const fileModeBtn = document.getElementById('file-mode-btn');
     const cameraModeBtn = document.getElementById('camera-mode-btn');
     const uploadZone = document.getElementById('upload-zone');
@@ -378,7 +428,6 @@ function switchToFileMode() {
 }
 
 function switchToCameraMode() {
-    currentMode = 'camera';
     const fileModeBtn = document.getElementById('file-mode-btn');
     const cameraModeBtn = document.getElementById('camera-mode-btn');
     const uploadZone = document.getElementById('upload-zone');
@@ -460,34 +509,134 @@ function capturePhoto() {
     canvas.toBlob(function(blob) {
         const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
         
-        // Create file input event to trigger existing upload logic
-        const fileInput = document.getElementById('file-image-upload');
-        if (fileInput) {
-            const dt = new DataTransfer();
-            dt.items.add(file);
-            fileInput.files = dt.files;
-            
-            // Trigger change event to process the captured image
-            const event = new Event('change', { bubbles: true });
-            fileInput.dispatchEvent(event);
-        }
+        // Show image preview from canvas
+        const dataURL = canvas.toDataURL('image/jpeg', 1);
+        showCameraPreview(dataURL);
         
         // Switch back to file mode and show preview
         switchToFileMode();
         
-        // Show success message
-        const fileName = document.getElementById('file-name');
-        const fileInfo = document.getElementById('file-info');
-        if (fileName) fileName.textContent = 'Camera capture: ' + file.name;
-        if (fileInfo) fileInfo.style.display = 'block';
+        // Upload the captured image using the same process as file upload
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // Show uploading state
+        const $fileName = $('#file-name');
+        const $fileInfo = $('#file-info');
+        const $uploadZone = $('.upload-zone');
+        const $predictButton = $('.btn-predict-image');
+        const $imageUploadInput = $('#image-upload');
         
-        // Enable analyze button
-        const analyzeBtn = document.querySelector('.btn-predict-image');
-        if (analyzeBtn) {
-            analyzeBtn.disabled = false;
-        }
+        $fileName.text('Uploading camera capture...');
+        $fileInfo.show();
+        $uploadZone.addClass('uploading');
+        $predictButton.prop('disabled', true);
+        
+        // Upload to server
+        $.ajax({
+            url: '/upload',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: (data) => {
+                // Set the uploaded image path globally
+                uploadedImagePath = data.img_path;
+                $imageUploadInput.val(data.img_path);
+                $fileName.text('Camera capture: ' + file.name);
+                $fileInfo.show();
+                $predictButton.prop('disabled', false);
+                $uploadZone.removeClass('uploading');
+                $uploadZone.addClass('success');
+                
+                // Update upload zone with success indicator
+                window.updateUploadZoneSuccess();
+                
+                console.log('Camera image uploaded successfully:', data.img_path);
+            },
+            error: () => {
+                $uploadZone.removeClass('uploading');
+                $fileName.text('Upload failed');
+                swal({
+                    title: "Upload Error",
+                    text: "Failed to upload camera image. Please try again.",
+                    icon: "error",
+                });
+            }
+        });
         
     }, 'image/jpeg', 0.8);
+}
+
+// Function to show camera capture preview
+function showCameraPreview(dataURL) {
+    const $uploadZone = $('#upload-zone');
+    
+    $uploadZone.html(`
+        <div class="image-preview-container">
+            <img src="${dataURL}" alt="Camera Capture" class="image-preview" style="
+                width: 100%;
+                height: 100%;
+                border-radius: 15px;
+                object-fit: cover;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            ">
+            <div class="success-indicator" style="
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: #27AE60;
+                color: white;
+                border-radius: 50%;
+                width: 30px;
+                height: 30px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1rem;
+                box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+            ">
+                <i class="fas fa-camera"></i>
+            </div>
+            <div class="upload-overlay" style="
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.7);
+                color: white;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+                border-radius: 15px;
+                cursor: pointer;
+            ">
+                <i class="fas fa-camera" style="font-size: 2rem; margin-bottom: 10px; color: #27AE60;"></i>
+                <div style="color: #27AE60;">Photo captured!</div>
+                <div style="font-size: 0.9rem; margin-top: 5px;">Click to take another photo</div>
+            </div>
+        </div>
+    `);
+    
+    // Add hover effect and click functionality
+    $uploadZone.off('mouseenter mouseleave click').on('mouseenter', function() {
+        $(this).find('.upload-overlay').css('opacity', '1');
+    }).on('mouseleave', function() {
+        $(this).find('.upload-overlay').css('opacity', '0');
+    }).on('click', function() {
+        if ($(this).hasClass('success')) {
+            // If it's a successful upload/capture, allow user to upload/capture again
+            $('#file-image-upload').click();
+        }
+    });
+    
+    // Set position and classes
+    $uploadZone.css('position', 'relative');
+    $uploadZone.removeClass('uploading').addClass('success');
 }
 
 // Initialize camera functionality when DOM is loaded
@@ -516,3 +665,36 @@ window.switchToCameraMode = switchToCameraMode;
 window.switchCamera = switchCamera;
 window.capturePhoto = capturePhoto;
 window.stopCamera = stopCamera;
+
+// Global function for updating upload zone success
+window.updateUploadZoneSuccess = function() {
+    const $uploadZone = $('.upload-zone');
+    
+    // Add success indicator to the preview
+    $uploadZone.find('.image-preview-container').append(`
+        <div class="success-indicator" style="
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #27AE60;
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+        ">
+            <i class="fas fa-check"></i>
+        </div>
+    `);
+    
+    // Update overlay text
+    $uploadZone.find('.upload-overlay').html(`
+        <i class="fas fa-check-circle" style="font-size: 2rem; margin-bottom: 10px; color: #27AE60;"></i>
+        <div style="color: #27AE60;">Upload successful!</div>
+        <div style="font-size: 0.9rem; margin-top: 5px;">Click to change image</div>
+    `);
+};
