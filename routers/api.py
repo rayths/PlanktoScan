@@ -3,7 +3,7 @@ import os
 from utils import predict_img, implement_roi_image, detect_and_save_contours, get_available_segmentation_models
 from uuid import uuid4
 
-from fastapi import APIRouter, UploadFile, File, Form, Request
+from fastapi import APIRouter, UploadFile, File, Form, Request, Response
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi import HTTPException
@@ -19,20 +19,49 @@ result_cache = {}
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    """Main dashboard route, no welcome popup and includes cleanup of previous uploads"""
+    """Main dashboard route with welcome popup on first visit"""
     try:
+        # Clean up previous uploads
         for file in os.listdir('static/uploads'):
             if file not in {'original_image.jpg', 'predicted_mask.jpg', 'output_image.jpg'}:
                 os.remove(os.path.join('static/uploads', file))
     except Exception as e:
         logger.warning(f"Error cleaning up uploads: {str(e)}")
     
-    return templates.TemplateResponse("dashboard.html", {"request": request, "show_welcome": False})
+    # Check if user has seen welcome popup before
+    welcome_seen = request.cookies.get("welcome_seen")
+    show_welcome = not bool(welcome_seen)
+    
+    logger.info(f"Welcome popup check - Cookie: {welcome_seen}, Show welcome: {show_welcome}")
+    
+    return templates.TemplateResponse("dashboard.html", {
+        "request": request, 
+        "show_welcome": show_welcome
+    })
 
-@router.get("/welcome", response_class=HTMLResponse)
-async def welcome(request: Request):
-    """Route khusus untuk first visit dengan welcome popup - digunakan untuk akses pertama kali"""
-    return templates.TemplateResponse("dashboard.html", {"request": request, "show_welcome": True})
+@router.post("/set-welcome-seen")
+async def set_welcome_seen(response: Response):
+    """Set cookie when welcome popup is closed"""
+    logger.info("Setting welcome_seen cookie")
+    response.set_cookie("welcome_seen", "true", max_age=24*60*60)  # 1 day
+    return JSONResponse(content={"message": "Welcome popup marked as seen"})
+
+@router.get("/reset-welcome")
+async def reset_welcome(response: Response):
+    """Reset welcome popup cookie"""
+    response.delete_cookie("welcome_seen")
+    return JSONResponse(content={"message": "Welcome popup reset successfully"})
+
+@router.get("/check-cookie")
+async def check_cookie(request: Request):
+    """Check current cookie status"""
+    welcome_seen = request.cookies.get("welcome_seen")
+    all_cookies = dict(request.cookies)
+    return JSONResponse(content={
+        "welcome_seen": welcome_seen,
+        "all_cookies": all_cookies,
+        "show_welcome": not bool(welcome_seen)
+    })
 
 @router.post("/upload")
 async def upload_image(file: UploadFile = File(...)):
@@ -94,7 +123,8 @@ async def predict(
         })
 
 @router.get("/result/{result_id}", response_class=HTMLResponse)
-async def result_by_id(request: Request, result_id: str):
+async def result(request: Request, result_id: str):
+    """Result page route"""
     data = result_cache.get(result_id)
     if not data:
         raise HTTPException(status_code=404, detail="Result not found")

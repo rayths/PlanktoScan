@@ -410,6 +410,26 @@ function closeWelcomePopup() {
     const welcomePopup = document.getElementById('welcomePopup');
     if (welcomePopup) {
         welcomePopup.style.display = 'none';
+        
+        console.log('Closing welcome popup and setting cookie...');
+        
+        // Set cookie to prevent popup from showing again
+        $.ajax({
+            url: '/set-welcome-seen',
+            type: 'POST',
+            success: function(response) {
+                console.log('Welcome popup marked as seen:', response);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error setting welcome seen cookie:', error);
+                console.error('Response:', xhr.responseText);
+                console.error('Status:', status);
+            }
+        });
+        
+        // Also set cookie manually as backup
+        document.cookie = "welcome_seen=true; max-age=86400; path=/";
+        console.log('Cookie set manually as backup');
     }
 }
 
@@ -752,6 +772,11 @@ function showCameraPreview(dataURL) {
 
 // Initialize camera functionality when DOM is loaded
 $(document).ready(function() {
+    // Debug: Check current cookies
+    console.log('=== Cookie Debug ===');
+    console.log('Document cookies:', document.cookie);
+    console.log('Welcome seen cookie:', getCookie('welcome_seen'));
+    
     // Clean up camera when page unloads
     $(window).on('beforeunload', function() {
         stopCamera();
@@ -767,6 +792,14 @@ $(document).ready(function() {
         });
     }
 });
+
+// Helper function to get cookie value
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
 
 // Make functions globally available for onclick handlers
 window.showWelcomePopup = showWelcomePopup;
