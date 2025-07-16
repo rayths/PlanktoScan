@@ -1,175 +1,288 @@
-// Global variables
+// GLOBAL VARIABLES
+
 let uploadedImagePath = '';
+let currentStream = null;
+let facingMode = 'environment'; 
+let isInitialized = false;
 
-$(document).ready(function () {
-    const $btn = $('.btn');
-    const $start = $('.btn-start');
-    const $home = $('.btn-back');
-    const $fileInput = $('#file-image-upload');
-    const $imageUploadInput = $('#image-upload');
-    const $predictButton = $('.btn-predict-image');
-    const $modelSelect = $('#classification-model'); // Now hidden input
-    const $segmentationSelect = $('#segmentation-model'); // Now hidden input
-    const $loading = $('#load');
-    const $transparant = $('#transparant-bg');
-    const $uploadZone = $('.upload-zone');
-    const $fileInfo = $('#file-info');
-    const $fileName = $('#file-name');
-    const $cancelUpload = $('#cancel-upload');
+// UTILITY FUNCTIONS
 
-    // Initialize dropdown values immediately
-    function initializeDropdowns() {
-        // Set default values if not already set
-        if (!$modelSelect.val() || $modelSelect.val() === '') {
-            $modelSelect.val('efficientnetv2b0');
-        }
-        if (!$segmentationSelect.val() || $segmentationSelect.val() === '') {
-            $segmentationSelect.val('deeplab');
-        }
-        
-        console.log('Dropdowns initialized:', {
-            classification: $modelSelect.val(),
-            segmentation: $segmentationSelect.val()
-        });
+/**
+ * Get cookie value by name
+ * @param {string} name - Cookie name
+ * @returns {string|null} Cookie value or null if not found
+ */
+function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(';').shift();
+    return null;
+}
+
+/**
+ * Clean camera state by removing overlays and resetting video
+ */
+function cleanCameraState() {
+    // Remove any existing preview overlays
+    const existingOverlays = document.querySelectorAll('#camera-preview-overlay');
+    existingOverlays.forEach(overlay => overlay.remove());
+    
+    // Ensure video is visible
+    const video = document.getElementById('camera-preview');
+    if (video) {
+        video.style.display = 'block';
+        video.style.visibility = 'visible';
+        video.style.opacity = '1';
+        video.style.zIndex = '1';
     }
     
-    // Initialize dropdowns immediately
-    initializeDropdowns();
+    // Ensure camera controls are visible
+    const cameraControls = document.querySelector('.camera-controls');
+    if (cameraControls) {
+        cameraControls.style.display = 'flex';
+        cameraControls.style.visibility = 'visible';
+    }
+    
+    console.log('Camera state cleaned');
+}
 
-    // Hover effect
-    $btn.hover(
-        function () {
-            const svg = $(this).find('svg path');
-            $(this).data('timeout', setTimeout(() => {
-                svg.css('fill', '#ffffff');
-            }, 100));
-        },
-        function () {
-            clearTimeout($(this).data('timeout'));
-            $(this).find('svg path').css('fill', '#59a9d4');
-        }
-    );
+// DROPDOWN MANAGEMENT
 
-    // Routing navigation
-    $start.click(() => window.location.href = '/');
-    $home.click(() => window.location.href = '/');
-
-    // Drag and drop functionality
-    $uploadZone.on('dragover', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        $(this).addClass('dragover');
+/**
+ * Initialize dropdown values with default selections
+ */
+function initializeDropdowns() {
+    const $modelSelect = $('#classification-model');
+    const $segmentationSelect = $('#segmentation-model');
+    
+    // Set default values if not already set
+    if (!$modelSelect.val() || $modelSelect.val() === '') {
+        $modelSelect.val('efficientnetv2b0');
+    }
+    if (!$segmentationSelect.val() || $segmentationSelect.val() === '') {
+        $segmentationSelect.val('deeplab');
+    }
+    
+    console.log('Dropdowns initialized:', {
+        classification: $modelSelect.val(),
+        segmentation: $segmentationSelect.val()
     });
+}
 
-    $uploadZone.on('dragleave', function(e) {
+/**
+ * Setup dropdown event handlers
+ */
+function setupDropdownHandlers() {
+    const $modelSelect = $('#classification-model');
+    const $segmentationSelect = $('#segmentation-model');
+    
+    // Remove any existing dropdown handlers first to prevent duplicates
+    $(document).off('click.dropdown', '.dropdown-item');
+    
+    // Bootstrap Dropdown Event Handlers with namespace
+    $(document).on('click.dropdown', '.dropdown-item', function(e) {
         e.preventDefault();
-        e.stopPropagation();
-        $(this).removeClass('dragover');
-    });
-
-    $uploadZone.on('drop', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        $(this).removeClass('dragover');
         
-        const files = e.originalEvent.dataTransfer.files;
-        if (files.length > 0) {
-            handleFileUpload(files[0]);
-        }
-    });
-
-    // File input change handler
-    $fileInput.on('change', function (e) {
-        const file = e.target.files[0];
-        if (file) {
-            handleFileUpload(file);
-        }
-    });
-
-    // Handle file upload
-    function handleFileUpload(file) {
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            swal({
-                title: "Invalid File",
-                text: "Please select a valid image file.",
-                icon: "error",
-            });
-            return;
-        }
-
-        // Validate file size (10MB limit)
-        if (file.size > 10 * 1024 * 1024) {
-            swal({
-                title: "File Too Large",
-                text: "Please select an image smaller than 10MB.",
-                icon: "error",
-            });
-            return;
-        }
-
-        // Show image preview immediately
-        showImagePreview(file);
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        // Show uploading state
-        $fileName.text('Uploading...');
-        $fileInfo.show();
-        $uploadZone.addClass('uploading');
-        $predictButton.prop('disabled', true);
+        const $item = $(this);
+        const value = $item.attr('data-value');
+        const text = $item.text();
+        const $dropdown = $item.closest('.dropdown');
+        const $button = $dropdown.find('.dropdown-toggle');
         
-        $.ajax({
-            url: '/upload',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: (data) => {
-                uploadedImagePath = data.img_path;
-                $imageUploadInput.val(uploadedImagePath);
-                $fileName.text(file.name);
-                $fileInfo.show();
-                $predictButton.prop('disabled', false);
-                $uploadZone.removeClass('uploading');
-                $uploadZone.addClass('success');
-                
-                // Update upload zone with success message and keep preview
-                window.updateUploadZoneSuccess();
-            },
-            error: () => {
-                resetFileUpload();
-                $uploadZone.removeClass('uploading');
-                swal({
-                    title: "Upload Error",
-                    text: "Failed to upload image. Please try again.",
-                    icon: "error",
-                });
-            }
+        // Find the correct hidden input
+        let $hiddenInput;
+        const dropdownId = $button.attr('id');
+        if (dropdownId === 'classificationDropdown') {
+            $hiddenInput = $('#classification-model');
+        } else if (dropdownId === 'segmentationDropdown') {
+            $hiddenInput = $('#segmentation-model');
+        }
+        
+        // Update button text
+        $button.text(text);
+        
+        // Update hidden input value
+        if ($hiddenInput && $hiddenInput.length) {
+            $hiddenInput.val(value);
+            $hiddenInput.trigger('change');
+        }
+        
+        // Update active state
+        $dropdown.find('.dropdown-item').removeClass('active');
+        $item.addClass('active');
+        
+        console.log('Dropdown updated:', {
+            button: dropdownId,
+            value: value,
+            text: text,
+            hiddenInputExists: $hiddenInput && $hiddenInput.length > 0
         });
+    });
+
+    // Remove any existing model select handlers to prevent duplicates
+    $modelSelect.off('change');
+    $segmentationSelect.off('change');
+    
+    // Monitor dropdown changes for debugging
+    $modelSelect.on('change', function() {
+        console.log('Classification model changed to:', $(this).val());
+    });
+    
+    $segmentationSelect.on('change', function() {
+        console.log('Segmentation model changed to:', $(this).val());
+    });
+}
+
+// FILE UPLOAD MANAGEMENT
+
+/**
+ * Handle file upload process
+ * @param {File} file - The file to upload
+ */
+function handleFileUpload(file) {
+    const $fileName = $('#file-name');
+    const $fileInfo = $('#file-info');
+    const $uploadZone = $('.upload-zone');
+    const $predictButton = $('.btn-predict-image');
+    const $imageUploadInput = $('#image-upload');
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+        swal({
+            title: "Invalid File",
+            text: "Please select a valid image file.",
+            icon: "error",
+        });
+        return;
     }
 
-    // Function to show image preview
-    function showImagePreview(file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+        swal({
+            title: "File Too Large",
+            text: "Please select an image smaller than 10MB.",
+            icon: "error",
+        });
+        return;
+    }
+
+    // Show image preview immediately
+    showImagePreview(file);
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // Show uploading state
+    $fileName.text('Uploading...');
+    $fileInfo.show();
+    $uploadZone.addClass('uploading');
+    $predictButton.prop('disabled', true);
+    
+    $.ajax({
+        url: '/upload',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: (data) => {
+            uploadedImagePath = data.img_path;
+            $imageUploadInput.val(uploadedImagePath);
+            $fileName.text(file.name);
+            $fileInfo.show();
+            $predictButton.prop('disabled', false);
+            $uploadZone.removeClass('uploading');
+            $uploadZone.addClass('success');
+            
+            // Update upload zone with success message and keep preview
+            updateUploadZoneSuccess();
+        },
+        error: () => {
+            resetFileUpload();
+            $uploadZone.removeClass('uploading');
+            swal({
+                title: "Upload Error",
+                text: "Failed to upload image. Please try again.",
+                icon: "error",
+            });
+        }
+    });
+}
+
+/**
+ * Show image preview in upload zone
+ * @param {File} file - The image file to preview
+ */
+function showImagePreview(file) {
+    const $uploadZone = $('.upload-zone');
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        // Create a temporary image to get dimensions
+        const tempImg = new Image();
+        tempImg.onload = function() {
+            const originalWidth = this.width;
+            const originalHeight = this.height;
+            
+            // Calculate aspect ratio
+            const aspectRatio = originalWidth / originalHeight;
+            
+            // Get container max width (upload zone width)
+            const containerMaxWidth = $uploadZone.width() - 6; // Subtract border width
+            const containerMaxHeight = 800; // Maximum height we want
+            
+            // Calculate display dimensions to fill the container width
+            let displayWidth = containerMaxWidth;
+            let displayHeight = displayWidth / aspectRatio;
+            
+            // If height exceeds maximum, scale down proportionally
+            if (displayHeight > containerMaxHeight) {
+                displayHeight = containerMaxHeight;
+                displayWidth = displayHeight * aspectRatio;
+            }
+            
             $uploadZone.html(`
-                <div class="image-preview-container">
+                <div class="image-preview-container" style="
+                    position: relative;
+                    width: ${displayWidth}px;
+                    height: ${displayHeight}px;
+                    margin: 0 auto;
+                    overflow: hidden;
+                    border-radius: 15px;
+                ">
                     <img src="${e.target.result}" alt="Preview" class="image-preview" style="
                         width: 100%;
                         height: 100%;
                         border-radius: 15px;
-                        object-fit: cover;
+                        object-fit: contain;
                         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                        display: block;
                     ">
+                    <div class="upload-success-indicator" style="
+                        position: absolute;
+                        top: 15px;
+                        right: 15px;
+                        background: #27AE60;
+                        color: white;
+                        border-radius: 50%;
+                        width: 40px;
+                        height: 40px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 1.2rem;
+                        box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+                        z-index: 100;
+                        pointer-events: none;
+                    ">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
                     <div class="upload-overlay" style="
                         position: absolute;
                         top: 0;
                         left: 0;
                         right: 0;
                         bottom: 0;
-                        background: rgba(0,0,0,0.7);
+                        background: rgba(0,0,0,0.8);
                         color: white;
                         display: flex;
                         flex-direction: column;
@@ -179,32 +292,173 @@ $(document).ready(function () {
                         transition: opacity 0.3s ease;
                         border-radius: 15px;
                         cursor: pointer;
+                        z-index: 50;
+                        pointer-events: auto;
                     ">
-                        <i class="fas fa-upload" style="font-size: 2rem; margin-bottom: 10px;"></i>
-                        <div>Click to change image</div>
+                        <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 15px; color: #27AE60;"></i>
+                        <div style="font-size: 1.2rem; color: #27AE60; margin-bottom: 5px;">File Uploaded!</div>
+                        <div style="font-size: 1rem; color: #fff; text-align: center;">Click to change image</div>
                     </div>
                 </div>
             `);
             
-            // Add hover effect and click functionality
-            $uploadZone.off('mouseenter mouseleave click').on('mouseenter', function() {
+            // Add class to indicate image is loaded and remove padding
+            $uploadZone.addClass('with-image');
+            
+            // Add hover effect yang lebih tepat
+            $uploadZone.off('mouseenter mouseleave').on('mouseenter', '.image-preview-container', function() {
                 $(this).find('.upload-overlay').css('opacity', '1');
-            }).on('mouseleave', function() {
+            }).on('mouseleave', '.image-preview-container', function() {
                 $(this).find('.upload-overlay').css('opacity', '0');
-            }).on('click', function() {
-                if ($(this).hasClass('success')) {
-                    // If it's a successful upload, allow user to upload again
-                    $('#file-image-upload').click();
-                }
+            });
+            
+            // Add click handler untuk overlay change image
+            $uploadZone.off('click.overlay').on('click.overlay', '.upload-overlay', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Overlay clicked, triggering file input for image change');
+                $('#file-image-upload').trigger('click');
             });
             
             // Ensure the upload zone remains clickable
             $uploadZone.css('position', 'relative');
         };
-        reader.readAsDataURL(file);
-    }
+        
+        tempImg.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
 
-    // Predict
+/**
+ * Reset file upload state to initial state
+ */
+function resetFileUpload() {
+    const $fileInput = $('#file-image-upload');
+    const $imageUploadInput = $('#image-upload');
+    const $fileName = $('#file-name');
+    const $fileInfo = $('#file-info');
+    const $uploadZone = $('.upload-zone');
+    const $predictButton = $('.btn-predict-image');
+    
+    $fileInput.val(''); // Clear the file input
+    $imageUploadInput.val(''); // Clear the hidden input
+    uploadedImagePath = '';
+    $fileInfo.hide();
+    $fileName.text('No file selected');
+    $uploadZone.removeClass('success with-image');
+    $predictButton.prop('disabled', true);
+    
+    // Reset padding and content
+    $uploadZone.css('padding', '3.5rem 2rem');
+    $uploadZone.html(`
+        <div class="upload-icon">
+            <i class="fas fa-cloud-upload-alt"></i>
+        </div>
+        <div class="upload-text">Click to upload or drag and drop</div>
+        <div class="upload-subtext">PNG, JPG or JPEG (max. 10MB)</div>
+    `);
+}
+
+/**
+ * Update upload zone with success indicators
+ */
+function updateUploadZoneSuccess() {
+    const $uploadZone = $('.upload-zone');
+    
+    // Update upload icon to show success
+    $uploadZone.find('.upload-icon').html('<i class="fas fa-check-circle"></i>');
+    
+    // Update upload text to show success
+    $uploadZone.find('.upload-text').text('Upload Successful!');
+    $uploadZone.find('.upload-subtext').text('Click to change image');
+}
+
+// MAIN INITIALIZATION
+
+$(document).ready(function() {
+    // Prevent multiple initializations
+    if (isInitialized) {
+        console.log('Already initialized, skipping...');
+        return;
+    }
+    
+    console.log('=== Starting PlanktoScan Initialization ===');
+    isInitialized = true;
+    
+    // Cache jQuery selectors
+    const $fileInput = $('#file-image-upload');
+    const $imageUploadInput = $('#image-upload');
+    const $fileName = $('#file-name');
+    const $fileInfo = $('#file-info');
+    const $uploadZone = $('.upload-zone');
+    const $predictButton = $('.btn-predict-image');
+    const $cancelUpload = $('#cancel-upload');
+    const $loading = $('#load');
+    const $transparant = $('#transparant-bg');
+    const $modelSelect = $('#classification-model');
+    const $segmentationSelect = $('#segmentation-model');
+    
+    // Initialize dropdowns
+    initializeDropdowns();
+    setupDropdownHandlers();
+    
+    // Remove any existing file upload handlers to prevent duplicates
+    $fileInput.off('change');
+    $uploadZone.off('click.upload dragover dragleave drop');
+    
+    // File upload handlers
+    $fileInput.on('change', function(e) {
+        console.log('File input changed, processing file');
+        const file = e.target.files[0];
+        if (file) {
+            handleFileUpload(file);
+        }
+    });
+
+    // Drag and drop functionality
+    $uploadZone.on('dragover', function(e) {
+        e.preventDefault();
+        $(this).addClass('dragover');
+    });
+
+    $uploadZone.on('dragleave', function(e) {
+        e.preventDefault();
+        $(this).removeClass('dragover');
+    });
+
+    $uploadZone.on('drop', function(e) {
+        e.preventDefault();
+        $(this).removeClass('dragover');
+        
+        const files = e.originalEvent.dataTransfer.files;
+        if (files.length > 0) {
+            handleFileUpload(files[0]);
+        }
+    });
+
+    // Upload zone click handler
+    $uploadZone.on('click.upload', function(e) {
+        // Prevent event bubbling and multiple triggers
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Jika sudah ada image preview, jangan trigger file input lagi
+        if ($(this).hasClass('success') || $(this).find('.image-preview-container').length > 0) {
+            console.log('Upload zone already has image, click ignored');
+            return;
+        }
+        
+        console.log('Upload zone clicked, triggering file input');
+        
+        // Only trigger file input click if no image is present
+        $fileInput.trigger('click');
+    });
+
+    // Remove any existing predict button handlers to prevent duplicates
+    $predictButton.off('click');
+    $cancelUpload.off('click');
+    
+    // Predict button handler
     $predictButton.click(() => {
         if (!uploadedImagePath) {
             return swal({ 
@@ -296,66 +550,6 @@ $(document).ready(function () {
         });
     });
 
-    // Function to reset file upload state
-    function resetFileUpload() {
-        $fileInput.val(''); // Clear the file input
-        $imageUploadInput.val(''); // Clear the hidden input
-        uploadedImagePath = '';
-        $fileInfo.hide();
-        $fileName.text('No file selected');
-        $uploadZone.removeClass('success');
-        $predictButton.attr('disabled', true);
-    }
-
-    // Bootstrap Dropdown Event Handlers
-    $(document).on('click', '.dropdown-item', function(e) {
-        e.preventDefault();
-        
-        const $item = $(this);
-        const value = $item.attr('data-value');
-        const text = $item.text();
-        const $dropdown = $item.closest('.dropdown');
-        const $button = $dropdown.find('.dropdown-toggle');
-        
-        // Find the correct hidden input
-        let $hiddenInput;
-        const dropdownId = $button.attr('id');
-        if (dropdownId === 'classificationDropdown') {
-            $hiddenInput = $('#classification-model');
-        } else if (dropdownId === 'segmentationDropdown') {
-            $hiddenInput = $('#segmentation-model');
-        }
-        
-        // Update button text
-        $button.text(text);
-        
-        // Update hidden input value
-        if ($hiddenInput && $hiddenInput.length) {
-            $hiddenInput.val(value);
-            $hiddenInput.trigger('change');
-        }
-        
-        // Update active state
-        $dropdown.find('.dropdown-item').removeClass('active');
-        $item.addClass('active');
-        
-        console.log('Dropdown updated:', {
-            button: dropdownId,
-            value: value,
-            text: text,
-            hiddenInputExists: $hiddenInput && $hiddenInput.length > 0
-        });
-    });
-
-    // Monitor dropdown changes for debugging
-    $modelSelect.on('change', function() {
-        console.log('Classification model changed to:', $(this).val());
-    });
-    
-    $segmentationSelect.on('change', function() {
-        console.log('Segmentation model changed to:', $(this).val());
-    });
-
     // Final initialization check after DOM is fully loaded
     setTimeout(() => {
         console.log('=== Final Initialization Check ===');
@@ -392,48 +586,53 @@ $(document).ready(function () {
             }
         }
     }, 100);
-});
-
-// Camera variables and functions (moved from dashboard.html)
-let currentStream = null;
-let facingMode = 'environment'; // 'user' for front camera, 'environment' for back camera
-
-// Welcome Popup Functions
-function showWelcomePopup() {
+    
+    // Debug: Check current cookies
+    console.log('=== Cookie Debug ===');
+    console.log('Document cookies:', document.cookie);
+    console.log('Welcome seen cookie:', getCookie('welcome_seen'));
+    
+    // Clean up camera when page unloads
+    $(window).on('beforeunload', function() {
+        stopCamera();
+    });
+    
+    // Handle welcome popup click outside to close
     const welcomePopup = document.getElementById('welcomePopup');
     if (welcomePopup) {
-        welcomePopup.style.display = 'flex';
-    }
-}
-
-function closeWelcomePopup() {
-    const welcomePopup = document.getElementById('welcomePopup');
-    if (welcomePopup) {
-        welcomePopup.style.display = 'none';
-        
-        console.log('Closing welcome popup and setting cookie...');
-        
-        // Set cookie to prevent popup from showing again
-        $.ajax({
-            url: '/set-welcome-seen',
-            type: 'POST',
-            success: function(response) {
-                console.log('Welcome popup marked as seen:', response);
-            },
-            error: function(xhr, status, error) {
-                console.error('Error setting welcome seen cookie:', error);
-                console.error('Response:', xhr.responseText);
-                console.error('Status:', status);
+        welcomePopup.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeWelcomePopup();
             }
         });
-        
-        // Also set cookie manually as backup
-        document.cookie = "welcome_seen=true; max-age=86400; path=/";
-        console.log('Cookie set manually as backup');
     }
+});
+
+// CAMERA MANAGEMENT
+
+/**
+ * Switch to camera mode and initialize camera
+ */
+function switchToCameraMode() {
+    const fileModeBtn = document.getElementById('file-mode-btn');
+    const cameraModeBtn = document.getElementById('camera-mode-btn');
+    const uploadZone = document.getElementById('upload-zone');
+    const cameraContainer = document.getElementById('camera-container');
+    
+    if (cameraModeBtn) cameraModeBtn.classList.add('active');
+    if (fileModeBtn) fileModeBtn.classList.remove('active');
+    if (uploadZone) uploadZone.style.display = 'none';
+    if (cameraContainer) cameraContainer.style.display = 'block';
+    
+    // Clean camera state to ensure fresh start
+    cleanCameraState();
+    
+    startCamera();
 }
 
-// Camera Functions
+/**
+ * Switch to file upload mode and stop camera
+ */
 function switchToFileMode() {
     const fileModeBtn = document.getElementById('file-mode-btn');
     const cameraModeBtn = document.getElementById('camera-mode-btn');
@@ -466,23 +665,9 @@ function switchToFileMode() {
     stopCamera();
 }
 
-function switchToCameraMode() {
-    const fileModeBtn = document.getElementById('file-mode-btn');
-    const cameraModeBtn = document.getElementById('camera-mode-btn');
-    const uploadZone = document.getElementById('upload-zone');
-    const cameraContainer = document.getElementById('camera-container');
-    
-    if (cameraModeBtn) cameraModeBtn.classList.add('active');
-    if (fileModeBtn) fileModeBtn.classList.remove('active');
-    if (uploadZone) uploadZone.style.display = 'none';
-    if (cameraContainer) cameraContainer.style.display = 'block';
-    
-    // Clean camera state to ensure fresh start
-    cleanCameraState();
-    
-    startCamera();
-}
-
+/**
+ * Start camera stream
+ */
 async function startCamera() {
     try {
         const constraints = {
@@ -516,6 +701,9 @@ async function startCamera() {
     }
 }
 
+/**
+ * Stop camera stream
+ */
 function stopCamera() {
     if (currentStream) {
         currentStream.getTracks().forEach(track => track.stop());
@@ -523,12 +711,18 @@ function stopCamera() {
     }
 }
 
+/**
+ * Switch between front and back camera
+ */
 function switchCamera() {
     facingMode = facingMode === 'user' ? 'environment' : 'user';
     stopCamera();
     startCamera();
 }
 
+/**
+ * Capture photo from camera
+ */
 function capturePhoto() {
     const video = document.getElementById('camera-preview');
     const canvas = document.getElementById('camera-canvas');
@@ -612,7 +806,9 @@ function capturePhoto() {
     }, 'image/jpeg', 0.9);
 }
 
-// Function to show camera capture preview
+/**
+ * Show camera capture preview with overlay
+ */
 function showCameraPreview(dataURL) {
     const cameraContainer = document.getElementById('camera-container');
     const video = document.getElementById('camera-preview');
@@ -770,81 +966,10 @@ function showCameraPreview(dataURL) {
     console.log('Camera preview overlay created and event listeners attached');
 }
 
-// Initialize camera functionality when DOM is loaded
-$(document).ready(function() {
-    // Debug: Check current cookies
-    console.log('=== Cookie Debug ===');
-    console.log('Document cookies:', document.cookie);
-    console.log('Welcome seen cookie:', getCookie('welcome_seen'));
-    
-    // Clean up camera when page unloads
-    $(window).on('beforeunload', function() {
-        stopCamera();
-    });
-    
-    // Handle welcome popup click outside to close
-    const welcomePopup = document.getElementById('welcomePopup');
-    if (welcomePopup) {
-        welcomePopup.addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeWelcomePopup();
-            }
-        });
-    }
-});
-
-// Helper function to get cookie value
-function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
-    return null;
-}
-
-// Make functions globally available for onclick handlers
-window.showWelcomePopup = showWelcomePopup;
-window.closeWelcomePopup = closeWelcomePopup;
-window.switchToFileMode = switchToFileMode;
-window.switchToCameraMode = switchToCameraMode;
-window.switchCamera = switchCamera;
-window.capturePhoto = capturePhoto;
-window.stopCamera = stopCamera;
-
-// Global function for updating upload zone success
-window.updateUploadZoneSuccess = function() {
-    const $uploadZone = $('.upload-zone');
-    
-    // Add success indicator to the preview
-    $uploadZone.find('.image-preview-container').append(`
-        <div class="success-indicator" style="
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #27AE60;
-            color: white;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1rem;
-            box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
-        ">
-            <i class="fas fa-check"></i>
-        </div>
-    `);
-    
-    // Update overlay text
-    $uploadZone.find('.upload-overlay').html(`
-        <i class="fas fa-check-circle" style="font-size: 2rem; margin-bottom: 10px; color: #27AE60;"></i>
-        <div style="color: #27AE60;">Upload successful!</div>
-        <div style="font-size: 0.9rem; margin-top: 5px;">Click to change image</div>
-    `);
-};
-
-// Global function for updating camera preview success
-window.updateCameraPreviewSuccess = function() {
+/**
+ * Update camera preview with success indicator
+ */
+function updateCameraPreviewSuccess() {
     const previewOverlay = document.getElementById('camera-preview-overlay');
     if (!previewOverlay) return;
     
@@ -866,29 +991,59 @@ window.updateCameraPreviewSuccess = function() {
     }
     
     console.log('Camera preview updated with success indicator');
-};
-
-// Helper function to clean camera state
-function cleanCameraState() {
-    // Remove any existing preview overlays
-    const existingOverlays = document.querySelectorAll('#camera-preview-overlay');
-    existingOverlays.forEach(overlay => overlay.remove());
-    
-    // Ensure video is visible
-    const video = document.getElementById('camera-preview');
-    if (video) {
-        video.style.display = 'block';
-        video.style.visibility = 'visible';
-        video.style.opacity = '1';
-        video.style.zIndex = '1';
-    }
-    
-    // Ensure camera controls are visible
-    const cameraControls = document.querySelector('.camera-controls');
-    if (cameraControls) {
-        cameraControls.style.display = 'flex';
-        cameraControls.style.visibility = 'visible';
-    }
-    
-    console.log('Camera state cleaned');
 }
+
+// WELCOME POPUP MANAGEMENT
+
+/**
+ * Show welcome popup
+ */
+function showWelcomePopup() {
+    const welcomePopup = document.getElementById('welcomePopup');
+    if (welcomePopup) {
+        welcomePopup.style.display = 'flex';
+    }
+}
+
+/**
+ * Close welcome popup and set cookie
+ */
+function closeWelcomePopup() {
+    const welcomePopup = document.getElementById('welcomePopup');
+    if (welcomePopup) {
+        welcomePopup.style.display = 'none';
+        
+        console.log('Closing welcome popup and setting cookie...');
+        
+        // Set cookie to prevent popup from showing again
+        $.ajax({
+            url: '/set-welcome-seen',
+            type: 'POST',
+            success: function(response) {
+                console.log('Welcome popup marked as seen:', response);
+            },
+            error: function(xhr, status, error) {
+                console.error('Error setting welcome seen cookie:', error);
+                console.error('Response:', xhr.responseText);
+                console.error('Status:', status);
+            }
+        });
+        
+        // Also set cookie manually as backup
+        document.cookie = "welcome_seen=true; max-age=86400; path=/";
+        console.log('Cookie set manually as backup');
+    }
+}
+
+// GLOBAL WINDOW FUNCTIONS
+
+// Make functions globally available for onclick handlers
+window.showWelcomePopup = showWelcomePopup;
+window.closeWelcomePopup = closeWelcomePopup;
+window.switchToFileMode = switchToFileMode;
+window.switchToCameraMode = switchToCameraMode;
+window.switchCamera = switchCamera;
+window.capturePhoto = capturePhoto;
+window.stopCamera = stopCamera;
+window.updateUploadZoneSuccess = updateUploadZoneSuccess;
+window.updateCameraPreviewSuccess = updateCameraPreviewSuccess;

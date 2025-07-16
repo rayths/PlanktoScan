@@ -256,6 +256,26 @@ body {
     cursor: pointer;
     position: relative;
     overflow: hidden;
+    min-height: 300px;
+    box-sizing: border-box;
+}
+
+.upload-zone.with-image {
+    padding: 0;
+    min-height: auto;
+    height: auto;
+}
+
+.image-preview-container {
+    position: relative;
+    width: 100%;
+    height: auto;
+    border-radius: 15px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
 }
 
 .upload-zone::before {
