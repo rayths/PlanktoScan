@@ -596,7 +596,11 @@ function switchToCameraMode() {
     if (fileModeBtn) fileModeBtn.classList.remove('active');
     if (uploadZone) uploadZone.style.display = 'none';
     if (cameraContainer) cameraContainer.style.display = 'block';
-    
+ 
+    // Reset state variables
+    uploadedImagePath = '';
+    window.capturedImageFile = null;
+
     // Clean camera state to ensure fresh start
     cleanCameraState();
     
@@ -617,6 +621,11 @@ function switchToFileMode() {
     if (uploadZone) uploadZone.style.display = 'block';
     if (cameraContainer) cameraContainer.style.display = 'none';
     
+    // Clean camera state
+    cleanCameraState();
+    
+    // Reset state variables
+    window.capturedImageFile = null;    
     // Hide camera preview overlay if exists
     const previewOverlay = document.getElementById('camera-preview-overlay');
     if (previewOverlay) {
@@ -657,6 +666,7 @@ async function startCamera() {
             video.srcObject = currentStream;
         }
         
+        // Ensure camera container is visible
         const container = document.getElementById('camera-container');
         if (container) {
             container.style.opacity = '0';
@@ -699,6 +709,7 @@ function switchCamera() {
 function capturePhoto() {
     const video = document.getElementById('camera-preview');
     const canvas = document.getElementById('camera-canvas');
+    const cameraContainer = document.getElementById('camera-container');
     
     if (!video || !canvas) {
         console.error('Camera preview or canvas not found');
@@ -720,25 +731,39 @@ function capturePhoto() {
         
         // Show image preview from canvas in camera container
         const dataURL = canvas.toDataURL('image/jpeg', 1);
-        showCameraPreview(dataURL);
-        
-        
+
+        // Store captured file globally
+        window.capturedImageFile = file;
+        uploadedImagePath = dataURL;
+
         // Upload the captured image using the same process as file upload
         const formData = new FormData();
         formData.append('file', file);
 
         // Show uploading state
+        const $imageUploadInput = $('#image-upload');
         const $fileName = $('#file-name');
         const $fileInfo = $('#file-info');
         const $uploadZone = $('.upload-zone');
         const $predictButton = $('.btn-predict-image');
-        const $imageUploadInput = $('#image-upload');
         
         $fileName.text('Uploading camera capture...');
         $fileInfo.show();
-        $uploadZone.addClass('uploading');
         $predictButton.prop('disabled', true);
         
+        // Stop camera stream
+        stopCamera();
+
+        // Add success state to camera container
+        if (cameraContainer) {
+            cameraContainer.classList.add('success');
+            console.log('Camera container success state added');
+        }
+        
+        // Show camera preview dengan responsive sizing
+        showCameraPreview(dataURL);
+        console.log('Photo captured successfully, camera stopped, and preview displayed');
+
         // Upload to server
         $.ajax({
             url: '/upload',
@@ -784,15 +809,16 @@ function capturePhoto() {
  */
 function showCameraPreview(dataURL) {
     const cameraContainer = document.getElementById('camera-container');
-    const video = document.getElementById('camera-preview');
+    const cameraPreviewWrapper = cameraContainer.querySelector('.camera-preview-wrapper');
     
-    if (!cameraContainer) return;
-    
-    // Hide the video element
-    if (video) {
-        video.style.display = 'none';
+    if (!cameraContainer || !cameraPreviewWrapper) {
+        console.error('Camera container or preview wrapper not found');
+        return;
     }
     
+    // Add success state to camera container
+    cameraContainer.classList.add('success');
+
     // Hide camera controls
     const cameraControls = document.querySelector('.camera-controls');
     if (cameraControls) {
@@ -853,7 +879,7 @@ function showCameraPreview(dataURL) {
                 z-index: 30;
                 pointer-events: none;
             ">
-                <i class="fas fa-camera"></i>
+                <i class="fas fa-check"></i>
             </div>
             <div class="camera-overlay" style="
                 position: absolute;
@@ -873,7 +899,7 @@ function showCameraPreview(dataURL) {
                 z-index: 25;
                 pointer-events: none;
             ">
-                <i class="fas fa-camera" style="font-size: 3rem; margin-bottom: 15px; color: #27AE60;"></i>
+                <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 15px; color: #27AE60;"></i>
                 <div style="font-size: 1.2rem; color: #27AE60; margin-bottom: 5px;">Photo Captured!</div>
                 <div style="font-size: 1rem; color: #fff; text-align: center;">Click to take another photo</div>
             </div>
@@ -891,6 +917,9 @@ function showCameraPreview(dataURL) {
         
         console.log('Retake photo clicked');
         
+        // Remove success state from camera container
+        cameraContainer.classList.remove('success');
+
         // Reset upload state
         uploadedImagePath = '';
         const $imageUploadInput = $('#image-upload');

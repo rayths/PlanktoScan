@@ -1275,15 +1275,75 @@ body {
 
 /* Camera styles */
 .camera-container {
-    padding: 0;
-    position: relative;
-    display: none;
+    border: 3px solid #3498DB;
     border-radius: 20px;
+    padding: 0;
+    text-align: center;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    background: linear-gradient(135deg, rgba(236, 240, 241, 0.8), rgba(247, 249, 250, 0.9));
+    margin-bottom: 1.5rem;
+    position: relative;
     overflow: hidden;
-    margin-bottom: 1rem;
+    min-height: 300px;
+    box-sizing: border-box;
+    display: none;
+    flex-direction: column;
+}
+
+.camera-container:hover {
+    border-color: #2980B9;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(52, 152, 219, 0.3);
+}
+
+.camera-container.success {
+    border: 3px solid #27AE60 !important;
+    background: linear-gradient(135deg, rgba(231, 248, 231, 0.8), rgba(212, 239, 223, 0.9));
+    animation: successPulse 0.6s ease-out;
+}
+
+.camera-container.success:hover {
+    border-color: #229954;
+    box-shadow: 0 8px 25px rgba(39, 174, 96, 0.3);
+}
+
+.camera-preview-wrapper {
+    position: relative;
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     background: #000;
+    border-radius: 0px; 
+    overflow: hidden;
+}
+
+.camera-preview {
     width: 100%;
-    height: 450px;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 0px;
+    display: block;
+    background: #000;
+}
+
+.camera-controls-zone {
+    background: rgba(0, 0, 0, 0.9);
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0 0 17px 17px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.camera-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    justify-content: center;
 }
 
 .camera-image-preview {
@@ -1291,62 +1351,94 @@ body {
     width: 100%;
     height: 100%;
     background: #000;
-    border-radius: 20px;
+    border-radius: 17px;
     overflow: hidden;
     cursor: pointer;
-    display: block !important;
-    z-index: 15;    
-    pointer-events: auto;
-    border: 3px solid #27AE60;
-}
-
-.camera-preview {
-    width: 100%;
-    height: 100%;
-    max-height: 450px;
-    object-fit: contain;
-    border-radius: 20px;
     display: block;
-    border: 3px solid #3498DB;
+    z-index: 15;
+    pointer-events: auto;
 }
 
 #camera-preview-overlay {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    top: 3px;
+    left: 3px;
+    right: 3px;
+    bottom: 80px;
     z-index: 20;
     background: #000;
-    border-radius: 20px;
-    display: block !important;
+    border-radius: 17px;
+    display: block;
     pointer-events: auto;
     cursor: pointer;
 }
 
-.camera-controls {
+.camera-success-indicator {
     position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 15px;
+    right: 15px;
+    background: #27AE60;
+    color: white;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
     display: flex;
-    gap: 15px;
-    z-index: 10;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+    z-index: 30;
+    pointer-events: none;
+    animation: successBounce 0.6s ease-out;
 }
 
+/* Success bounce animation */
+@keyframes successBounce {
+    0% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Camera Overlay - hover effect */
+.camera-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    border-radius: 17px;
+    z-index: 25;
+    pointer-events: none;
+}
+
+/* Success state untuk camera overlay */
+.camera-overlay.success {
+    background: rgba(39, 174, 96, 0.9);
+}
+
+/* Camera Button Styling */
 .camera-btn {
     background: rgba(255, 255, 255, 0.9);
     border: none;
     border-radius: 50%;
-    width: 60px;
-    height: 60px;
+    width: 50px;
+    height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     cursor: pointer;
     transition: all 0.3s ease;
     backdrop-filter: blur(10px);
+    color: #333;
 }
 
 .camera-btn:hover {
@@ -1357,14 +1449,16 @@ body {
 .camera-btn.capture {
     background: rgba(239, 68, 68, 0.9);
     color: white;
-    width: 70px;
-    height: 70px;
+    width: 60px;
+    height: 60px;
+    font-size: 1.5rem;
 }
 
 .camera-btn.capture:hover {
     background: rgba(239, 68, 68, 1);
 }
 
+/* Switch between upload and camera modes */
 .upload-mode-switch {
     display: flex;
     gap: 10px;
@@ -1395,20 +1489,24 @@ body {
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-    .camera-controls {
-        bottom: 10px;
-        gap: 10px;
+    .camera-controls-zone {
+        height: 70px;
     }
-    
+
     .camera-btn {
-        width: 50px;
-        height: 50px;
-        font-size: 1.2rem;
+        width: 45px;
+        height: 45px;
+        font-size: 1.1rem;
+    }
+
+    .camera-btn.capture {
+        width: 55px;
+        height: 55px;
+        font-size: 1.3rem;
     }
     
-    .camera-btn.capture {
-        width: 60px;
-        height: 60px;
+    .camera-controls {
+        gap: 12px;
     }
     
     .upload-mode-switch {

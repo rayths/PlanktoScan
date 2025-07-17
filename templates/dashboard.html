@@ -92,18 +92,22 @@
                             
                             <!-- Camera Container -->
                             <div class="camera-container" id="camera-container">
-                                <video class="camera-preview" id="camera-preview" autoplay playsinline></video>
-                                <canvas id="camera-canvas" style="display: none;"></canvas>
-                                <div class="camera-controls">
-                                    <button class="camera-btn" onclick="switchCamera()" title="Switch Camera">
-                                        <i class="fas fa-sync-alt"></i>
-                                    </button>
-                                    <button class="camera-btn capture" onclick="capturePhoto()" title="Capture Photo">
-                                        <i class="fas fa-camera"></i>
-                                    </button>
-                                    <button class="camera-btn" onclick="stopCamera()" title="Close Camera">
-                                        <i class="fas fa-times"></i>
-                                    </button>
+                                <div class="camera-preview-wrapper">
+                                    <video class="camera-preview" id="camera-preview" autoplay playsinline></video>
+                                    <canvas id="camera-canvas" style="display: none;"></canvas>
+                                </div>
+                                <div class="camera-controls-zone">
+                                    <div class="camera-controls">
+                                        <button class="camera-btn" onclick="switchCamera()" title="Switch Camera">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                        <button class="camera-btn capture" onclick="capturePhoto()" title="Capture Photo">
+                                            <i class="fas fa-camera"></i>
+                                        </button>
+                                        <button class="camera-btn" onclick="stopCamera()" title="Close Camera">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             
