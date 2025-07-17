@@ -27,6 +27,12 @@ function cleanCameraState() {
     const existingOverlays = document.querySelectorAll('#camera-preview-overlay');
     existingOverlays.forEach(overlay => overlay.remove());
     
+    // Reset camera container state
+    const cameraContainer = document.getElementById('camera-container');
+    if (cameraContainer) {
+        cameraContainer.classList.remove('success');
+    }
+
     // Ensure video is visible
     const video = document.getElementById('camera-preview');
     if (video) {
@@ -330,6 +336,101 @@ function resetFileUpload() {
             <div class="upload-subtext">PNG, JPG or JPEG (max. 10MB)</div>
         </div>
     `);
+
+    console.log('File upload state reset');
+}
+
+/**
+ * Reset camera capture state to initial state
+ */
+function resetCameraCapture() {
+    const cameraContainer = document.getElementById('camera-container');
+    const $fileName = $('#file-name');
+    const $fileInfo = $('#file-info');
+    const $predictButton = $('.btn-predict-image');
+    
+    // Reset global variables
+    window.capturedImageFile = null;
+    uploadedImagePath = '';
+    
+    // Reset UI elements
+    $fileName.text('No file selected');
+    $fileInfo.hide();
+    $predictButton.prop('disabled', true);
+    
+    // Remove success state from camera container
+    if (cameraContainer) {
+        cameraContainer.classList.remove('success');
+    }
+    
+    // Clean camera state completely
+    cleanCameraState();
+    
+    // Restart camera stream
+    if (currentStream) {
+        stopCamera();
+        setTimeout(() => {
+            startCamera();
+        }, 200);
+    } else {
+        startCamera();
+    }
+    
+    console.log('Camera capture state reset');
+}
+
+/**
+ * Universal cancel upload function that handles both file and camera uploads
+ */
+function cancelUpload() {
+    // Check if we're in camera mode or file mode
+    const cameraContainer = document.getElementById('camera-container');
+    const uploadZone = document.getElementById('upload-zone');
+    const isCameraMode = cameraContainer && cameraContainer.style.display !== 'none';
+    const isFileMode = uploadZone && uploadZone.style.display !== 'none';
+    
+    console.log('Cancel upload called:', {
+        isCameraMode,
+        isFileMode,
+        hasCapturedFile: !!window.capturedImageFile,
+        hasUploadedPath: !!uploadedImagePath
+    });
+    
+    if (isCameraMode || window.capturedImageFile) {
+        // Reset camera capture state
+        resetCameraCapture();
+        
+        swal({
+            title: "Camera Capture Canceled",
+            text: "Camera capture has been canceled and camera restarted",
+            icon: "info",
+            timer: 2000,
+            buttons: false
+        });
+    } else if (isFileMode || uploadedImagePath) {
+        // Reset file upload state
+        resetFileUpload();
+        
+        swal({
+            title: "Upload Canceled",
+            text: "File upload has been canceled",
+            icon: "info",
+            timer: 2000,
+            buttons: false
+        });
+    } else {
+        // Fallback: reset both states
+        resetFileUpload();
+        resetCameraCapture();
+        
+        swal({
+            title: "Upload Canceled",
+            text: "Upload has been canceled",
+            icon: "info",
+            timer: 2000,
+            buttons: false
+        });
+    }
 }
 
 /**
@@ -344,6 +445,101 @@ function updateUploadZoneSuccess() {
     // Update upload text to show success
     $uploadZone.find('.upload-text').text('Upload Successful!');
     $uploadZone.find('.upload-subtext').text('Click to change image');
+}
+
+/**
+ * Updated predict button handler that supports both file and camera uploads
+ */
+function handlePredictButtonClick() {
+    // Check if we have either uploaded image or captured image
+    if (!uploadedImagePath && !window.capturedImageFile) {
+        return swal({ 
+            title: "No Image Selected",
+            text: "Please upload an image or capture a photo first.", 
+            icon: "error" 
+        });
+    }
+
+    // Re-initialize dropdowns to ensure values are set
+    initializeDropdowns();
+
+    // Get values from dropdowns
+    const $modelSelect = $('#classification-model');
+    const $segmentationSelect = $('#segmentation-model');
+    const modelOption = $modelSelect.val() || 'efficientnetv2b0';
+    const segmentationOption = $segmentationSelect.val() || 'deeplab';
+
+    console.log('=== Prediction Values ===');
+    console.log('modelOption:', modelOption);
+    console.log('segmentationOption:', segmentationOption);
+
+    // Final validation
+    if (!modelOption || modelOption === 'null' || modelOption === 'undefined') {
+        return swal({
+            title: "Model Error",
+            text: "Classification model not properly selected. Please refresh and try again.",
+            icon: "error"
+        });
+    }
+
+    if (!segmentationOption || segmentationOption === 'null' || segmentationOption === 'undefined') {
+        return swal({
+            title: "Segmentation Error",
+            text: "Segmentation model not properly selected. Please refresh and try again.",
+            icon: "error"
+        });
+    }
+
+    const formData = new FormData();
+    
+    // Handle camera capture vs file upload
+    if (window.capturedImageFile) {
+        // Use captured image file
+        formData.append('file', window.capturedImageFile);
+        console.log('Using captured image file for prediction');
+    } else {
+        // Use uploaded image path
+        formData.append('img_path', uploadedImagePath);
+        console.log('Using uploaded image path for prediction');
+    }
+    
+    // Ensure no undefined values are sent
+    formData.append('model_option', String(modelOption));
+    formData.append('segmentation_model', String(segmentationOption));
+
+    console.log('Sending prediction request with data:', {
+        has_captured_file: !!window.capturedImageFile,
+        img_path: uploadedImagePath,
+        model_option: String(modelOption),
+        segmentation_model: String(segmentationOption)
+    });
+
+    const $loading = $('#load');
+    const $transparant = $('#transparant-bg');
+    
+    $loading.show();
+    $transparant.show();
+
+    $.ajax({
+        url: '/predict',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: (data) => {
+            window.location.href = `/result/${data.result_id}`;
+        },
+        error: (xhr, status, error) => {
+            $loading.hide();
+            $transparant.hide();
+            console.error('Prediction error:', xhr.responseJSON);
+            swal({ 
+                title: "Prediction Error", 
+                text: xhr.responseJSON?.error || "Failed to analyze image. Please try again.", 
+                icon: "error" 
+            });
+        }
+    });
 }
 
 // MAIN INITIALIZATION
@@ -374,6 +570,22 @@ $(document).ready(function() {
     // Initialize dropdowns
     initializeDropdowns();
     setupDropdownHandlers();
+
+    // Ensure file mode is active on page load
+    setTimeout(() => {
+        const fileModeBtn = document.getElementById('file-mode-btn');
+        const cameraModeBtn = document.getElementById('camera-mode-btn');
+        const uploadZone = document.getElementById('upload-zone');
+        const cameraContainer = document.getElementById('camera-container');
+        
+        // Force file mode to be active
+        if (fileModeBtn) fileModeBtn.classList.add('active');
+        if (cameraModeBtn) cameraModeBtn.classList.remove('active');
+        if (uploadZone) uploadZone.style.display = 'block';
+        if (cameraContainer) cameraContainer.style.display = 'none';
+        
+        console.log('Forced file mode initialization on page load');
+    }, 50);
     
     // Remove any existing file upload handlers to prevent duplicates
     $fileInput.off('change');
@@ -431,96 +643,18 @@ $(document).ready(function() {
     $predictButton.off('click');
     $cancelUpload.off('click');
     
-    // Predict button handler
-    $predictButton.click(() => {
-        if (!uploadedImagePath) {
-            return swal({ 
-                title: "No Image Selected",
-                text: "Please upload an image first.", 
-                icon: "error" 
-            });
-        }
-
-        // Re-initialize dropdowns to ensure values are set
-        initializeDropdowns();
-
-        // Get values from dropdowns
-        const modelOption = $modelSelect.val() || 'efficientnetv2b0';
-        const segmentationOption = $segmentationSelect.val() || 'deeplab';
-
-        console.log('=== Prediction Values ===');
-        console.log('modelOption:', modelOption);
-        console.log('segmentationOption:', segmentationOption);
-
-        // Final validation
-        if (!modelOption || modelOption === 'null' || modelOption === 'undefined') {
-            return swal({
-                title: "Model Error",
-                text: "Classification model not properly selected. Please refresh and try again.",
-                icon: "error"
-            });
-        }
-
-        if (!segmentationOption || segmentationOption === 'null' || segmentationOption === 'undefined') {
-            return swal({
-                title: "Segmentation Error",
-                text: "Segmentation model not properly selected. Please refresh and try again.",
-                icon: "error"
-            });
-        }
-
-        const formData = new FormData();
-        formData.append('img_path', uploadedImagePath);
-        
-        // Ensure no undefined values are sent
-        formData.append('model_option', String(modelOption));
-        formData.append('segmentation_model', String(segmentationOption));
-
-        console.log('Sending prediction request with data:', {
-            img_path: uploadedImagePath,
-            model_option: String(modelOption),
-            segmentation_model: String(segmentationOption)
-        });
-
-        $loading.show();
-        $transparant.show();
-
-        $.ajax({
-            url: '/predict',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            success: (data) => {
-                window.location.href = `/result/${data.result_id}`;
-            },
-            error: (xhr, status, error) => {
-                $loading.hide();
-                $transparant.hide();
-                console.error('Prediction error:', xhr.responseJSON);
-                swal({ 
-                    title: "Prediction Error", 
-                    text: xhr.responseJSON?.error || "Failed to analyze image. Please try again.", 
-                    icon: "error" 
-                });
-            }
-        });
+    // Predict button handler that supports both file and camera uploads
+    $predictButton.on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        handlePredictButtonClick();
     });
 
-    // Cancel upload button handler
+    // cancel upload button handler that supports both file and camera uploads
     $cancelUpload.on('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        resetFileUpload();
-        
-        // Show a brief feedback message
-        swal({
-            title: "Upload Canceled",
-            text: "File upload has been canceled",
-            icon: "info",
-            timer: 2000,
-            buttons: false
-        });
+        cancelUpload();
     });
 
     // Final initialization check after DOM is fully loaded
@@ -991,7 +1125,7 @@ function showCameraPreview(dataURL) {
     };
     
     tempImg.src = dataURL;
-    
+
     console.log('Camera preview overlay created and event listeners attached');
 }
 
@@ -1064,6 +1198,72 @@ function closeWelcomePopup() {
     }
 }
 
+// HELPER FUNCTIONS
+
+/**
+ * Get current active mode (file or camera)
+ */
+function getCurrentMode() {
+    const cameraContainer = document.getElementById('camera-container');
+    const uploadZone = document.getElementById('upload-zone');
+    const cameraModeBtn = document.getElementById('camera-mode-btn');
+    const fileModeBtn = document.getElementById('file-mode-btn');
+    
+    // Check active button states first
+    const isCameraModeActive = cameraModeBtn && cameraModeBtn.classList.contains('active');
+    const isFileModeActive = fileModeBtn && fileModeBtn.classList.contains('active');
+    
+    console.log('Mode detection - Button states:', {
+        isCameraModeActive,
+        isFileModeActive
+    });
+
+    if (isCameraModeActive) {
+        return 'camera';
+    } else if (isFileModeActive) {
+        return 'file';
+    }
+
+    // Check for captured image file
+    if (window.capturedImageFile) {
+        return 'camera';
+    }
+
+    // Check computed display styles
+    const cameraDisplay = cameraContainer ? window.getComputedStyle(cameraContainer).display : 'none';
+    const uploadDisplay = uploadZone ? window.getComputedStyle(uploadZone).display : 'none';
+    
+    console.log('Mode detection - Display styles:', {
+        cameraDisplay,
+        uploadDisplay
+    });
+    
+    if (cameraDisplay !== 'none' && uploadDisplay === 'none') {
+        return 'camera';
+    } else if (uploadDisplay !== 'none' && cameraDisplay === 'none') {
+        return 'file';
+    }
+    
+    // Check inline styles
+    const cameraInlineDisplay = cameraContainer ? cameraContainer.style.display : '';
+    const uploadInlineDisplay = uploadZone ? uploadZone.style.display : '';
+    
+    console.log('Mode detection - Inline styles:', {
+        cameraInlineDisplay,
+        uploadInlineDisplay
+    });
+    
+    if (cameraInlineDisplay === 'block' || cameraInlineDisplay === 'flex') {
+        return 'camera';
+    } else if (uploadInlineDisplay === 'block' || uploadInlineDisplay === '') {
+        return 'file';
+    }
+    
+    // Default fallback: file mode
+    console.log('Mode detection - Using fallback: file');
+    return 'file';
+}
+
 // GLOBAL WINDOW FUNCTIONS
 
 // Make functions globally available for onclick handlers
@@ -1076,3 +1276,8 @@ window.capturePhoto = capturePhoto;
 window.stopCamera = stopCamera;
 window.updateUploadZoneSuccess = updateUploadZoneSuccess;
 window.updateCameraPreviewSuccess = updateCameraPreviewSuccess;
+window.cancelUpload = cancelUpload;
+window.resetFileUpload = resetFileUpload;
+window.resetCameraCapture = resetCameraCapture;
+window.getCurrentMode = getCurrentMode;
+window.handlePredictButtonClick = handlePredictButtonClick;
