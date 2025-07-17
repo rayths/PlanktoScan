@@ -71,7 +71,7 @@ Follow these steps to set up and run the Plankton Detection App locally:
 ### 2. Clone the Repository
 
 ```bash
-git clone <repository-url> # Replace <repository-url> with the actual URL of this repository
+git clone https://github.com/rayths/PlanktoScan.git
 cd plankton-detection-app # Or your repository's directory name (usually the name of the repo)
 ```
 
