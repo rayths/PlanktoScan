@@ -188,13 +188,10 @@ function handleFileUpload(file) {
             uploadedImagePath = data.img_path;
             $imageUploadInput.val(uploadedImagePath);
             $fileName.text(file.name);
-            $fileInfo.show();
             $predictButton.prop('disabled', false);
             $uploadZone.removeClass('uploading');
             $uploadZone.addClass('success');
             
-            // Update upload zone with success message and keep preview
-            updateUploadZoneSuccess();
         },
         error: () => {
             resetFileUpload();
@@ -227,18 +224,11 @@ function showImagePreview(file) {
             const aspectRatio = originalWidth / originalHeight;
             
             // Get container max width (upload zone width)
-            const containerMaxWidth = $uploadZone.width() - 6; // Subtract border width
-            const containerMaxHeight = 800; // Maximum height we want
+            const containerMaxWidth = $uploadZone.width();
             
             // Calculate display dimensions to fill the container width
             let displayWidth = containerMaxWidth;
             let displayHeight = displayWidth / aspectRatio;
-            
-            // If height exceeds maximum, scale down proportionally
-            if (displayHeight > containerMaxHeight) {
-                displayHeight = containerMaxHeight;
-                displayWidth = displayHeight * aspectRatio;
-            }
             
             $uploadZone.html(`
                 <div class="image-preview-container" style="
@@ -257,25 +247,6 @@ function showImagePreview(file) {
                         box-shadow: 0 4px 15px rgba(0,0,0,0.1);
                         display: block;
                     ">
-                    <div class="upload-success-indicator" style="
-                        position: absolute;
-                        top: 15px;
-                        right: 15px;
-                        background: #27AE60;
-                        color: white;
-                        border-radius: 50%;
-                        width: 40px;
-                        height: 40px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        font-size: 1.2rem;
-                        box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
-                        z-index: 100;
-                        pointer-events: none;
-                    ">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
                     <div class="upload-overlay" style="
                         position: absolute;
                         top: 0;
@@ -349,13 +320,15 @@ function resetFileUpload() {
     $predictButton.prop('disabled', true);
     
     // Reset padding and content
-    $uploadZone.css('padding', '3.5rem 2rem');
+    $uploadZone.removeAttr('style');
     $uploadZone.html(`
-        <div class="upload-icon">
-            <i class="fas fa-cloud-upload-alt"></i>
+        <div class="upload-content" style="padding: 3.5rem 2rem;">
+            <div class="upload-icon">
+                <i class="fas fa-cloud-upload-alt"></i>
+            </div>
+            <div class="upload-text">Click to upload or drag and drop</div>
+            <div class="upload-subtext">PNG, JPG or JPEG (max. 10MB)</div>
         </div>
-        <div class="upload-text">Click to upload or drag and drop</div>
-        <div class="upload-subtext">PNG, JPG or JPEG (max. 10MB)</div>
     `);
 }
 
