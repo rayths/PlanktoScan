@@ -317,18 +317,23 @@ function resetFileUpload() {
     const $uploadZone = $('.upload-zone');
     const $predictButton = $('.btn-predict-image');
     
-    $fileInput.val(''); // Clear the file input
-    $imageUploadInput.val(''); // Clear the hidden input
+    // Clear file inputs and state
+    $fileInput.val('');
+    $imageUploadInput.val('');
     uploadedImagePath = '';
+    window.capturedImageFile = null;
+
+    // Update UI elements
     $fileInfo.hide();
     $fileName.text('No file selected');
     $uploadZone.removeClass('success with-image');
     $predictButton.prop('disabled', true);
     
-    // Reset padding and content
+    // Reset upload zone content and styling - FORCE COMPLETE RESET
     $uploadZone.removeAttr('style');
+    $uploadZone.removeClass('success with-image uploading dragover');
     $uploadZone.html(`
-        <div class="upload-content" style="padding: 3.5rem 2rem;">
+        <div class="upload-content" style="padding: 3.5rem 2rem; min-height: 300px;">
             <div class="upload-icon">
                 <i class="fas fa-cloud-upload-alt"></i>
             </div>
@@ -336,8 +341,27 @@ function resetFileUpload() {
             <div class="upload-subtext">PNG, JPG or JPEG (max. 10MB)</div>
         </div>
     `);
+    
+    // Ensure upload zone is visible and properly styled
+    $uploadZone.css({
+        'display': 'block',
+        'visibility': 'visible',
+        'opacity': '1',
+        'position': 'relative',
+        'pointer-events': 'auto'
+    });
 
-    console.log('File upload state reset');
+    // Remove any existing event handlers and re-attach
+    $uploadZone.off('click.upload');
+    $uploadZone.on('click.upload', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        console.log('Upload zone clicked after reset, triggering file input');
+        $fileInput.trigger('click');
+    });
+
+    console.log('File upload state reset completely');
 }
 
 /**
@@ -367,36 +391,33 @@ function resetCameraCapture() {
     cleanCameraState();
     
     // Restart camera stream
-    if (currentStream) {
-        stopCamera();
-        setTimeout(() => {
+    setTimeout(() => {
+        if (currentStream) {
+            stopCamera();
+            setTimeout(() => {
+                startCamera();
+            }, 300);
+        } else {
             startCamera();
-        }, 200);
-    } else {
-        startCamera();
-    }
+        }
+    }, 100);
     
-    console.log('Camera capture state reset');
+    console.log('Camera capture state reset completely');
 }
 
 /**
  * Universal cancel upload function that handles both file and camera uploads
  */
 function cancelUpload() {
-    // Check if we're in camera mode or file mode
-    const cameraContainer = document.getElementById('camera-container');
-    const uploadZone = document.getElementById('upload-zone');
-    const isCameraMode = cameraContainer && cameraContainer.style.display !== 'none';
-    const isFileMode = uploadZone && uploadZone.style.display !== 'none';
+    const currentMode = getCurrentMode();
     
     console.log('Cancel upload called:', {
-        isCameraMode,
-        isFileMode,
+        currentMode,
         hasCapturedFile: !!window.capturedImageFile,
         hasUploadedPath: !!uploadedImagePath
     });
-    
-    if (isCameraMode || window.capturedImageFile) {
+
+    if (currentMode === 'camera' || window.capturedImageFile) {
         // Reset camera capture state
         resetCameraCapture();
         
@@ -407,7 +428,7 @@ function cancelUpload() {
             timer: 2000,
             buttons: false
         });
-    } else if (isFileMode || uploadedImagePath) {
+    } else if (currentMode === 'file' || uploadedImagePath) {
         // Reset file upload state
         resetFileUpload();
         
