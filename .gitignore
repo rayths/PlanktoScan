@@ -5,3 +5,4 @@ static/lib/fontawesome
 static/uploads
 __pycache__
 routers/__pycache__
+test.txt
