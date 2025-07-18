@@ -10,12 +10,7 @@
     <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap/css/bootstrap.css') }}">    
     <link rel="stylesheet" href="{{ url_for('static', path='lib/fontawesome/css/all.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
-
-    <style>
-        .text-label i {
-            font-size: 1.2rem;
-        }
-    </style>
+    
 </head>
 <body>
     <div class="results-container">
@@ -57,7 +52,7 @@
                                 <label class="text-label">
                                     <i class="fas fa-microscope"></i> Classification Area
                                 </label>
-                                <img src="{{ img_path }}" alt="Plankton Image" class="img-fluid">
+                                <img src="{{ image_path }}" alt="Plankton Image" class="img-fluid">
                             </div>
                         </div>
                     </div>

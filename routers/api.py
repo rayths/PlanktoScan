@@ -1,5 +1,5 @@
 import os
-
+import time
 from utils import predict_img
 from uuid import uuid4
 from typing import Optional
@@ -79,57 +79,94 @@ async def upload_image(file: UploadFile = File(...)):
 
 @router.post("/predict")
 async def predict(
+    request: Request,
+    model_option: str = Form(...),
     file: Optional[UploadFile] = File(None),
     img_path: Optional[str] = Form(None),
-    model_option: str = Form(...)
+    has_captured_file: Optional[bool] = Form(False)
 ):
     try:
-        # Validate and set defaults for any undefined or invalid values
-        if not model_option or model_option in ['undefined', 'null', '']:
-            model_option = 'efficientnetv2b0'
-            logger.warning(f"Invalid model_option received, defaulting to: {model_option}")
+        logger.info(f"Prediction request: model={model_option}, has_file={file is not None}, has_captured={has_captured_file}")
         
-        # Handle file upload (camera capture) vs existing file path
-        if file and file.filename:
-            # Handle uploaded file (camera capture)
-            file_path = os.path.join("static/uploads", "camera-capture.jpg")
-            with open(file_path, "wb") as f:
+        # Handle different image sources
+        if file:
+            # Handle uploaded file
+            file_path = f"static/uploads/{file.filename}"
+            
+            # Save uploaded file
+            with open(file_path, "wb") as buffer:
                 content = await file.read()
-                f.write(content)
-            image_path = file_path
-            logger.info(f"Processing camera capture file: {file_path}, model: {model_option}")
+                buffer.write(content)
+            
+            # Path for template (with leading slash)
+            image_path_for_template = f"/static/uploads/{file.filename}"
+            logger.info(f"File uploaded: {file_path}")
+            
+        elif has_captured_file:
+            # Handle camera capture
+            file_path = "static/uploads/camera-capture.jpg"
+            image_path_for_template = "/static/uploads/camera-capture.jpg"
+            
+            # Verify file exists
+            if not os.path.exists(file_path):
+                raise FileNotFoundError(f"Camera capture file not found: {file_path}")
+            
+            logger.info(f"Using camera capture: {file_path}")
+            
         elif img_path:
-            # Handle existing file path
-            image_path = img_path
-            logger.info(f"Processing existing image: {img_path}, model: {model_option}")
+            # Handle existing image path
+            file_path = img_path
+            
+            # Convert relative path to absolute for template
+            if img_path.startswith("static/"):
+                image_path_for_template = f"/{img_path}"
+            else:
+                image_path_for_template = img_path
+            
+            logger.info(f"Using existing image: {file_path}")
+            
         else:
-            raise ValueError("Either file or img_path must be provided")
+            raise ValueError("No image source provided")
         
-        try:
-            actual_class, probability_class, response = predict_img(model_option, image_path)
-        except Exception as prediction_error:
-            logger.error(f"Error during prediction: {str(prediction_error)}")
-            # Provide default values to prevent unpacking errors
-            actual_class = ["Error", "Unknown", "Unknown"]
-            probability_class = [0.0, 0.0, 0.0]
-            response = f"Error during prediction: {str(prediction_error)}"
-
+        # Verify image file exists before prediction
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"Image file not found: {file_path}")
+        
+        # Run prediction
+        logger.info(f"Starting prediction with model: {model_option}")
+        actual_class, probability_class, response = predict_img(model_option, file_path)
+        
+        # Generate unique result ID
         result_id = str(uuid4())
+        
+        # Store results in cache
         result_cache[result_id] = {
-            "img_path": image_path,
-            "actual_class": actual_class,
-            "probability_class": probability_class,
-            "response": response
+            "image_path": image_path_for_template,
+            "class1": actual_class[0],
+            "class2": actual_class[1],
+            "class3": actual_class[2],
+            "probability1": f"{probability_class[0]:.1%}",
+            "probability2": f"{probability_class[1]:.1%}",
+            "probability3": f"{probability_class[2]:.1%}",
+            "response": response,
+            "timestamp": time.time()
         }
-
+        
+        logger.info(f"Prediction successful. Result ID: {result_id}")
+        logger.info(f"Image path for template: {image_path_for_template}")
+        
         return JSONResponse(content={
-            "result_id": result_id
+            "success": True,
+            "result_id": result_id,
+            "redirect_url": f"/result/{result_id}"
         })
+        
     except Exception as e:
-        logger.error(f"Prediction error: {str(e)}")
-        return JSONResponse(status_code=500, content={
-            "error": f"Gagal memprediksi gambar: {str(e)}"
-        })
+        logger.error(f"Prediction failed: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
 
 @router.get("/result/{result_id}", response_class=HTMLResponse)
 async def result(request: Request, result_id: str):
@@ -138,24 +175,18 @@ async def result(request: Request, result_id: str):
     if not data:
         raise HTTPException(status_code=404, detail="Result not found")
 
-    # Ensure all expected keys exist in the data with safe default
-    actual_class = data.get("actual_class", ["Unknown", "Unknown", "Unknown"])
-    probability_class = data.get("probability_class", [0.0, 0.0, 0.0])
-    
-    # Make sure we have at least 3 values for each
-    while len(actual_class) < 3:
-        actual_class.append("Unknown")
-    while len(probability_class) < 3:
-        probability_class.append(0.0)
+    logger.info(f"Serving result for ID: {result_id}")
+    logger.info(f"Cached data keys: {list(data.keys())}")
+    logger.info(f"Image path from cache: {data.get('image_path', 'NOT_FOUND')}")
 
     return templates.TemplateResponse("result.html", {
         "request": request,
-        "img_path": data.get("img_path", ""),
-        "class1": actual_class[0],
-        "probability1": f'{float(probability_class[0]):.6f}',
-        "class2": actual_class[1],
-        "probability2": f'{float(probability_class[1]):.6f}',
-        "class3": actual_class[2],
-        "probability3": f'{float(probability_class[2]):.6f}',
+        "image_path": data.get("image_path", ""),
+        "class1": data.get("class1", "Unknown"),
+        "probability1": data.get("probability1", "0%"),
+        "class2": data.get("class2", "Unknown"), 
+        "probability2": data.get("probability2", "0%"),
+        "class3": data.get("class3", "Unknown"),
+        "probability3": data.get("probability3", "0%"),
         "response": data.get("response", "No response available")
     })
