@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap/css/bootstrap.css') }}">    
     <link rel="stylesheet" href="{{ url_for('static', path='lib/fontawesome/css/all.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
-    
+
 </head>
 <body>
     <div class="results-container">
@@ -80,7 +80,7 @@
                                             <td>
                                                 <span class="fw-bold text-success">{{probability1}}</span>
                                                 <div class="probability-bar">
-                                                    <div class="probability-fill" style="width: {{probability1|replace('%', '')}}%"></div>
+                                                    <div class="probability-fill rank-1" style="width: {{probability1|replace('%', '')}}%"></div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -92,7 +92,7 @@
                                             <td>
                                                 <span class="fw-bold">{{probability2}}</span>
                                                 <div class="probability-bar">
-                                                    <div class="probability-fill" style="width: {{probability2|replace('%', '')}}%"></div>
+                                                    <div class="probability-fill rank-2" style="width: {{probability2|replace('%', '')}}%"></div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -104,7 +104,7 @@
                                             <td>
                                                 <span class="fw-bold">{{probability3}}</span>
                                                 <div class="probability-bar">
-                                                    <div class="probability-fill" style="width: {{probability3|replace('%', '')}}%"></div>
+                                                    <div class="probability-fill rank-3" style="width: {{probability3|replace('%', '')}}%"></div>
                                                 </div>
                                             </td>
                                         </tr>

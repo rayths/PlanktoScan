@@ -1096,10 +1096,22 @@ body {
 
 .probability-fill {
     height: 100%;
-    background: linear-gradient(90deg, #27AE60, #2ECC71);
     border-radius: 4px;
     transition: width 0.8s ease;
 }
+
+.probability-fill.rank-1 {
+    background: linear-gradient(90deg, #27AE60, #2ECC71);
+}
+
+.probability-fill.rank-2 {
+    background: linear-gradient(90deg, #F39C12, #F7DC6F); 
+}
+
+.probability-fill.rank-3 {
+    background: linear-gradient(90deg, #E74C3C, #F1948A); 
+}
+
 
 .btn-primary-modern {
     background: linear-gradient(135deg, #3498DB, #5DADE2);
