@@ -173,37 +173,37 @@ def load_model_safe(model_path):
     """Load model dengan caching"""
     # Check cache first
     if model_path in MODEL_CACHE:
-        print(f"Loading model from cache: {model_path}")
+        logger.info(f"Loading model from cache: {model_path}")
         return MODEL_CACHE[model_path]
     
     try:
-        print(f"Loading model from disk: {model_path}")
+        logger.info(f"Loading model from disk: {model_path}")
         model = tf.keras.models.load_model(model_path)
         
         # Cache the model
         MODEL_CACHE[model_path] = model
-        print(f"Model cached successfully: {model_path}")
+        logger.info(f"Model cached successfully: {model_path}")
         return model
     except Exception as e:
-        print(f"Error loading model {model_path}: {str(e)}")
+        logger.error(f"Error loading model {model_path}: {str(e)}")
         try:
             # Coba load dengan compile=False sebagai fallback
             model = tf.keras.models.load_model(model_path, compile=False)
             MODEL_CACHE[model_path] = model
-            print(f"Model loaded with compile=False and cached: {model_path}")
+            logger.info(f"Model loaded with compile=False and cached: {model_path}")
             return model
         except Exception as e2:
-            print(f"Second attempt failed: {str(e2)}")
+            logger.error(f"Second attempt failed: {str(e2)}")
             # Jika model adalah SavedModel format, gunakan tf.saved_model.load
             if "File format not supported" in str(e2):
-                print(f"Trying to load as SavedModel: {model_path}")
+                logger.info(f"Trying to load as SavedModel: {model_path}")
                 try:
                     model = tf.saved_model.load(model_path)
                     MODEL_CACHE[model_path] = model
-                    print(f"SavedModel loaded and cached: {model_path}")
+                    logger.info(f"SavedModel loaded and cached: {model_path}")
                     return model
                 except Exception as e3:
-                    print(f"SavedModel loading failed: {str(e3)}")
+                    logger.error(f"SavedModel loading failed: {str(e3)}")
                     raise e3
             raise e2
 
@@ -226,23 +226,8 @@ def preload_models():
     # List of models to preload
     models_to_preload = [
         'efficientnetv2b0',  # Default model
-        'mobilenet',         # MobileNet
-        'mobilenetv2',       # MobileNetV2
-        'mobilenetv3_large', # MobileNetV3 Large
         'mobilenetv3_small', # MobileNetV3 Small
-        'resnet50',          # ResNet50
-        'resnet101',         # ResNet101
-        'resnet50v2',        # ResNet50V2
-        'resnet101v2',       # ResNet101V2
-        'convnext_small',    # ConvNeXt Small
-        'convnext_tiny',     # ConvNeXt Tiny
-        'densenet121',       # DenseNet121
-        'inceptionv3',       # InceptionV3
-        'vit',               # Vision Transformer
-        'bit',               # BiT model
-        'conv',              # Conv model
-        'regnet',            # RegNet model
-        'swin'               # Swin Transformer
+        'resnet50'           # ResNet50
     ]
 
     preloaded_count = 0
@@ -254,11 +239,23 @@ def preload_models():
                 model_path, display_name = model_mapping[model_name]
                 logger.info(f"Preloading {display_name} ({model_name})...")
                 
+                # Cek apakah file model ada
+                if not os.path.exists(model_path):
+                    logger.error(f"Model file not found: {model_path}")
+                    failed_models.append(f"{model_name} (file not found)")
+                    continue
+
                 # Gunakan path yang benar
                 model = load_model_safe(model_path)
                 if model is not None:
                     preloaded_count += 1
                     logger.info(f"{display_name} preloaded successfully")
+
+                    # Verify model is in cache
+                    if model_path in MODEL_CACHE:
+                        logger.info(f"{display_name} confirmed in cache")
+                    else:
+                        logger.warning(f"{display_name} not found in cache after loading")
                 else:
                     failed_models.append(model_name)
                     logger.warning(f"Failed to preload {model_name}")
@@ -338,6 +335,12 @@ def predict_img(model_option, img_path):
         
         model_path, model_name = model_mapping[model_option]
         
+        # Check if model is already in cache
+        if model_path in MODEL_CACHE:
+            logger.info(f"Model FOUND in cache: {model_path}")
+        else:
+            logger.info(f"Model NOT in cache, will load from disk: {model_path}")
+
         # Load model dengan caching untuk performa lebih baik
         logger.info(f"Loading model: {model_option} -> {model_path}")
         model = load_model_safe(model_path)

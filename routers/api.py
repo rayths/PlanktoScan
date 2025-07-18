@@ -1,6 +1,6 @@
 import os
 import time
-from utils import predict_img
+from utils import predict_img, get_cache_info, get_detailed_cache_info, get_model_mapping, MODEL_CACHE
 from uuid import uuid4
 from typing import Optional
 
@@ -17,6 +17,56 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 result_cache = {}
+
+@router.get("/cache-status")
+async def get_cache_status():
+    """Get current model cache status"""
+    try:
+        cache_info = get_cache_info()
+        detailed_info = get_detailed_cache_info()
+        
+        return JSONResponse(content={
+            "status": "success",
+            "cache_info": cache_info,
+            "detailed_info": detailed_info,
+            "cache_keys": list(MODEL_CACHE.keys()),
+            "timestamp": time.time()
+        })
+    except Exception as e:
+        logger.error(f"Error getting cache status: {str(e)}")
+        return JSONResponse(status_code=500, content={
+            "status": "error",
+            "error": str(e)
+        })
+
+@router.get("/preload-status")
+async def get_preload_status():
+    """Check if models are preloaded"""
+    try:
+        model_mapping = get_model_mapping()
+        priority_models = ['efficientnetv2b0', 'mobilenetv2', 'resnet50']
+        
+        preload_status = {}
+        for model_name in priority_models:
+            if model_name in model_mapping:
+                model_path, display_name = model_mapping[model_name]
+                preload_status[model_name] = {
+                    "display_name": display_name,
+                    "path": model_path,
+                    "file_exists": os.path.exists(model_path),
+                    "cached": model_path in MODEL_CACHE
+                }
+        
+        return JSONResponse(content={
+            "status": "success",
+            "preload_status": preload_status,
+            "total_cached": len(MODEL_CACHE)
+        })
+    except Exception as e:
+        return JSONResponse(status_code=500, content={
+            "status": "error",
+            "error": str(e)
+        })
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
