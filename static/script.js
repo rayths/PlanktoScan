@@ -59,19 +59,14 @@ function cleanCameraState() {
  */
 function initializeDropdowns() {
     const $modelSelect = $('#classification-model');
-    const $segmentationSelect = $('#segmentation-model');
     
     // Set default values if not already set
     if (!$modelSelect.val() || $modelSelect.val() === '') {
         $modelSelect.val('efficientnetv2b0');
     }
-    if (!$segmentationSelect.val() || $segmentationSelect.val() === '') {
-        $segmentationSelect.val('deeplab');
-    }
     
     console.log('Dropdowns initialized:', {
-        classification: $modelSelect.val(),
-        segmentation: $segmentationSelect.val()
+        classification: $modelSelect.val()
     });
 }
 
@@ -80,7 +75,6 @@ function initializeDropdowns() {
  */
 function setupDropdownHandlers() {
     const $modelSelect = $('#classification-model');
-    const $segmentationSelect = $('#segmentation-model');
     
     // Remove any existing dropdown handlers first to prevent duplicates
     $(document).off('click.dropdown', '.dropdown-item');
@@ -100,8 +94,6 @@ function setupDropdownHandlers() {
         const dropdownId = $button.attr('id');
         if (dropdownId === 'classificationDropdown') {
             $hiddenInput = $('#classification-model');
-        } else if (dropdownId === 'segmentationDropdown') {
-            $hiddenInput = $('#segmentation-model');
         }
         
         // Update button text
@@ -127,15 +119,10 @@ function setupDropdownHandlers() {
 
     // Remove any existing model select handlers to prevent duplicates
     $modelSelect.off('change');
-    $segmentationSelect.off('change');
     
     // Monitor dropdown changes for debugging
     $modelSelect.on('change', function() {
         console.log('Classification model changed to:', $(this).val());
-    });
-    
-    $segmentationSelect.on('change', function() {
-        console.log('Segmentation model changed to:', $(this).val());
     });
 }
 
@@ -486,27 +473,16 @@ function handlePredictButtonClick() {
 
     // Get values from dropdowns
     const $modelSelect = $('#classification-model');
-    const $segmentationSelect = $('#segmentation-model');
     const modelOption = $modelSelect.val() || 'efficientnetv2b0';
-    const segmentationOption = $segmentationSelect.val() || 'deeplab';
 
     console.log('=== Prediction Values ===');
     console.log('modelOption:', modelOption);
-    console.log('segmentationOption:', segmentationOption);
 
     // Final validation
     if (!modelOption || modelOption === 'null' || modelOption === 'undefined') {
         return swal({
             title: "Model Error",
             text: "Classification model not properly selected. Please refresh and try again.",
-            icon: "error"
-        });
-    }
-
-    if (!segmentationOption || segmentationOption === 'null' || segmentationOption === 'undefined') {
-        return swal({
-            title: "Segmentation Error",
-            text: "Segmentation model not properly selected. Please refresh and try again.",
             icon: "error"
         });
     }
@@ -526,13 +502,11 @@ function handlePredictButtonClick() {
     
     // Ensure no undefined values are sent
     formData.append('model_option', String(modelOption));
-    formData.append('segmentation_model', String(segmentationOption));
 
     console.log('Sending prediction request with data:', {
         has_captured_file: !!window.capturedImageFile,
         img_path: uploadedImagePath,
-        model_option: String(modelOption),
-        segmentation_model: String(segmentationOption)
+        model_option: String(modelOption)
     });
 
     const $loading = $('#load');

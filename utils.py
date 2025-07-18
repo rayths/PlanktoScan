@@ -1,15 +1,16 @@
 import json
-import tf_keras as tfk
+import os
+import logging
+import cv2
 import numpy as np
 import tensorflow as tf
-import cv2
+import tf_keras
 
 from tensorflow import image as tfi
-from tensorflow import data as tfd
 from tf_keras.preprocessing.image import load_img, img_to_array
 from tf_keras.applications.imagenet_utils import preprocess_input
 
-# Import preprocess_input dengan alias spesifik
+# Model-specific preprocessing imports
 from tf_keras.applications.efficientnet import preprocess_input as preprocess_input_efficientnet
 from tf_keras.applications.efficientnet_v2 import preprocess_input as preprocess_input_efficientnetv2
 from tf_keras.applications.mobilenet import preprocess_input as preprocess_input_mobilenet
@@ -21,7 +22,19 @@ from tf_keras.applications.convnext import preprocess_input as preprocess_input_
 from tf_keras.applications.inception_v3 import preprocess_input as preprocess_input_inceptionv3
 from tf_keras.applications.densenet import preprocess_input as preprocess_input_densenet
 
-# Mapping nama model ke fungsi preprocess_input
+# ============================================================================
+# GLOBAL CONFIGURATION
+# ============================================================================
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Global caches for better performance
+MODEL_CACHE = {}
+LABELS_CACHE = None
+
+# Model preprocessing function mapping
 PREPROCESS_FUNCTIONS = {
     'EfficientNetV2B0': preprocess_input_efficientnetv2,
     'EfficientNetV1': preprocess_input_efficientnet,
@@ -39,7 +52,12 @@ PREPROCESS_FUNCTIONS = {
     'DenseNet121': preprocess_input_densenet,
 }
 
+# ============================================================================
+# UTILITY FUNCTIONS
+# ============================================================================
+
 def clean_text(text):
+    """Clean and normalize text by removing special characters"""
     text = text.replace("*", "")
     text = text.replace("#", "")
     text = text.replace("```", "")
@@ -48,266 +66,55 @@ def clean_text(text):
     text = " ".join(text.split())
     return text
 
-def load_image_for_prediction(path, IMAGE_SIZE=(192, 288)):
-    image = load_img(path)
-    image = img_to_array(image)
-    image = tfi.resize(image, IMAGE_SIZE)
-    image = tf.cast(image, tf.float32)
-    image = image / 255.0
-    return image
-
-def load_segmentation_model_safe(model_path):
-    """Load model segmentasi dengan handling khusus untuk SavedModel format"""
-    try:
-        # Coba load dengan tf.saved_model.load untuk SavedModel
-        print(f"Loading segmentation model with tf.saved_model.load: {model_path}")
-        model = tf.saved_model.load(model_path)
-        return model
-    except Exception as e:
-        print(f"tf.saved_model.load failed: {str(e)}")
-        try:
-            # Fallback ke load_model biasa
-            return tf.keras.models.load_model(model_path)
-        except Exception as e2:
-            print(f"Regular model loading failed: {str(e2)}")
-            raise e2
-
-def predict_mask(model, image_path, IMAGE_SIZE=(192, 288)):
-    try:
-        image = load_image_for_prediction(image_path, IMAGE_SIZE=IMAGE_SIZE)
-        
-        # Handle tf.saved_model differently
-        if hasattr(model, 'signatures'):
-            # Ini adalah SavedModel yang dimuat dengan tf.saved_model.load
-            # Gunakan signature default
-            serving_default = model.signatures['serving_default']
-            # Konversi input ke tensor
-            input_tensor = tf.convert_to_tensor(image[np.newaxis, ...], dtype=tf.float32)
-            # Pastikan nama input sesuai dengan model
-            # Biasanya nama input adalah input_1 atau inputs, coba keduanya
-            try:
-                predicted_mask = serving_default(input_1=input_tensor)
-                # Ambil output pertama jika ada beberapa output
-                if isinstance(predicted_mask, dict):
-                    predicted_mask = list(predicted_mask.values())[0]
-            except:
-                try:
-                    predicted_mask = serving_default(inputs=input_tensor)
-                    if isinstance(predicted_mask, dict):
-                        predicted_mask = list(predicted_mask.values())[0]
-                except Exception as e:
-                    print(f"Error with standard input names: {str(e)}")
-                    # Jika nama input tidak diketahui, gunakan key pertama dari signature
-                    try:
-                        input_key = list(serving_default.structured_input_signature[1].keys())[0]
-                        predicted_mask = serving_default(**{input_key: input_tensor})
-                        if isinstance(predicted_mask, dict):
-                            predicted_mask = list(predicted_mask.values())[0]
-                    except Exception as e2:
-                        print(f"Failed to use signature: {str(e2)}")
-                        # Last resort: provide a blank mask
-                        return np.zeros(IMAGE_SIZE + (1,), dtype=np.float32)
-            
-            predicted_mask = predicted_mask.numpy()[0]
-        else:
-            # Ini adalah model biasa
-            try:
-                predicted_mask = model.predict(image[np.newaxis, ...])[0]
-            except Exception as e:
-                print(f"Error in regular model prediction: {str(e)}")
-                # Return a blank mask as fallback
-                return np.zeros(IMAGE_SIZE + (1,), dtype=np.float32)
-        
-        # Ensure the mask is properly normalized between 0 and 1
-        if predicted_mask.max() > 1.0:
-            predicted_mask = predicted_mask / 255.0
-            
-        return predicted_mask
-    except Exception as e:
-        print(f"Error in predict_mask: {str(e)}")
-        # Return a blank mask as fallback
-        return np.zeros(IMAGE_SIZE + (1,), dtype=np.float32)
-
-def input_image(img_path, l_model):
-    actual_image = np.asarray(load_img(img_path))
-    predicted_mask = predict_mask(l_model, img_path)
-    cv2.imwrite('static/uploads/original_image.jpg', cv2.cvtColor(actual_image, cv2.COLOR_RGB2BGR))
-    cv2.imwrite('static/uploads/predicted_mask.jpg', predicted_mask * 255)
-    
-def display_roi_image(image):
-    try:
-        if image is None:
-            print("Warning: Null image passed to display_roi_image")
-            return None
-            
-        # Check if image is already grayscale
-        if len(image.shape) == 3 and image.shape[2] == 3:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        else:
-            gray = image
-            
-        # Apply thresholding to ensure binary image
-        _, binary = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
-        
-        contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        
-        if not contours:
-            print("Warning: No contours found in the image")
-            return None
-            
-        largest_contour = None
-        largest_area = 0
-        
-        for contour in contours:
-            x, y, w, h = cv2.boundingRect(contour)
-            area = w * h
-            if area > largest_area:
-                largest_area = area
-                largest_contour = contour
-        
-        if largest_contour is not None:
-            x, y, w, h = cv2.boundingRect(largest_contour)
-            # Add a small margin around the ROI
-            margin = 10
-            x = max(0, x - margin)
-            y = max(0, y - margin)
-            w = min(w + 2*margin, image.shape[1] - x)
-            h = min(h + 2*margin, image.shape[0] - y)
-            return (x, y, w, h)
-        else:
-            print("Warning: No valid contour found")
-            return None
-    except Exception as e:
-        print(f"Error in display_roi_image: {str(e)}")
-        return None
-
-def return_roi_image():
-    try:
-        img_image = cv2.imread('static/uploads/original_image.jpg')
-        mask_image = cv2.imread('static/uploads/predicted_mask.jpg')
-        
-        if img_image is None or mask_image is None:
-            print("Warning: Failed to read image or mask file")
-            # Return a blank image if the files couldn't be read
-            return np.zeros((224, 224, 3), dtype=np.uint8), (0, 0, 224, 224)
-        
-        img = cv2.resize(img_image, (1728, 1152))
-        mask = cv2.resize(mask_image, (1728, 1152))
-
-        roi_info = display_roi_image(mask)
-        
-        if roi_info is None:
-            print("Warning: No contours found in mask, using full image")
-            # If no contours are found, use the full image
-            x, y = 0, 0
-            w, h = img.shape[1], img.shape[0]
-        else:
-            x, y, w, h = roi_info
-
-        # Ensure we're not exceeding image bounds
-        x = max(0, x)
-        y = max(0, y)
-        w = min(w, img.shape[1] - x)
-        h = min(h, img.shape[0] - y)
-        
-        # Check if ROI has valid dimensions
-        if w <= 0 or h <= 0:
-            print("Warning: Invalid ROI dimensions, using full image")
-            x, y = 0, 0
-            w, h = img.shape[1], img.shape[0]
-            
-        roi = img[y:y+h, x:x+w]
-        roi = cv2.resize(roi, (224, 224))
-        return roi, (x, y, w, h)
-    except Exception as e:
-        print(f"Error in return_roi_image: {str(e)}")
-        # Return a blank image in case of error
-        return np.zeros((224, 224, 3), dtype=np.uint8), (0, 0, 224, 224)
-
-def implement_roi_image(img_path, segmentation_model='deeplab'):
-    """
-    Melakukan segmentasi dengan model yang dipilih
-    Args:
-        img_path: path ke gambar input
-        segmentation_model: pilihan model ('deeplab', 'segnet', 'unet')
-    """
-    # Mapping model segmentasi
-    segmentation_mapping = {
-        'deeplab': 'model/segmentation/deeplab_segmentation_plankton',
-        'segnet': 'model/segmentation/segnet_segmentation_plankton', 
-        'unet': 'model/segmentation/unet_segmentation_plankton'
-    }
-    
-    if segmentation_model not in segmentation_mapping:
-        raise ValueError(f"Model segmentasi '{segmentation_model}' tidak tersedia. Pilihan: {list(segmentation_mapping.keys())}")
-    
-    model_path = segmentation_mapping[segmentation_model]
-    input_image(img_path, load_segmentation_model_safe(model_path))
-    roi, (x, y, w, h) = return_roi_image()
-    return roi, (x, y, w, h)
-
-def detect_and_save_contours(img_path: str, mask_path: str, output_path: str):
-    img = cv2.imread(img_path)
-    mask = cv2.imread(mask_path, 0)
-    
-    img = cv2.resize(img, (1728, 1152))
-    mask = cv2.resize(mask, (1728, 1152))
-    
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    largest_contour = None
-    largest_area = 0
-    
-    for contour in contours:
-        x, y, w, h = cv2.boundingRect(contour)
-        area = w * h
-        if area > largest_area:
-            largest_area = area
-            largest_contour = contour
-    
-    if largest_contour is not None:
-        x, y, w, h = cv2.boundingRect(largest_contour)
-        cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 255), 7)
-    
-    mask_colored = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-    
-    alpha = 0.5
-    combined_img = cv2.addWeighted(img, 1 - alpha, mask_colored, alpha, 0)
-    
-    cv2.imwrite(output_path, combined_img)
-
-def img_array(img_input):
-    img_array = np.expand_dims(img_input, axis=0)
-    img_array = preprocess_input(img_array, mode='tf', data_format=None)
-    return img_array
-
-def preprocess_for_model(img_input, model_name):
-    """Preprocessing sesuai dengan model yang digunakan"""
-    img_array = np.expand_dims(img_input, axis=0)
-    
-    # Gunakan mapping dari PREPROCESS_FUNCTIONS
-    if model_name in PREPROCESS_FUNCTIONS:
-        return PREPROCESS_FUNCTIONS[model_name](img_array)
-    else:
-        # Default preprocessing untuk model lain (VIT, BiT, etc.)
-        return preprocess_input(img_array, mode='tf')
+# ============================================================================
+# MODEL CONFIGURATION
+# ============================================================================
 
 def load_and_preprocess_image(img_input, target_size=(224, 224), preprocessing_fn=None):
-    """Fungsi untuk load + preprocessing image sesuai model tertentu seperti di notebook"""
-    if isinstance(img_input, np.ndarray):
-        # Jika input sudah berupa array, resize saja
-        img = cv2.resize(img_input, target_size)
-        img_array = np.expand_dims(img, axis=0)
-    else:
-        # Jika input adalah path file
-        from tf_keras.preprocessing import image
-        img = image.load_img(img_input, target_size=target_size)
-        img_array = image.img_to_array(img)
-        img_array = np.expand_dims(img_array, axis=0)
-    
-    if preprocessing_fn:
-        img_array = preprocessing_fn(img_array)
-    return img_array
+    """Load and preprocess image for model prediction"""
+    try:
+        if isinstance(img_input, np.ndarray):
+            # If input is already an array, just resize
+            img = cv2.resize(img_input, target_size)
+            img_array = np.expand_dims(img, axis=0)
+        else:
+            # If input is a file path
+            if not os.path.exists(img_input):
+                raise FileNotFoundError(f"Image file not found: {img_input}")
+            
+            img = load_img(img_input, target_size=target_size)
+            img_array = img_to_array(img)
+            img_array = np.expand_dims(img_array, axis=0)
+        
+        if preprocessing_fn:
+            img_array = preprocessing_fn(img_array)
+        
+        return img_array
+    except Exception as e:
+        logger.error(f"Error in load_and_preprocess_image: {str(e)}")
+        raise e
+
+# ============================================================================
+# CACHE MANAGEMENT
+# ============================================================================
+
+def clear_model_cache():
+    """Clear model cache to free memory"""
+    global MODEL_CACHE
+    MODEL_CACHE.clear()
+    logger.info("Model cache cleared")
+
+def get_cache_info():
+    """Get information about cached models"""
+    return {
+        "cached_models": list(MODEL_CACHE.keys()),
+        "cache_size": len(MODEL_CACHE),
+        "labels_cached": LABELS_CACHE is not None
+    }
+
+# ============================================================================
+# MODEL LOADING AND MANAGEMENT
+# ============================================================================
 
 def get_input_size(model_name):
     """Mengembalikan ukuran input yang sesuai untuk setiap model"""
@@ -326,140 +133,347 @@ def get_input_size(model_name):
     else:
         return (224, 224)  # Default size
 
+def get_model_mapping():
+    """Get consistent model mapping used across the application"""
+    return {
+        # Transformer-based models
+        "vit": ('model/classification/vit_model_plankton', "vit"),
+        "bit": ('model/classification/bit_model_plankton', "bit"),
+        "swin": ('model/classification/swin_model_plankton', "swin"),
+        
+        # CNN-based models
+        "conv": ('model/classification/conv_model_plankton', "conv"),
+        "regnet": ('model/classification/regnet_model_plankton', "regnet"),
+        
+        # Modern architectures (.keras files)
+        "convnext_small": ('model/classification/ConvNeXtSmall500DataReplicated.keras', "ConvNeXtSmall"),
+        "convnext_tiny": ('model/classification/ConvNeXtTiny500DataReplicated.keras', "ConvNeXtTiny"),
+        "densenet121": ('model/classification/DenseNet121500DataReplicated.keras', "DenseNet121"),
+        "efficientnetv2b0": ('model/classification/EfficientNetV2B0500DataReplicated.keras', "EfficientNetV2B0"),
+        "inceptionv3": ('model/classification/InceptionV3500DataReplicated.keras', "InceptionV3"),
+        
+        # Mobile-optimized models
+        "mobilenet": ('model/classification/MobileNet500DataReplicated.keras', "MobileNet"),
+        "mobilenetv2": ('model/classification/MobileNetV2500DataReplicated.keras', "MobileNetV2"),
+        "mobilenetv3_large": ('model/classification/MobileNetV3Large500DataReplicated.keras', "MobileNetV3Large"),
+        "mobilenetv3_small": ('model/classification/MobileNetV3Small500DataReplicated.keras', "MobileNetV3Small"),
+        
+        # ResNet family
+        "resnet50": ('model/classification/ResNet50500DataReplicated.keras', "ResNet50"),
+        "resnet101": ('model/classification/ResNet101500DataReplicated.keras', "ResNet101"),
+        "resnet50v2": ('model/classification/ResNet50V2500DataReplicated.keras', "ResNet50V2"),
+        "resnet101v2": ('model/classification/ResNet101V2500DataReplicated.keras', "ResNet101V2"),
+    }
+
+# ============================================================================
+# IMAGE PROCESSING FUNCTIONS
+# ============================================================================
+
 def load_model_safe(model_path):
-    """Load model dengan metode yang sama seperti di notebook"""
+    """Load model dengan caching"""
+    # Check cache first
+    if model_path in MODEL_CACHE:
+        print(f"Loading model from cache: {model_path}")
+        return MODEL_CACHE[model_path]
+    
     try:
-        # Load model seperti di notebook - tanpa parameter tambahan
+        print(f"Loading model from disk: {model_path}")
         model = tf.keras.models.load_model(model_path)
+        
+        # Cache the model
+        MODEL_CACHE[model_path] = model
+        print(f"Model cached successfully: {model_path}")
         return model
     except Exception as e:
         print(f"Error loading model {model_path}: {str(e)}")
         try:
             # Coba load dengan compile=False sebagai fallback
-            return tf.keras.models.load_model(model_path, compile=False)
+            model = tf.keras.models.load_model(model_path, compile=False)
+            MODEL_CACHE[model_path] = model
+            print(f"Model loaded with compile=False and cached: {model_path}")
+            return model
         except Exception as e2:
             print(f"Second attempt failed: {str(e2)}")
             # Jika model adalah SavedModel format, gunakan tf.saved_model.load
             if "File format not supported" in str(e2):
                 print(f"Trying to load as SavedModel: {model_path}")
                 try:
-                    return tf.saved_model.load(model_path)
+                    model = tf.saved_model.load(model_path)
+                    MODEL_CACHE[model_path] = model
+                    print(f"SavedModel loaded and cached: {model_path}")
+                    return model
                 except Exception as e3:
                     print(f"SavedModel loading failed: {str(e3)}")
                     raise e3
             raise e2
 
-def predict_img(model_option, img_path, segmentation_model='deeplab'):
+def load_labels():
+    """Load labels dengan caching"""
+    global LABELS_CACHE
+    if LABELS_CACHE is None:
+        with open('model/labels.json', 'r') as label_file:
+            LABELS_CACHE = json.load(label_file)
+        print("Labels loaded and cached")
+    return LABELS_CACHE
+
+def preload_models():
+    """Preload commonly used models for better performance"""
+    logger.info("Starting model preloading...")
+    
+    # Load model berdasarkan pilihan dengan mapping yang benar
+    model_mapping = get_model_mapping()
+
+    # List of models to preload
+    models_to_preload = [
+        'efficientnetv2b0',  # Default model
+        'mobilenet',         # MobileNet
+        'mobilenetv2',       # MobileNetV2
+        'mobilenetv3_large', # MobileNetV3 Large
+        'mobilenetv3_small', # MobileNetV3 Small
+        'resnet50',          # ResNet50
+        'resnet101',         # ResNet101
+        'resnet50v2',        # ResNet50V2
+        'resnet101v2',       # ResNet101V2
+        'convnext_small',    # ConvNeXt Small
+        'convnext_tiny',     # ConvNeXt Tiny
+        'densenet121',       # DenseNet121
+        'inceptionv3',       # InceptionV3
+        'vit',               # Vision Transformer
+        'bit',               # BiT model
+        'conv',              # Conv model
+        'regnet',            # RegNet model
+        'swin'               # Swin Transformer
+    ]
+
+    preloaded_count = 0
+    failed_models = []
+
+    for model_name in models_to_preload:
+        if model_name in model_mapping:
+            try:
+                model_path, display_name = model_mapping[model_name]
+                logger.info(f"Preloading {display_name} ({model_name})...")
+                
+                # Gunakan path yang benar
+                model = load_model_safe(model_path)
+                if model is not None:
+                    preloaded_count += 1
+                    logger.info(f"{display_name} preloaded successfully")
+                else:
+                    failed_models.append(model_name)
+                    logger.warning(f"Failed to preload {model_name}")
+            except Exception as e:
+                failed_models.append(model_name)
+                logger.error(f"Error preloading {model_name}: {str(e)}")
+        else:
+            failed_models.append(model_name)
+            logger.warning(f"Model {model_name} not found in mapping")
+    
+    logger.info(f"Preloading completed: {preloaded_count}/{len(models_to_preload)} models loaded")
+    if failed_models:
+        logger.warning(f"Failed models: {failed_models}")
+    
+    return preloaded_count
+
+def get_model_file_size(model_name):
+    """Get model file size for monitoring"""
     try:
-        # Load model berdasarkan pilihan dengan mapping yang benar
-        model_mapping = {
-            "vit": ('model/classification/vit_model_plankton', "vit"),
-            "bit": ('model/classification/bit_model_plankton', "bit"),
-            "conv": ('model/classification/conv_model_plankton', "conv"),
-            "regnet": ('model/classification/regnet_model_plankton', "regnet"),
-            "swin": ('model/classification/swin_model_plankton', "swin"),
-            # Model .keras files dengan nama yang sesuai dengan PREPROCESS_FUNCTIONS - Menggunakan model replicated
-            "convnext_small": ('model/classification/ConvNeXtSmall500DataReplicated.keras', "ConvNeXtSmall"),
-            "convnext_tiny": ('model/classification/ConvNeXtTiny500DataReplicated.keras', "ConvNeXtTiny"),
-            "densenet121": ('model/classification/DenseNet121500DataReplicated.keras', "DenseNet121"),
-            "efficientnetv2b0": ('model/classification/EfficientNetV2B0500DataReplicated.keras', "EfficientNetV2B0"),
-            "inceptionv3": ('model/classification/InceptionV3500DataReplicated.keras', "InceptionV3"),
-            "mobilenet": ('model/classification/MobileNet500DataReplicated.keras', "MobileNet"),
-            "mobilenetv2": ('model/classification/MobileNetV2500DataReplicated.keras', "MobileNetV2"),
-            "mobilenetv3_large": ('model/classification/MobileNetV3Large500DataReplicated.keras', "MobileNetV3Large"),
-            "mobilenetv3_small": ('model/classification/MobileNetV3Small500DataReplicated.keras', "MobileNetV3Small"),
-            "resnet50": ('model/classification/ResNet50500DataReplicated.keras', "ResNet50"),
-            "resnet101": ('model/classification/ResNet101500DataReplicated.keras', "ResNet101"),
-            "resnet50v2": ('model/classification/ResNet50V2500DataReplicated.keras', "ResNet50V2"),
-            "resnet101v2": ('model/classification/ResNet101V2500DataReplicated.keras', "ResNet101V2"),
+        # Get the correct model path from mapping
+        model_mapping = get_model_mapping()
+        
+        # Find the model in mapping
+        for key, (model_path, display_name) in model_mapping.items():
+            if display_name.lower() == model_name.lower() or key == model_name:
+                if os.path.exists(model_path):
+                    size_bytes = os.path.getsize(model_path)
+                    size_mb = size_bytes / (1024 * 1024)
+                    return f"{size_mb:.1f} MB"
+                else:
+                    return "File not found"
+        
+        return "Model not in mapping"
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+def get_detailed_cache_info():
+    """Get detailed information about cached models"""
+    cache_info = get_cache_info()
+    
+    detailed_info = {
+        "cache_size": cache_info["cache_size"],
+        "cached_models": [],
+        "total_memory_estimated": "N/A"
+    }
+    
+    for model_name in cache_info["cached_models"]:
+        model_info = {
+            "name": model_name,
+            "file_size": get_model_file_size(model_name),
+            "status": "Loaded in memory"
         }
+        detailed_info["cached_models"].append(model_info)
+    
+    return detailed_info
+
+def predict_img(model_option, img_path):
+    """
+    Prediksi gambar menggunakan model yang dipilih dengan sistem caching
+    
+    Args:
+        model_option (str): Nama model yang dipilih
+        img_path (str): Path ke file gambar
+        
+    Returns:
+        tuple: (actual_class, probability_class, response)
+    """
+    try:
+        logger.info(f"Starting prediction with model: {model_option}")
+
+        # Load model berdasarkan pilihan dengan mapping yang benar
+        model_mapping = get_model_mapping()
         
         if model_option not in model_mapping:
-            raise ValueError("Pilih model yang sesuai.")
+            available_models = list(model_mapping.keys())
+            raise ValueError(f"Model '{model_option}' tidak tersedia. Model yang tersedia: {available_models}")
         
         model_path, model_name = model_mapping[model_option]
-        model = load_model_safe(model_path)
-
-        with open('model/labels.json', 'r') as label_file:
-            class_names = json.load(label_file)
         
+        # Load model dengan caching untuk performa lebih baik
+        logger.info(f"Loading model: {model_option} -> {model_path}")
+        model = load_model_safe(model_path)
+        if model is None:
+            raise RuntimeError(f"Gagal memuat model: {model_path}")
+                
+        # Load labels dengan caching
+        class_names = load_labels()
+        if not class_names:
+            raise RuntimeError("Gagal memuat labels untuk klasifikasi")
+                
         # Tentukan ukuran input dan preprocessing function
         input_size = get_input_size(model_name)
         preprocessing_fn = PREPROCESS_FUNCTIONS.get(model_name, None)
         
+        logger.info(f"Processing image: {img_path} with input size: {input_size}")
+        logger.info(f"Using preprocessing function: {preprocessing_fn.__name__ if preprocessing_fn else 'None'}")
+        
         # Preprocessing menggunakan fungsi dari notebook
         processed_img = load_and_preprocess_image(img_path, target_size=input_size, preprocessing_fn=preprocessing_fn)
+
+        logger.info(f"Running prediction with model: {model_name}")
         
-        # Handle prediksi berbeda untuk SavedModel vs Keras model
-        if hasattr(model, 'signatures'):
-            # Ini adalah SavedModel yang dimuat dengan tf.saved_model.load
-            serving_default = model.signatures['serving_default']
-            # Konversi input ke tensor
-            input_tensor = tf.convert_to_tensor(processed_img, dtype=tf.float32)
-            
-            # Coba berbagai nama input yang umum
-            try:
-                predictions = serving_default(input_1=input_tensor)
-                # Ambil output pertama jika ada beberapa output
-                if isinstance(predictions, dict):
-                    predictions = list(predictions.values())[0]
-            except:
-                try:
-                    predictions = serving_default(inputs=input_tensor)
-                    if isinstance(predictions, dict):
-                        predictions = list(predictions.values())[0]
-                except:
-                    # Jika nama input tidak diketahui, gunakan key pertama dari signature
-                    input_key = list(serving_default.structured_input_signature[1].keys())[0]
-                    predictions = serving_default(**{input_key: input_tensor})
-                    if isinstance(predictions, dict):
-                        predictions = list(predictions.values())[0]
-            
-            # Konversi ke numpy array
-            predictions = predictions.numpy()
-        else:
-            # Ini adalah model Keras biasa
-            predictions = model.predict(processed_img)
+        # Handle prediksi untuk berbagai format model
+        predictions = _run_model_prediction(model, processed_img)
         
-        actual_class = [class_names[str(i)] for i in np.argsort(predictions[0])[-3:][::-1]]
-        probability_class = np.sort(predictions[0])[-3:][::-1].tolist()
+        if predictions is None or len(predictions) == 0:
+            raise RuntimeError("Model tidak menghasilkan prediksi yang valid")
         
-        # Generate response message for the UI
+        # Ambil top 3 prediksi
+        top_3_indices = np.argsort(predictions[0])[-3:][::-1]
+        actual_class = [class_names[str(i)] for i in top_3_indices]
+        probability_class = [predictions[0][i] for i in top_3_indices]
+        
+        # Generate response message untuk UI
         response = f"Hasil prediksi: {actual_class[0]} ({probability_class[0]:.2%})"
+        
+        logger.info(f"Prediction completed successfully: {actual_class[0]} ({probability_class[0]:.2%})")
         
         return actual_class, probability_class, response
 
+    except FileNotFoundError as e:
+        error_msg = f"File gambar tidak ditemukan: {str(e)}"
+        logger.error(error_msg)
+        raise FileNotFoundError(error_msg)
+    
+    except ValueError as e:
+        error_msg = f"Parameter tidak valid: {str(e)}"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+    
+    except RuntimeError as e:
+        error_msg = f"Error runtime: {str(e)}"
+        logger.error(error_msg)
+        raise RuntimeError(error_msg)
+    
     except Exception as e:
-        print(f"Error in predict_img: {str(e)}")
+        error_msg = f"Error tidak terduga dalam predict_img: {str(e)}"
+        logger.error(error_msg)
+        raise Exception(error_msg)
+
+# ============================================================================
+# HELPER FUNCTIONS FOR PREDICTION
+# ============================================================================
+
+def _run_model_prediction(model, processed_img):
+    """
+    Helper function untuk menjalankan prediksi dengan berbagai format model
+    """
+    try:
+        # Cek apakah ini SavedModel atau Keras model
+        if hasattr(model, 'signatures'):
+            logger.info("Detected SavedModel format, using signature-based prediction")
+            return _predict_with_savedmodel(model, processed_img)
+        else:
+            logger.info("Detected Keras model format, using standard prediction")
+            return _predict_with_keras_model(model, processed_img)
+            
+    except Exception as e:
+        logger.error(f"Error during model prediction: {str(e)}")
         raise e
 
-def get_available_segmentation_models():
-    """Mengembalikan daftar model segmentasi yang tersedia"""
-    return {
-        'deeplab': 'DeepLab V3+ (Recommended)',
-        'segnet': 'SegNet',
-        'unet': 'U-Net'
-    }
 
-def get_segmentation_model_info():
-    """Mengembalikan informasi detail tentang setiap model segmentasi"""
-    return {
-        'deeplab': {
-            'name': 'DeepLab V3+',
-            'description': 'State-of-the-art semantic segmentation dengan atrous convolution',
-            'accuracy': 'Tinggi',
-            'speed': 'Sedang'
-        },
-        'segnet': {
-            'name': 'SegNet', 
-            'description': 'Encoder-decoder architecture untuk segmentasi efisien',
-            'accuracy': 'Sedang',
-            'speed': 'Cepat'
-        },
-        'unet': {
-            'name': 'U-Net',
-            'description': 'Arsitektur U-shaped untuk segmentasi biomedical images',
-            'accuracy': 'Tinggi',
-            'speed': 'Sedang'
-        }
-    }
+def _predict_with_savedmodel(model, processed_img):
+    """
+    Prediksi menggunakan SavedModel format
+    """
+    serving_default = model.signatures['serving_default']
+    input_tensor = tf.convert_to_tensor(processed_img, dtype=tf.float32)
+    
+    # Coba berbagai nama input yang umum
+    input_names_to_try = ['input_1', 'inputs', 'x']
+    
+    for input_name in input_names_to_try:
+        try:
+            logger.debug(f"Trying input name: {input_name}")
+            predictions = serving_default(**{input_name: input_tensor})
+            
+            # Ambil output pertama jika ada beberapa output
+            if isinstance(predictions, dict):
+                predictions = list(predictions.values())[0]
+            
+            # Konversi ke numpy array
+            return predictions.numpy()
+            
+        except Exception as e:
+            logger.debug(f"Failed with input name {input_name}: {str(e)}")
+            continue
+    
+    # Jika semua nama input standar gagal, gunakan signature
+    try:
+        logger.debug("Trying with signature inspection")
+        input_signature = serving_default.structured_input_signature[1]
+        input_key = list(input_signature.keys())[0]
+        logger.debug(f"Using detected input key: {input_key}")
+        
+        predictions = serving_default(**{input_key: input_tensor})
+        if isinstance(predictions, dict):
+            predictions = list(predictions.values())[0]
+        
+        return predictions.numpy()
+        
+    except Exception as e:
+        logger.error(f"All SavedModel prediction attempts failed: {str(e)}")
+        raise RuntimeError(f"Gagal menjalankan prediksi dengan SavedModel: {str(e)}")
+
+
+def _predict_with_keras_model(model, processed_img):
+    """
+    Prediksi menggunakan Keras model standar
+    """
+    try:
+        # verbose=0 untuk mengurangi output console
+        predictions = model.predict(processed_img, verbose=0)
+        return predictions
+        
+    except Exception as e:
+        logger.error(f"Keras model prediction failed: {str(e)}")
+        raise RuntimeError(f"Gagal menjalankan prediksi dengan Keras model: {str(e)}")

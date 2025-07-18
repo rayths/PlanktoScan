@@ -1,7 +1,8 @@
 import os
 
-from utils import predict_img, implement_roi_image, detect_and_save_contours, get_available_segmentation_models
+from utils import predict_img
 from uuid import uuid4
+from typing import Optional
 
 from fastapi import APIRouter, UploadFile, File, Form, Request, Response
 from fastapi.responses import JSONResponse, HTMLResponse
@@ -78,9 +79,9 @@ async def upload_image(file: UploadFile = File(...)):
 
 @router.post("/predict")
 async def predict(
-    img_path: str = Form(...),
-    model_option: str = Form(...),
-    segmentation_model: str = Form(default="deeplab")
+    file: Optional[UploadFile] = File(None),
+    img_path: Optional[str] = Form(None),
+    model_option: str = Form(...)
 ):
     try:
         # Validate and set defaults for any undefined or invalid values
@@ -88,16 +89,24 @@ async def predict(
             model_option = 'efficientnetv2b0'
             logger.warning(f"Invalid model_option received, defaulting to: {model_option}")
         
-        if not segmentation_model or segmentation_model in ['undefined', 'null', '']:
-            segmentation_model = 'deeplab'
-            logger.warning(f"Invalid segmentation_model received, defaulting to: {segmentation_model}")
-        
-        logger.info(f"Processing prediction for: {img_path}, model: {model_option}, segmentation: {segmentation_model}")
-        
-        roi, _ = implement_roi_image(img_path, segmentation_model)
+        # Handle file upload (camera capture) vs existing file path
+        if file and file.filename:
+            # Handle uploaded file (camera capture)
+            file_path = os.path.join("static/uploads", "camera-capture.jpg")
+            with open(file_path, "wb") as f:
+                content = await file.read()
+                f.write(content)
+            image_path = file_path
+            logger.info(f"Processing camera capture file: {file_path}, model: {model_option}")
+        elif img_path:
+            # Handle existing file path
+            image_path = img_path
+            logger.info(f"Processing existing image: {img_path}, model: {model_option}")
+        else:
+            raise ValueError("Either file or img_path must be provided")
         
         try:
-            actual_class, probability_class, response = predict_img(model_option, roi)
+            actual_class, probability_class, response = predict_img(model_option, image_path)
         except Exception as prediction_error:
             logger.error(f"Error during prediction: {str(prediction_error)}")
             # Provide default values to prevent unpacking errors
@@ -107,7 +116,7 @@ async def predict(
 
         result_id = str(uuid4())
         result_cache[result_id] = {
-            "img_path": img_path,
+            "img_path": image_path,
             "actual_class": actual_class,
             "probability_class": probability_class,
             "response": response
@@ -129,15 +138,6 @@ async def result(request: Request, result_id: str):
     if not data:
         raise HTTPException(status_code=404, detail="Result not found")
 
-    try:
-        detect_and_save_contours(
-            "static/uploads/original_image.jpg",
-            "static/uploads/predicted_mask.jpg",
-            "static/uploads/output_image.jpg"
-        )
-    except Exception as e:
-        logger.error(f"Error generating contour image: {str(e)}")
-
     # Ensure all expected keys exist in the data with safe default
     actual_class = data.get("actual_class", ["Unknown", "Unknown", "Unknown"])
     probability_class = data.get("probability_class", [0.0, 0.0, 0.0])
@@ -150,7 +150,7 @@ async def result(request: Request, result_id: str):
 
     return templates.TemplateResponse("result.html", {
         "request": request,
-        "img_path": "/static/uploads/output_image.jpg",
+        "img_path": data.get("img_path", ""),
         "class1": actual_class[0],
         "probability1": f'{float(probability_class[0]):.6f}',
         "class2": actual_class[1],
@@ -159,8 +159,3 @@ async def result(request: Request, result_id: str):
         "probability3": f'{float(probability_class[2]):.6f}',
         "response": data.get("response", "No response available")
     })
-
-@router.get("/segmentation-models")
-async def get_segmentation_models():
-    """Endpoint untuk mendapatkan daftar model segmentasi yang tersedia"""
-    return JSONResponse(content=get_available_segmentation_models())
