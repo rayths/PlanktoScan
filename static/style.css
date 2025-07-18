@@ -831,6 +831,49 @@ body {
     transform: scale(1.1);
 }
 
+/* Model Selection Wrapper */
+.model-selection-wrapper {
+    width: 100%;
+    margin: 1.5rem 0;
+}
+
+.model-selection-container {
+    width: 100%;
+    max-width: none;
+}
+
+.model-selection-container .form-group {
+    margin-bottom: 0;
+    width: 100%;
+}
+
+.model-selection-container .text-label {
+    display: block;
+    width: 100%;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0.75rem;
+    text-align: left;
+}
+
+.model-dropdown-btn {
+    width: 100%;
+    padding: 0.875rem 1.25rem;
+    font-size: 1rem;
+    text-align: left;
+    background-color: #fff;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.model-dropdown-menu {
+    width: 100%;
+    border-radius: 12px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
 /* Modern Bootstrap Dropdown Styles */
 .dropdown-toggle,
 .btn-outline-secondary.dropdown-toggle {
@@ -942,6 +985,12 @@ body {
 
 .dropdown-item.active:hover {
     background-color: #218838;
+}
+
+/* Analyze Button Wrapper */
+.analyze-button-wrapper {
+    margin-top: 2rem;
+    width: 100%;
 }
 
 /* Results Page Styles */
@@ -1464,6 +1513,7 @@ body {
     gap: 10px;
     margin-bottom: 1rem;
     justify-content: center;
+    flex-wrap: wrap;
 }
 
 .mode-btn {
@@ -1475,6 +1525,9 @@ body {
     cursor: pointer;
     transition: all 0.3s ease;
     font-weight: 600;
+    flex: 0 0 auto;
+    min-width: 120px; 
+    text-align: center;
 }
 
 .mode-btn.active {
@@ -1510,10 +1563,14 @@ body {
     }
     
     .upload-mode-switch {
-        flex-direction: column;
+        display: flex;
+        flex-direction: row; 
+        gap: 8px; 
+        margin-bottom: 1rem;
+        justify-content: center;
         align-items: center;
-    }
-    
+        flex-wrap: nowrap; 
+    }    
     .mode-btn {
         width: 200px;
         text-align: center;

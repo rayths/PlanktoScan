@@ -121,17 +121,19 @@
                                 </div>
                             </div>
                             
+                            <!-- Hidden file input -->
                             <input type="file" id="file-image-upload" accept="image/*" style="display: none;">
                             <input type="hidden" id="image-upload">
                             
-                            <div class="row g-4 justify-content-center align-items-end">
-                                <div class="col-lg-6 col-md-8">
+                            <!-- Model Selection -->
+                            <div class="model-selection-wrapper">
+                                <div class="model-selection-container">
                                     <div class="form-group">
                                         <label class="text-label">
                                             <i class="fas fa-brain"></i> Classification Model
                                         </label>
                                         <div class="dropdown">
-                                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="classificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <button class="btn btn-outline-secondary dropdown-toggle model-dropdown-btn" type="button" id="classificationDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                                                 EfficientNetV2B0
                                             </button>
                                             <ul class="dropdown-menu" aria-labelledby="classificationDropdown">
@@ -160,11 +162,14 @@
                                 </div>
                             </div>
                             
-                            <div class="d-flex gap-3 justify-content-center flex-wrap">
-                                <button class="btn btn-success-modern btn-modern btn-predict-image" disabled>
-                                    <i class="fas fa-search"></i>
-                                    <span>Analyze Image</span>
-                                </button>
+                            <!-- Analyze Button -->
+                            <div class="analyze-button-wrapper">
+                                <div class="d-flex gap-3 justify-content-center flex-wrap">
+                                    <button class="btn btn-success-modern btn-modern btn-predict-image" disabled>
+                                        <i class="fas fa-search"></i>
+                                        <span>Analyze Image</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
