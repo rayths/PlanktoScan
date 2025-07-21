@@ -163,16 +163,48 @@
                                         <label class="text-label">
                                             <i class="fas fa-map-marker-alt"></i> Sampling Location
                                         </label>
-                                        <input 
-                                            type="text" 
-                                            id="sampling-location" 
-                                            class="form-control location-input" 
-                                            placeholder="Enter sampling location (e.g., Jakarta Bay, Lab Sample, etc.)"
-                                            value="Lab Sample"
-                                        >
-                                        <small class="form-text text-muted">
-                                            Optional: Specify where the sample was collected
-                                        </small>
+                                        <div class="location-input-group">
+                                            <input 
+                                                type="text" 
+                                                id="sampling-location" 
+                                                class="form-control location-input" 
+                                                placeholder="Enter sampling location (e.g., Lab Sample, Jakarta Bay) or use GPS..."
+                                                value="Unknown"
+                                            >
+                                            <div class="location-buttons">
+                                                <button type="button" class="btn btn-gps" id="get-gps-location" title="Get GPS Location">
+                                                    <i class="fas fa-location-arrow gps-icon"></i>
+                                                    <span class="gps-text">GPS</span>
+                                                </button>
+                                                <button type="button" class="btn btn-clear-location" id="clear-location" title="Clear Location">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- GPS Status Indicator -->
+                                        <div class="gps-status" id="gps-status" style="display: none;">
+                                            <div class="gps-loading">
+                                                <i class="fas fa-spinner fa-spin"></i>
+                                                <span>Getting your location...</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Location Accuracy Info -->
+                                        <div class="location-accuracy" id="location-accuracy" style="display: none;">
+                                            <small class="text-muted">
+                                                <i class="fas fa-crosshairs"></i>
+                                                <span id="accuracy-text">Accuracy: ± 0m</span>
+                                                <span id="coords-text"></span>
+                                            </small>
+                                        </div>
+
+                                        <div class="text-center mb-4">
+                                            <p class="text-muted">
+                                                <i class="fas fa-info-circle"></i>
+                                                Optional: Specify where the sample was collected or use GPS
+                                            </p>
+                                        </div>  
                                     </div>
                                 </div>
                             </div>

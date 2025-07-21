@@ -706,8 +706,6 @@ body {
         margin-bottom: 0;
     }
     
-
-    
     .btn-modern {
         width: 100%;
         padding: 16px 25px;
@@ -748,6 +746,93 @@ body {
     .col-lg-5.col-md-6 {
         flex: 0 0 100%;
         max-width: 100%;
+    }
+
+    /* Camera and upload styles for mobile */
+    .camera-controls-zone {
+        height: 70px;
+    }
+
+    .camera-btn {
+        width: 45px;
+        height: 45px;
+        font-size: 1.1rem;
+    }
+
+    .camera-btn.capture {
+        width: 55px;
+        height: 55px;
+        font-size: 1.3rem;
+    }
+    
+    .camera-controls {
+        gap: 12px;
+    }
+    
+    .upload-mode-switch {
+        display: flex;
+        flex-direction: row; 
+        gap: 8px; 
+        margin-bottom: 1rem;
+        justify-content: center;
+        align-items: center;
+        flex-wrap: nowrap; 
+    }    
+    .mode-btn {
+        width: 200px;
+        text-align: center;
+    }
+
+    /* Location input adjustments */
+    .location-input-group {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .location-input-group .location-input {
+        border-radius: 12px;
+        border: 2px solid #e9ecef;
+        width: 100%;
+    }
+    
+    .location-buttons {
+        width: 100%;
+        justify-content: center;
+        gap: 8px;
+    }
+    
+    .btn-gps, .btn-clear-location {
+        border-radius: 8px;
+        flex: 1;
+        max-width: 120px;
+        padding: 12px 10px;
+        font-size: 13px;
+    }
+
+    .btn-gps .gps-text {
+        display: inline;
+    }
+
+    .btn-gps .gps-icon {
+        margin-right: 4px;
+    }
+    
+    /* GPS status adjustments for mobile */
+    .gps-status {
+        margin-top: 12px;
+        padding: 12px;
+        font-size: 14px;
+    }
+    
+    .location-accuracy {
+        margin-top: 10px;
+        padding: 10px;
+    }
+    
+    .location-accuracy small {
+        flex-direction: column;
+        gap: 4px;
+        text-align: center;
     }
     
     /* Results page mobile styling */
@@ -1018,6 +1103,171 @@ body {
 .location-input::placeholder {
     color: #6c757d;
     font-style: italic;
+}
+
+.location-input-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.location-input-group .location-input {
+    flex: 1;
+    border-radius: 12px 0 0 12px;
+    border-right: none;
+}
+
+.location-buttons {
+    display: flex;
+    gap: 5px;
+}
+
+.btn-gps {
+    background: linear-gradient(135deg, #27AE60, #2ECC71);
+    color: white;
+    border: none;
+    border-radius: 0;
+    padding: 12px 15px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    min-width: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.btn-gps:hover {
+    background: linear-gradient(135deg, #229954, #27AE60);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4);
+}
+
+.btn-gps:active {
+    transform: translateY(0);
+}
+
+.btn-gps.loading {
+    background: linear-gradient(135deg, #F39C12, #E67E22);
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.btn-gps.loading .gps-icon {
+    animation: spin 1s linear infinite;
+}
+
+.btn-gps.loading .gps-text {
+    opacity: 0.7;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.btn-gps:disabled {
+    background: #BDC3C7;
+    color: #7F8C8D;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.btn-gps:disabled:hover {
+    background: #BDC3C7;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-gps.success {
+    background: linear-gradient(135deg, #27AE60, #2ECC71);
+}
+
+.btn-gps.error {
+    background: linear-gradient(135deg, #E74C3C, #C0392B);
+}
+
+.btn-clear-location {
+    background: #95A5A6;
+    color: white;
+    border: none;
+    border-radius: 0 12px 12px 0;
+    padding: 12px 15px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    min-width: 50px;
+}
+
+.btn-clear-location:hover {
+    background: #7F8C8D;
+    color: white;
+    transform: translateY(-1px);
+}
+
+.gps-status {
+    margin-top: 10px;
+    padding: 10px 15px;
+    background: #E8F6F3;
+    border: 1px solid #A3E4D7;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.gps-loading {
+    color: #16A085;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.gps-status.success {
+    background: #D5EFDF;
+    border-color: #A9DFBF;
+}
+
+.gps-status.success .gps-loading {
+    color: #27AE60;
+}
+
+.gps-status.error {
+    background: #FADBD8;
+    border-color: #F1948A;
+}
+
+.gps-status.error .gps-loading {
+    color: #E74C3C;
+}
+
+.location-accuracy {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #F8F9FA;
+    border: 1px solid #E9ECEF;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.location-accuracy small {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.gps-icon {
+    font-size: 14px;
+}
+
+.gps-text {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 /* Analyze Button Wrapper */
@@ -1583,41 +1833,4 @@ body {
 .mode-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-    .camera-controls-zone {
-        height: 70px;
-    }
-
-    .camera-btn {
-        width: 45px;
-        height: 45px;
-        font-size: 1.1rem;
-    }
-
-    .camera-btn.capture {
-        width: 55px;
-        height: 55px;
-        font-size: 1.3rem;
-    }
-    
-    .camera-controls {
-        gap: 12px;
-    }
-    
-    .upload-mode-switch {
-        display: flex;
-        flex-direction: row; 
-        gap: 8px; 
-        margin-bottom: 1rem;
-        justify-content: center;
-        align-items: center;
-        flex-wrap: nowrap; 
-    }    
-    .mode-btn {
-        width: 200px;
-        text-align: center;
-    }
 }
