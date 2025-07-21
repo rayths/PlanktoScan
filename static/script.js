@@ -505,11 +505,16 @@ function handlePredictButtonClick() {
     // Re-initialize dropdowns to ensure values are set
     initializeDropdowns();
 
-    // Get values from dropdowns
+    // Get values from dropdowns and location input
     const $modelSelect = $('#classification-model');
     const $locationInput = $('#sampling-location');
     const modelOption = $modelSelect.val() || 'efficientnetv2b0';
-    const locationValue = $locationInput.val() || 'unknown';
+
+    // Handle empty location input
+    let locationValue = $locationInput.val();
+    if (!locationValue || locationValue.trim() === '') {
+        locationValue = 'Unknown';
+    }
 
     console.log('=== Prediction Values ===');
     console.log('modelOption:', modelOption);
@@ -1385,7 +1390,7 @@ function clearLocationInput() {
     const $gpsStatus = $('#gps-status');
 
     // Clear input and hide info
-    $locationInput.val('Unknown'); // Reset to default
+    $locationInput.val('');
     $accuracyInfo.hide();
     $gpsStatus.hide();
     
@@ -1567,9 +1572,12 @@ $(document).ready(function() {
     setupDropdownHandlers();
 
     // Initialize location input dengan default value
-    if ($locationInput.length && !$locationInput.val()) {
-        $locationInput.val('Unknown');
-        console.log('Location input initialized with default value: Unknown');
+    if ($locationInput.length) {
+        const currentValue = $locationInput.val();
+        if (!currentValue || currentValue === '' || currentValue === 'Unknown') {
+            $locationInput.val(''); // Set kosong untuk menampilkan placeholder
+            console.log('Location input initialized with empty value (showing placeholder)');
+        }
     }
 
     // Ensure file mode is active on page load
