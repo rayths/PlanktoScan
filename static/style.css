@@ -987,6 +987,39 @@ body {
     background-color: #218838;
 }
 
+/* Location Input Styling */
+.location-input-wrapper {
+    width: 100%;
+    margin: 1.5rem 0;
+}
+
+.location-input-container {
+    width: 100%;
+}
+
+.location-input {
+    width: 100%;
+    padding: 0.875rem 1.25rem;
+    font-size: 1rem;
+    background-color: #fff;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+
+.location-input:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+    background-color: #fff;
+    outline: none;
+}
+
+.location-input::placeholder {
+    color: #6c757d;
+    font-style: italic;
+}
+
 /* Analyze Button Wrapper */
 .analyze-button-wrapper {
     margin-top: 2rem;

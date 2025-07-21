@@ -100,5 +100,32 @@ async def favicon():
 
 app.include_router(api.router)
 
+@app.on_event("startup")
+async def startup_event():
+    """Initialize application on startup"""
+    logger.info("Starting PlanktoScan application...")
+    
+    # Preload models for better performance
+    logger.info("Preloading models...")
+    try:
+        preloaded_count = preload_models()
+        logger.info(f"Preloaded {preloaded_count} models successfully")
+    except Exception as e:
+        logger.error(f"Model preloading failed: {e}")
+        logger.warning("Application will continue without preloaded models")
+    
+    logger.info("PlanktoScan startup completed!")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on application shutdown"""
+    logger.info("Shutting down PlanktoScan application...")
+    
+    # Clear model cache
+    from utils import clear_model_cache
+    clear_model_cache()
+    
+    logger.info("PlanktoScan shutdown completed!")
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

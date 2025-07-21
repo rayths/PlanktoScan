@@ -303,12 +303,19 @@ function resetFileUpload() {
     const $fileInfo = $('#file-info');
     const $uploadZone = $('.upload-zone');
     const $predictButton = $('.btn-predict-image');
+    const $locationInput = $('#sampling-location');
     
     // Clear file inputs and state
     $fileInput.val('');
     $imageUploadInput.val('');
     uploadedImagePath = '';
     window.capturedImageFile = null;
+
+    // Reset location input ke default
+    if ($locationInput.length) {
+        $locationInput.val('Lab Sample');
+        console.log('Location input reset to default: Lab Sample');
+    }
 
     // Update UI elements
     $fileInfo.hide();
@@ -359,11 +366,18 @@ function resetCameraCapture() {
     const $fileName = $('#file-name');
     const $fileInfo = $('#file-info');
     const $predictButton = $('.btn-predict-image');
+    const $locationInput = $('#sampling-location');
     
     // Reset global variables
     window.capturedImageFile = null;
     uploadedImagePath = '';
     
+    // Reset location input ke default
+    if ($locationInput.length) {
+        $locationInput.val('Lab Sample');
+        console.log('Location input reset to default: Lab Sample');
+    }
+
     // Reset UI elements
     $fileName.text('No file selected');
     $fileInfo.hide();
@@ -473,10 +487,13 @@ function handlePredictButtonClick() {
 
     // Get values from dropdowns
     const $modelSelect = $('#classification-model');
+    const $locationInput = $('#sampling-location');
     const modelOption = $modelSelect.val() || 'efficientnetv2b0';
+    const locationValue = $locationInput.val() || 'unknown';
 
     console.log('=== Prediction Values ===');
     console.log('modelOption:', modelOption);
+    console.log('locationValue:', locationValue);
 
     // Final validation
     if (!modelOption || modelOption === 'null' || modelOption === 'undefined') {
@@ -487,7 +504,19 @@ function handlePredictButtonClick() {
         });
     }
 
+    // Validate location input
+    if (!locationValue || locationValue.trim() === '') {
+        return swal({
+            title: "Location Required",
+            text: "Please enter a sampling location.",
+            icon: "warning"
+        });
+    }
+
     const formData = new FormData();
+
+    // Add location to form data
+    formData.append('location', locationValue.trim());
     
     // Handle camera capture vs file upload
     if (window.capturedImageFile) {
@@ -506,7 +535,8 @@ function handlePredictButtonClick() {
     console.log('Sending prediction request with data:', {
         has_captured_file: !!window.capturedImageFile,
         img_path: uploadedImagePath,
-        model_option: String(modelOption)
+        model_option: String(modelOption),
+        location: locationValue.trim()
     });
 
     const $loading = $('#load');
@@ -521,16 +551,38 @@ function handlePredictButtonClick() {
         data: formData,
         processData: false,
         contentType: false,
+        timeout: 60000,
         success: (data) => {
-            window.location.href = `/result/${data.result_id}`;
+            console.log('Prediction successful:', data);
+            if (data.stored_filename) {
+                console.log('Stored as:', data.stored_filename);
+            } if (data.result_id) {
+                window.location.href = `/result/${data.result_id}`;
+            } else {
+                throw new Error('Invalid response: missing result_id');
+            }
         },
         error: (xhr, status, error) => {
             $loading.hide();
             $transparant.hide();
+            
             console.error('Prediction error:', xhr.responseJSON);
+
+            let errorMessage = "Failed to analyze image. Please try again.";
+            
+            if (xhr.status === 413) {
+                errorMessage = "File too large. Please upload a smaller image.";
+            } else if (xhr.status === 0) {
+                errorMessage = "Network error. Please check your connection.";
+            } else if (status === 'timeout') {
+                errorMessage = "Request timed out. Please try again.";
+            } else if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMessage = xhr.responseJSON.error;
+            }
+
             swal({ 
                 title: "Prediction Error", 
-                text: xhr.responseJSON?.error || "Failed to analyze image. Please try again.", 
+                text: errorMessage, 
                 icon: "error" 
             });
         }
@@ -561,10 +613,17 @@ $(document).ready(function() {
     const $transparant = $('#transparant-bg');
     const $modelSelect = $('#classification-model');
     const $segmentationSelect = $('#segmentation-model');
+    const $locationInput = $('#sampling-location');
     
     // Initialize dropdowns
     initializeDropdowns();
     setupDropdownHandlers();
+
+    // Initialize location input dengan default value
+    if ($locationInput.length && !$locationInput.val()) {
+        $locationInput.val('Lab Sample');
+        console.log('Location input initialized with default value: Lab Sample');
+    }
 
     // Ensure file mode is active on page load
     setTimeout(() => {
@@ -652,11 +711,25 @@ $(document).ready(function() {
         cancelUpload();
     });
 
+    // Location input validation (optional)
+    $locationInput.on('input', function() {
+        const value = $(this).val();
+        console.log('Location input changed to:', value);
+        
+        // Optional: Clean input untuk filename safety
+        const cleanedValue = value.replace(/[^a-zA-Z0-9\s\-_]/g, '');
+        if (cleanedValue !== value) {
+            $(this).val(cleanedValue);
+            console.log('Location input cleaned to:', cleanedValue);
+        }
+    });
+
     // Final initialization check after DOM is fully loaded
     setTimeout(() => {
         console.log('=== Final Initialization Check ===');
         console.log('Classification model:', $modelSelect.val());
         console.log('Segmentation model:', $segmentationSelect.val());
+        console.log('Location input:', $locationInput.val());
         
         // Force re-initialization if any value is still empty
         initializeDropdowns();
@@ -1259,6 +1332,32 @@ function getCurrentMode() {
     return 'file';
 }
 
+/**
+ * Validate and clean location input for filename safety
+ */
+function validateLocationInput(location) {
+    if (!location || location.trim() === '') {
+        return 'unknown';
+    }
+    
+    // Clean location untuk filename safety
+    let cleaned = location.trim();
+    cleaned = cleaned.replace(/[^a-zA-Z0-9\s\-_]/g, ''); // Remove special characters
+    cleaned = cleaned.replace(/\s+/g, '_'); // Replace spaces with underscores
+    cleaned = cleaned.substring(0, 50); // Limit length
+    
+    return cleaned || 'unknown';
+}
+
+/**
+ * Get current location value with validation
+ */
+function getCurrentLocation() {
+    const $locationInput = $('#sampling-location');
+    const rawLocation = $locationInput.length ? $locationInput.val() : '';
+    return validateLocationInput(rawLocation);
+}
+
 // GLOBAL WINDOW FUNCTIONS
 
 // Make functions globally available for onclick handlers
@@ -1276,3 +1375,5 @@ window.resetFileUpload = resetFileUpload;
 window.resetCameraCapture = resetCameraCapture;
 window.getCurrentMode = getCurrentMode;
 window.handlePredictButtonClick = handlePredictButtonClick;
+window.validateLocationInput = validateLocationInput;
+window.getCurrentLocation = getCurrentLocation;

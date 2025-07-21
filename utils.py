@@ -5,6 +5,11 @@ import cv2
 import numpy as np
 import tensorflow as tf
 import tf_keras
+import string
+import secrets
+from datetime import datetime
+from PIL import Image
+import os
 
 from tensorflow import image as tfi
 from tf_keras.preprocessing.image import load_img, img_to_array
@@ -480,3 +485,138 @@ def _predict_with_keras_model(model, processed_img):
     except Exception as e:
         logger.error(f"Keras model prediction failed: {str(e)}")
         raise RuntimeError(f"Gagal menjalankan prediksi dengan Keras model: {str(e)}")
+    
+# ============================================================================
+# DATABASE UTILITY FUNCTIONS
+# ============================================================================
+
+def generate_stored_filename(location=None, classification_result=None, original_extension=".jpg"):
+    """
+    Generate filename dengan format: {tanggal}_{lokasi}_{hasil_klasifikasi}_{random}.{ext}
+    
+    Args:
+        location (str): Lokasi sampling (default: "unknown")
+        classification_result (str): Hasil klasifikasi top 1
+        original_extension (str): Ekstensi file asli
+    
+    Returns:
+        str: Generated filename
+    """
+    # Format tanggal: YYYYMMDD_HHMMSS
+    date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Clean location (hapus karakter yang tidak valid untuk filename)
+    if not location:
+        location = "unknown"
+    clean_location = "".join(c for c in location if c.isalnum() or c in ('-', '_')).rstrip()
+    clean_location = clean_location[:20]  # Batasi panjang
+    
+    # Clean classification result
+    if not classification_result:
+        classification_result = "unclassified"
+    clean_classification = "".join(c for c in classification_result if c.isalnum() or c in ('-', '_')).rstrip()
+    clean_classification = clean_classification[:30]  # Batasi panjang
+    
+    # Generate random string untuk uniqueness
+    random_suffix = ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(6))
+    
+    # Combine all parts
+    filename = f"{date_str}_{clean_location}_{clean_classification}_{random_suffix}{original_extension}"
+    
+    return filename
+
+def get_image_metadata(file_path):
+    """Get image metadata (dimensions, size)"""
+    try:
+        # File size
+        file_size = os.path.getsize(file_path)
+        
+        # Image dimensions
+        with Image.open(file_path) as img:
+            width, height = img.size
+        
+        return {
+            "file_size": file_size,
+            "width": width,
+            "height": height
+        }
+    except Exception as e:
+        logger.error(f"Error getting image metadata: {str(e)}")
+        return {
+            "file_size": 0,
+            "width": 0,
+            "height": 0
+        }
+
+def save_upload_to_database(
+    db_session,
+    original_filename,
+    stored_filename,
+    file_path,
+    location,
+    model_used,
+    classification_results,
+    user_ip=None,
+    processing_time=None
+):
+    """
+    Save upload data to database
+    
+    Args:
+        db_session: Database session
+        original_filename (str): Original filename from user
+        stored_filename (str): Generated filename for storage
+        file_path (str): Full path to stored file
+        location (str): Location/sampling site
+        model_used (str): Model used for classification
+        classification_results (tuple): (actual_class, probability_class, response)
+        user_ip (str): User IP address
+        processing_time (float): Processing time in seconds
+    
+    Returns:
+        PlanktonUpload: Saved record
+    """
+    try:
+        from database import PlanktonUpload
+        
+        actual_class, probability_class, response = classification_results
+        
+        # Get image metadata
+        metadata = get_image_metadata(file_path)
+        
+        # Create database record
+        upload_record = PlanktonUpload(
+            original_filename=original_filename,
+            stored_filename=stored_filename,
+            file_path=file_path,
+            location=location,
+            model_used=model_used,
+            
+            # Top 3 classification results
+            top_class=actual_class[0] if len(actual_class) > 0 else "Unknown",
+            top_probability=probability_class[0] if len(probability_class) > 0 else 0.0,
+            second_class=actual_class[1] if len(actual_class) > 1 else None,
+            second_probability=probability_class[1] if len(probability_class) > 1 else None,
+            third_class=actual_class[2] if len(actual_class) > 2 else None,
+            third_probability=probability_class[2] if len(probability_class) > 2 else None,
+            
+            # Metadata
+            file_size=metadata["file_size"],
+            image_width=metadata["width"],
+            image_height=metadata["height"],
+            user_ip=user_ip,
+            processing_time=processing_time
+        )
+        
+        # Save to database
+        db_session.add(upload_record)
+        db_session.commit()
+        db_session.refresh(upload_record)
+        
+        logger.info(f"Upload saved to database: ID={upload_record.id}, filename={stored_filename}")
+        return upload_record
+        
+    except Exception as e:
+        db_session.rollback()
+        logger.error(f"Error saving to database: {str(e)}")
+        raise e
