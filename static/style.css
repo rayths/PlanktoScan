@@ -1102,7 +1102,22 @@ body {
 
 .location-input::placeholder {
     color: #6c757d;
+    opacity: 0.8;
     font-style: italic;
+    transition: opacity 0.3s ease;
+}
+
+.location-input:focus::placeholder {
+    opacity: 0.5;
+    transform: translateY(-2px);
+}
+
+.location-input:placeholder-shown {
+    font-style: italic;
+}
+
+.location-input:not(:placeholder-shown) {
+    font-style: normal;
 }
 
 .location-input-group {

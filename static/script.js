@@ -1121,6 +1121,21 @@ function isCachedLocationValid() {
 }
 
 /**
+ * Update location input placeholder based on mode
+ */
+function updateLocationPlaceholder(mode = 'default') {
+    const $locationInput = $('#sampling-location');
+    
+    const placeholders = {
+        'default': 'Enter location or use GPS...',
+        'gps_loading': 'Getting GPS location...',
+        'manual': 'Type your location here...'
+    };
+    
+    $locationInput.attr('placeholder', placeholders[mode] || placeholders['default']);
+}
+
+/**
  * Get current GPS location
  */
 function getCurrentGPSLocation() {
@@ -1160,6 +1175,9 @@ function getCurrentGPSLocation() {
     $gpsStatus.show().removeClass('success error');
     $gpsStatus.find('span').text('Getting your location...');
     $accuracyInfo.hide();
+
+    // Update placeholder during GPS loading
+    updateLocationPlaceholder('gps_loading');
 
     // GPS options
     const options = {
