@@ -14,8 +14,11 @@ Pillow==10.4.0
 sqlalchemy==2.0.36
 python-multipart==0.0.12
 
+# Database Drivers
+psycopg2-binary==2.9.10  # PostgreSQL driver
+PyMySQL==1.1.1           # MySQL driver
+
 # File Handling & Validation
-python-multipart==0.0.12
 aiofiles==24.1.0
 
 # Template Engine
@@ -26,7 +29,6 @@ httpx==0.28.1
 requests==2.32.3
 
 # Image Processing
-Pillow==10.4.0
 scikit-image==0.24.0
 
 # Utilities
