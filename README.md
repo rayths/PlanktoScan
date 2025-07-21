@@ -1,19 +1,54 @@
-# Plankton Detection App
+# PlanktoScan - Advanced Plankton Detection & Classification System
 
 ## Description
 
-The Plankton Detection App is a web application built with FastAPI that allows users to upload images of plankton, select machine learning models for segmentation and classification, and receive predictions about the plankton species present in the image. The application provides a user-friendly interface to interact with the underlying ML models and visualize the results.
+PlanktoScan is a comprehensive web application built with FastAPI that enables researchers and marine biologists to upload plankton images, perform automated classification using state-of-the-art machine learning models, and receive detailed analysis results. The application features GPS location tracking, database storage, user feedback system, and supports both file uploads and real-time camera capture for plankton analysis.
 
 ## Features
 
-*   **Image Upload:** Users can upload plankton images through a web interface.
-*   **Model Selection:**
-    *   Choose from various image segmentation models (e.g., DeepLab V3+, SegNet, U-Net) to identify the region of interest (ROI).
-    *   Choose from a range of image classification models (e.g., ViT, BiT, ConvNeXt, EfficientNet, ResNet, MobileNet) to predict plankton species.
-*   **Plankton Prediction:** Get predictions for the top 3 most probable plankton species with their confidence scores.
-*   **Result Visualization:** View the original image with the detected plankton highlighted by a bounding box and segmentation mask.
-*   **Static File Serving:** Serves static assets like CSS, JavaScript, and images.
-*   **API Endpoints:** Provides API endpoints for programmatic interaction (details below).
+### 🖼️ **Image Processing**
+*   **Multiple Upload Methods:** Upload images via file browser, drag-and-drop, or real-time camera capture
+*   **Image Preview:** Live preview with responsive sizing and hover effects
+*   **Format Support:** PNG, JPG, JPEG (max 10MB)
+*   **Validation:** Client-side file type and size validation
+
+### 🧠 **Machine Learning Models**
+*   **Classification Models:** Choose from various pre-trained models:
+    *   EfficientNetV2B0 (default)
+    *   ResNet50, MobileNet, MobileNetV2, MobileNetV3
+    *   ConvNeXt Tiny, DenseNet121, InceptionV3
+    *   BigTransfer (BiT), Vision Transformer (ViT)
+*   **Model Caching:** Intelligent model preloading for faster predictions
+*   **Top-3 Predictions:** Get the 3 most probable species with confidence scores
+*   **Performance Monitoring:** Track processing time and accuracy metrics
+
+### 🌍 **GPS & Location Features**
+*   **GPS Integration:** Automatic location detection using device GPS
+*   **Reverse Geocoding:** Convert GPS coordinates to human-readable addresses
+*   **Manual Location Input:** Option to manually enter sampling location
+*   **Location Accuracy Display:** Show GPS accuracy in meters
+*   **Multiple Geocoding Services:** Fallback services for better coverage
+
+### 🗄️ **Database & Storage**
+*   **Multi-Database Support:** SQLite (development), PostgreSQL, MySQL
+*   **Automatic File Naming:** `{date}_{location}_{classification}_{random}.ext`
+*   **Metadata Storage:** File info, processing time, accuracy, user data
+*   **Upload History:** Complete record of all classifications
+*   **Performance Analytics:** Track model usage and success rates
+
+### 📊 **Admin & Monitoring**
+*   **Admin Dashboard:** `/admin` - Database monitoring and statistics
+*   **Real-time Statistics:** Upload counts, model performance, location data
+*   **Database Testing:** Connection testing and health checks
+*   **Export Features:** JSON export of classification data
+*   **Performance Metrics:** Processing time, accuracy tracking
+
+### 📱 **User Interface**
+*   **Responsive Design:** Works seamlessly on desktop, tablet, and mobile
+*   **Dark/Light Theme:** Modern UI with smooth animations
+*   **Real-time Feedback:** Loading states, progress indicators, error handling
+*   **Welcome Tour:** First-time user guidance
+*   **Accessibility:** Screen reader support and keyboard navigation
 
 ## Tech Stack
 
@@ -29,14 +64,13 @@ Here's an overview of the key directories and files in this project:
 
 ```
 .
-├── model/                  # Directory to store machine learning models (segmentation & classification)
-│   ├── classification/     # Classification models (e.g., EfficientNetV2B0, ResNet50, etc.)
-│   └── segmentation/       # Segmentation models (e.g., deeplab, segnet, unet)
+├── model/                  # Directory to store machine learning models
+│   └── classification/     # Classification models (e.g., EfficientNetV2B0, ResNet50, etc.)
 ├── routers/                # Contains API route definitions
 │   └── api.py              # Defines all API endpoints for the application
 ├── static/                 # Static assets (CSS, JavaScript, images)
 │   ├── assets/             # General image assets for UI
-│   ├── lib/                # Third-party frontend libraries (jQuery, SweetAlert)
+│   ├── lib/                # Third-party frontend libraries (fontawesome,Bootstrap, jQuery, SweetAlert)
 │   ├── uploads/            # Default directory for user-uploaded images and generated results
 │   ├── script.js           # Custom JavaScript for the frontend
 │   └── style.css           # Custom CSS styles for the frontend
@@ -44,6 +78,7 @@ Here's an overview of the key directories and files in this project:
 │   ├── dashboard.html      # Main page for image upload and model selection
 │   └── result.html         # Page to display prediction results
 ├── .gitignore              # Specifies intentionally untracked files that Git should ignore
+├── database.py
 ├── main.py                 # Main FastAPI application setup and entry point
 ├── requirements.txt        # Lists Python dependencies for the project
 ├── utils.py                # Core utility functions for image processing, model loading, and prediction logic
@@ -72,7 +107,7 @@ Follow these steps to set up and run the Plankton Detection App locally:
 
 ```bash
 git clone https://github.com/rayths/PlanktoScan.git
-cd plankton-detection-app # Or your repository's directory name (usually the name of the repo)
+cd PlanktoScan # Or your repository's directory name
 ```
 
 ### 3. Create and Activate a Virtual Environment (Recommended)
