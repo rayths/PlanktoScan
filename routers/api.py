@@ -1,15 +1,15 @@
 import os
 import time
+from datetime import datetime
 from utils import predict_img, get_cache_info, get_detailed_cache_info, get_model_mapping, MODEL_CACHE, generate_stored_filename, save_upload_to_database, get_image_metadata
-from uuid import uuid4
 from typing import Optional
 
-from fastapi import APIRouter, UploadFile, File, Form, Request, Response, Depends
-from sqlalchemy.orm import Session
-from database import get_db
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi import APIRouter, UploadFile, File, Form, Request, Response, Depends, HTTPException
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from fastapi import HTTPException
+from sqlalchemy.orm import Session
+from sqlalchemy import func, case
+from database import get_db, User, Feedback
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -19,6 +19,280 @@ router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
 result_cache = {}
+
+# Login Routes
+@router.get("/login/brin", response_class=HTMLResponse)
+async def login_brin(request: Request, next: str = "/"):
+    """Login page for BRIN internal users"""
+    login_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Login Sivitas BRIN - PlanktoScan</title>
+        <link href="/static/style.css" rel="stylesheet">
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body>
+        <div class="login-container">
+            <div class="login-card">
+                <div class="text-center mb-4">
+                    <i class="fas fa-id-badge fa-3x text-success mb-3"></i>
+                    <h3>Login Sivitas BRIN</h3>
+                    <p class="text-muted">Masuk menggunakan akun resmi BRIN</p>
+                </div>
+                
+                <form id="brin-login-form" method="post" action="/auth/brin">
+                    <div class="mb-3">
+                        <label class="form-label">Email BRIN</label>
+                        <input type="email" name="email" class="form-control" placeholder="nama@brin.go.id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" name="password" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Unit Kerja</label>
+                        <select name="organization" class="form-select" required>
+                            <option value="">Pilih Unit Kerja</option>
+                            <option value="Oseanografi">Oseanografi</option>
+                            <option value="Limnologi">Limnologi</option>
+                            <option value="Biodiversitas">Biodiversitas</option>
+                            <option value="Informatika">Informatika</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                    <input type="hidden" name="next" value="{next}">
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                </form>
+                
+                <div class="text-center mt-3">
+                    <a href="/login/guest?next={next}" class="text-muted">Login sebagai Tamu</a>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=login_html)
+
+@router.get("/login/guest", response_class=HTMLResponse) 
+async def login_guest(request: Request, next: str = "/"):
+    """Login page for external/guest users"""
+    login_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Login Tamu - PlanktoScan</title>
+        <link href="/static/style.css" rel="stylesheet">
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    </head>
+    <body>
+        <div class="login-container">
+            <div class="login-card">
+                <div class="text-center mb-4">
+                    <i class="fas fa-user-plus fa-3x text-primary mb-3"></i>
+                    <h3>Login sebagai Tamu</h3>
+                    <p class="text-muted">Daftar atau masuk untuk memberikan feedback</p>
+                </div>
+                
+                <form id="guest-login-form" method="post" action="/auth/guest">
+                    <div class="mb-3">
+                        <label class="form-label">Nama Lengkap</label>
+                        <input type="text" name="name" class="form-control" placeholder="Masukkan nama lengkap" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control" placeholder="email@example.com" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Organisasi/Institusi</label>
+                        <input type="text" name="organization" class="form-control" placeholder="Universitas, Perusahaan, dll" required>
+                    </div>
+                    <input type="hidden" name="next" value="{next}">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-user-check"></i> Daftar & Login
+                    </button>
+                </form>
+                
+                <div class="text-center mt-3">
+                    <a href="/login/brin?next={next}" class="text-muted">Login sebagai Sivitas BRIN</a>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=login_html)
+
+# Authentication Routes
+@router.post("/auth/brin")
+async def authenticate_brin(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    organization: str = Form(...),
+    next: str = Form("/"),
+    db: Session = Depends(get_db)
+):
+    """Authenticate BRIN internal user"""
+    try:
+        # Simple email validation for BRIN domain
+        if not email.endswith('@brin.go.id'):
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Email harus menggunakan domain @brin.go.id"}
+            )
+        
+        # Check if user exists, if not create new user
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            user = User(
+                email=email,
+                name=email.split('@')[0].replace('.', ' ').title(),
+                user_type='brin_internal',
+                organization=organization,
+                is_active=True
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        
+        # Update last login
+        user.last_login = datetime.utcnow()
+        db.commit()
+        
+        # Set session
+        request.session['user_id'] = user.id
+        request.session['user_type'] = 'brin_internal'
+        
+        return RedirectResponse(url=next, status_code=302)
+        
+    except Exception as e:
+        logger.error(f"BRIN auth error: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": "Authentication failed"})
+
+@router.post("/auth/guest")
+async def authenticate_guest(
+    request: Request,
+    name: str = Form(...),
+    email: str = Form(...),
+    organization: str = Form(...),
+    next: str = Form("/"),
+    db: Session = Depends(get_db)
+):
+    """Authenticate external/guest user"""
+    try:
+        # Check if user exists, if not create new user
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            user = User(
+                email=email,
+                name=name,
+                user_type='external',
+                organization=organization,
+                is_active=True
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        else:
+            # Update existing user info
+            user.name = name
+            user.organization = organization
+            user.last_login = datetime.utcnow()
+            db.commit()
+        
+        # Set session
+        request.session['user_id'] = user.id
+        request.session['user_type'] = 'external'
+        
+        return RedirectResponse(url=next, status_code=302)
+        
+    except Exception as e:
+        logger.error(f"Guest auth error: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": "Authentication failed"})
+
+# Feedback Routes
+@router.post("/submit-feedback")
+async def submit_feedback(
+    request: Request,
+    result_id: int = Form(...),
+    status: str = Form(...),
+    message: str = Form(...),
+    rating: int = Form(None),
+    is_anonymous: bool = Form(False),
+    db: Session = Depends(get_db)
+):
+    """Submit user feedback for analysis result"""
+    try:
+        # Check authentication
+        user_id = request.session.get('user_id')
+        if not user_id:
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "message": "Login required"}
+            )
+        
+        # Validate input
+        if status not in ['sesuai', 'belum_sesuai']:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "message": "Invalid status"}
+            )
+        
+        if len(message.strip()) < 10:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "message": "Message too short"}
+            )
+        
+        # Check if user already submitted feedback for this result
+        existing_feedback = db.query(Feedback).filter(
+            Feedback.result_id == result_id,
+            Feedback.user_id == user_id
+        ).first()
+        
+        if existing_feedback:
+            # Update existing feedback
+            existing_feedback.status = status
+            existing_feedback.message = message.strip()
+            existing_feedback.rating = rating if rating else None
+            existing_feedback.is_anonymous = is_anonymous
+            existing_feedback.updated_at = datetime.utcnow()
+        else:
+            # Create new feedback
+            feedback = Feedback(
+                result_id=result_id,
+                user_id=user_id,
+                status=status,
+                message=message.strip(),
+                rating=rating if rating else None,
+                is_anonymous=is_anonymous
+            )
+            db.add(feedback)
+        
+        db.commit()
+        
+        return JSONResponse(content={
+            "success": True,
+            "message": "Feedback berhasil disimpan"
+        })
+        
+    except Exception as e:
+        logger.error(f"Submit feedback error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": "Gagal menyimpan feedback"}
+        )
+
+# Logout Route
+@router.get("/logout")
+async def logout(request: Request, next: str = "/"):
+    """Logout user and clear session"""
+    request.session.clear()
+    return RedirectResponse(url=next, status_code=302)
 
 @router.get("/cache-status")
 async def get_cache_status():
@@ -576,16 +850,16 @@ async def predict(
                 processing_time
             )
             
-            logger.info(f"Upload saved to database with ID: {upload_record.id}")
+            # Use database ID as result_id
+            result_id = upload_record.id
+            logger.info(f"Upload saved to database with ID: {result_id}")
             
         except Exception as db_error:
             logger.error(f"Database save failed: {str(db_error)}")
-            # Continue even if database save fails
+            raise Exception(f"Database save failed: {str(db_error)}")
 
-        # Generate unique result ID
-        result_id = str(uuid4())
-        
-        result_cache[result_id] = {
+        # Store in cache using database ID
+        result_cache[str(result_id)] = {
             "image_path": f"/static/uploads/results/{stored_filename}",
             "img_path": f"/static/uploads/results/{stored_filename}",
             "class1": actual_class[0],
@@ -604,10 +878,11 @@ async def predict(
         
         logger.info(f"Prediction successful. Result ID: {result_id}")
         logger.info(f"Final file: {stored_filename}")
+        logger.info(f"Redirect URL: /result/{result_id}")
 
         return JSONResponse(content={
             "success": True,
-            "result_id": result_id,
+            "result_id": result_id,  
             "stored_filename": stored_filename,
             "redirect_url": f"/result/{result_id}"
         })
@@ -620,27 +895,113 @@ async def predict(
         )
 
 @router.get("/result/{result_id}", response_class=HTMLResponse)
-async def result(request: Request, result_id: str):
-    """Result page route"""
-    data = result_cache.get(result_id)
-    if not data:
-        raise HTTPException(status_code=404, detail="Result not found")
+async def get_result(
+    result_id: int, 
+    request: Request, 
+    edit_feedback: bool = False,
+    db: Session = Depends(get_db)
+):
+    """Get analysis result with feedback functionality"""
+    try:
+        from database import PlanktonUpload
 
-    logger.info(f"Serving result for ID: {result_id}")
-    logger.info(f"Cached data keys: {list(data.keys())}")
-    logger.info(f"Image path from cache: {data.get('image_path', 'NOT_FOUND')}")
+        # Get the analysis result
+        upload_record = db.query(PlanktonUpload).filter(PlanktonUpload.id == result_id).first()
+        
+        if not upload_record:
+            raise HTTPException(status_code=404, detail="Result not found")
+        
+        logger.info(f"Found upload record: {upload_record.stored_filename}")
+        logger.info(f"File path in DB: {upload_record.file_path}")
 
-    return templates.TemplateResponse("result.html", {
-        "request": request,
-        "image_path": data.get("image_path", ""),
-        "class1": data.get("class1", "Unknown"),
-        "probability1": data.get("probability1", "0%"),
-        "class2": data.get("class2", "Unknown"), 
-        "probability2": data.get("probability2", "0%"),
-        "class3": data.get("class3", "Unknown"),
-        "probability3": data.get("probability3", "0%"),
-        "response": data.get("response", "No response available")
-    })
+        # Check authentication
+        user_id = request.session.get('user_id') if hasattr(request, 'session') else None
+        current_user = None
+        user_feedback = None
+        
+        if user_id:
+            current_user = db.query(User).filter(User.id == user_id).first()
+            user_feedback = db.query(Feedback).filter(
+                Feedback.result_id == result_id,
+                Feedback.user_id == user_id
+            ).first()
+            
+            # If edit_feedback is requested, clear user_feedback to show form
+            if edit_feedback:
+                user_feedback = None
+        
+        # Get public feedback (not anonymous or user opted to show)
+        public_feedback_query = db.query(
+            Feedback,
+            User.name.label('user_name'),
+            User.user_type,
+            User.organization
+        ).join(User, Feedback.user_id == User.id).filter(
+            Feedback.result_id == result_id
+        ).order_by(Feedback.created_at.desc())
+        
+        public_feedback = []
+        for feedback, user_name, user_type, organization in public_feedback_query.all():
+            public_feedback.append({
+                'status': feedback.status,
+                'message': feedback.message,
+                'rating': feedback.rating,
+                'is_anonymous': feedback.is_anonymous,
+                'user_name': user_name if not feedback.is_anonymous else 'Anonim',
+                'user_type': user_type,
+                'organization': organization if not feedback.is_anonymous else None,
+                'created_at': feedback.created_at
+            })
+        
+        # Get feedback summary
+        feedback_stats = db.query(
+            func.count(Feedback.id).label('total'),
+            func.avg(Feedback.rating).label('average_rating'),
+            func.count(case((Feedback.status == 'sesuai', 1))).label('sesuai_count'),
+            func.count(case((Feedback.status == 'belum_sesuai', 1))).label('belum_sesuai_count')
+        ).filter(Feedback.result_id == result_id).first()
+        
+        feedback_summary = None
+        if feedback_stats and feedback_stats.total > 0:
+            feedback_summary = {
+                'total': feedback_stats.total,
+                'average_rating': round(feedback_stats.average_rating, 1) if feedback_stats.average_rating else None,
+                'sesuai_count': feedback_stats.sesuai_count,
+                'belum_sesuai_count': feedback_stats.belum_sesuai_count
+            }
+
+        # Generate image URL for result
+        image_url = f"/static/uploads/results/{upload_record.stored_filename}"
+        logger.info(f"Generated image URL: {image_url}")
+        
+        # Prepare context for rendering
+        context = {
+            "request": request,
+            "result_id": result_id,
+            "upload_record": upload_record,
+            "user_authenticated": current_user is not None,
+            "current_user": current_user,
+            "user_feedback": user_feedback,
+            "public_feedback": public_feedback,
+            "feedback_summary": feedback_summary,
+            "csrf_token": "dummy_token",
+            
+            # Template variables
+            "image_path": image_url,
+            "class1": upload_record.top_class,
+            "class2": upload_record.second_class or "Unknown",
+            "class3": upload_record.third_class or "Unknown", 
+            "probability1": f"{upload_record.top_probability:.1%}" if upload_record.top_probability else "0.0%",
+            "probability2": f"{upload_record.second_probability:.1%}" if upload_record.second_probability else "0.0%",
+            "probability3": f"{upload_record.third_probability:.1%}" if upload_record.third_probability else "0.0%",
+            "response": f"Analisis menunjukkan {upload_record.top_class} dengan tingkat keyakinan {upload_record.top_probability:.1%}. Model yang digunakan: {upload_record.model_used}." if upload_record.top_probability else "Analisis selesai."
+        }
+        
+        return templates.TemplateResponse("result.html", context)
+        
+    except Exception as e:
+        logger.error(f"Error loading result {result_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error loading result")
 
 @router.get("/admin/uploads")
 async def get_uploads(

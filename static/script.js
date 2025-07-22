@@ -564,54 +564,15 @@ function handlePredictButtonClick() {
         location: locationValue.trim()
     });
 
+    // Show loading state
     const $loading = $('#load');
     const $transparant = $('#transparant-bg');
     
     $loading.show();
     $transparant.show();
 
-    $.ajax({
-        url: '/predict',
-        type: 'POST',
-        data: formData,
-        processData: false,
-        contentType: false,
-        timeout: 60000,
-        success: (data) => {
-            console.log('Prediction successful:', data);
-            if (data.stored_filename) {
-                console.log('Stored as:', data.stored_filename);
-            } if (data.result_id) {
-                window.location.href = `/result/${data.result_id}`;
-            } else {
-                throw new Error('Invalid response: missing result_id');
-            }
-        },
-        error: (xhr, status, error) => {
-            $loading.hide();
-            $transparant.hide();
-            
-            console.error('Prediction error:', xhr.responseJSON);
-
-            let errorMessage = "Failed to analyze image. Please try again.";
-            
-            if (xhr.status === 413) {
-                errorMessage = "File too large. Please upload a smaller image.";
-            } else if (xhr.status === 0) {
-                errorMessage = "Network error. Please check your connection.";
-            } else if (status === 'timeout') {
-                errorMessage = "Request timed out. Please try again.";
-            } else if (xhr.responseJSON && xhr.responseJSON.error) {
-                errorMessage = xhr.responseJSON.error;
-            }
-
-            swal({ 
-                title: "Prediction Error", 
-                text: errorMessage, 
-                icon: "error" 
-            });
-        }
-    });
+    // Submit prediction request
+    submitPrediction(formData);
 }
 
 // CAMERA MANAGEMENT
@@ -1467,7 +1428,299 @@ function stopWatchingGPS() {
     }
 }
 
+// FEEDBACK SECTION MANAGEMENT
+
+/**
+ * Set rating value and update UI
+ */
+function setRating(rating) {
+    document.getElementById('feedback-rating').value = rating;
+    
+    // Update visual stars
+    const stars = document.querySelectorAll('.btn-rating');
+    stars.forEach((star, index) => {
+        if (index < rating) {
+            star.classList.add('active');
+        } else {
+            star.classList.remove('active');
+        }
+    });
+    
+    console.log('Rating set to:', rating);
+}
+
+/**
+ * Reset feedback form to initial state
+ */
+function resetFeedbackForm() {
+    document.getElementById('feedback-form').reset();
+    document.getElementById('feedback-rating').value = '';
+    
+    // Reset rating stars
+    const stars = document.querySelectorAll('.btn-rating');
+    stars.forEach(star => star.classList.remove('active'));
+    
+    // Reset character counter
+    updateCharCount();
+    
+    console.log('Feedback form reset');
+}
+
+/**
+ * Update character counter for textarea
+ */
+function updateCharCount() {
+    const textarea = document.getElementById('feedback-message');
+    const counter = document.getElementById('char-count');
+    
+    if (textarea && counter) {
+        const currentLength = textarea.value.length;
+        counter.textContent = currentLength;
+        
+        // Change color based on length
+        if (currentLength > 800) {
+            counter.style.color = '#e74c3c';
+        } else if (currentLength > 600) {
+            counter.style.color = '#f39c12';
+        } else {
+            counter.style.color = '#6c757d';
+        }
+    }
+}
+
+/**
+ * Edit existing feedback (show form again)
+ */
+function editFeedback() {
+    swal({
+        title: "Edit Feedback",
+        text: "Apakah Anda ingin mengubah feedback yang sudah dikirim?",
+        icon: "question",
+        buttons: {
+            cancel: "Batal",
+            confirm: "Ya, Edit"
+        }
+    }).then((willEdit) => {
+        if (willEdit) {
+            // Reload page with edit parameter
+            window.location.href = window.location.href + '?edit_feedback=1';
+        }
+    });
+}
+
+/**
+ * Submit feedback form with validation
+ */
+function submitFeedback(event) {
+    event.preventDefault();
+    
+    const form = document.getElementById('feedback-form');
+    const formData = new FormData(form);
+    
+    // Validate required fields
+    const status = formData.get('status');
+    const message = formData.get('message');
+    
+    if (!status) {
+        swal({
+            title: "Status Diperlukan",
+            text: "Silakan pilih status analisis (Sesuai atau Belum Sesuai)",
+            icon: "warning"
+        });
+        return;
+    }
+    
+    if (!message || message.trim().length < 10) {
+        swal({
+            title: "Pesan Terlalu Pendek",
+            text: "Silakan berikan masukan yang lebih detail (minimal 10 karakter)",
+            icon: "warning"
+        });
+        return;
+    }
+    
+    // Show loading state
+    const submitBtn = document.getElementById('submit-feedback-btn');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
+    submitBtn.disabled = true;
+    
+    // Submit feedback
+    fetch('/submit-feedback', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            swal({
+                title: "Feedback Berhasil Dikirim",
+                text: "Terima kasih atas feedback Anda. Masukan Anda sangat berharga!",
+                icon: "success"
+            }).then(() => {
+                // Reload page to show submitted feedback
+                window.location.reload();
+            });
+        } else {
+            throw new Error(data.message || 'Gagal mengirim feedback');
+        }
+    })
+    .catch(error => {
+        console.error('Error submitting feedback:', error);
+        swal({
+            title: "Gagal Mengirim Feedback",
+            text: error.message || "Terjadi kesalahan. Silakan coba lagi.",
+            icon: "error"
+        });
+    })
+    .finally(() => {
+        // Reset button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+}
+
+// Feedback form initialization
+function initializeFeedbackForm() {
+    try {
+        // Character counter for textarea
+        const textarea = document.getElementById('feedback-message');
+        if (textarea) {
+            textarea.addEventListener('input', updateCharCount);
+            updateCharCount(); // Initial count
+            console.log('Feedback textarea initialized');
+        }
+        
+        // Form submission
+        const feedbackForm = document.getElementById('feedback-form');
+        if (feedbackForm) {
+            feedbackForm.addEventListener('submit', submitFeedback);
+            console.log('Feedback form submission handler attached');
+        }
+        
+        // Rating hover effects
+        const ratingButtons = document.querySelectorAll('.btn-rating');
+        if (ratingButtons.length > 0) {
+            ratingButtons.forEach((button, index) => {
+                button.addEventListener('mouseenter', () => {
+                    // Highlight stars up to hovered star
+                    ratingButtons.forEach((star, starIndex) => {
+                        if (starIndex <= index) {
+                            star.style.color = '#ffc107';
+                        } else {
+                            star.style.color = '#ddd';
+                        }
+                    });
+                });
+                
+                button.addEventListener('mouseleave', () => {
+                    // Reset to actual rating
+                    const ratingInput = document.getElementById('feedback-rating');
+                    const currentRating = ratingInput ? parseInt(ratingInput.value) || 0 : 0;
+                    ratingButtons.forEach((star, starIndex) => {
+                        if (starIndex < currentRating) {
+                            star.style.color = '#ffc107';
+                        } else {
+                            star.style.color = '#ddd';
+                        }
+                    });
+                });
+                
+                // Add click handler for rating
+                button.addEventListener('click', () => {
+                    setRating(index + 1);
+                });
+            });
+            console.log(`Feedback rating buttons initialized (${ratingButtons.length} buttons)`);
+        }
+        
+        console.log('Feedback form fully initialized');
+        
+    } catch (error) {
+        console.error('Error initializing feedback form:', error);
+    }
+}
+
 // HELPER FUNCTIONS
+
+/**
+ * Handle prediction success response
+ */
+function handlePredictionSuccess(data) {
+    console.log('Prediction successful:', data);
+    
+    if (data.success && data.result_id) {
+        // Use result_id (integer) for redirect
+        const redirectUrl = `/result/${data.result_id}`;
+        console.log('Redirecting to:', redirectUrl);
+        
+        // Redirect to result page
+        window.location.href = redirectUrl;
+    } else {
+        console.error('Invalid response data:', data);
+        showError('Invalid response from server');
+    }
+}
+
+/**
+ * Show error message using SweetAlert
+ */
+function showError(message) {
+    swal({
+        title: "Error",
+        text: message,
+        icon: "error"
+    });
+}
+
+/**
+ * Submit prediction using fetch API
+ */
+function submitPrediction(formData) {
+    fetch('/predict', {
+        method: 'POST',
+        body: formData,
+        timeout: 60000
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Raw prediction response:', data);
+        
+        // Hide loading
+        hideLoading();
+        
+        if (data.success && data.result_id) {
+            handlePredictionSuccess(data);
+        } else {
+            showError(data.error || 'Prediction failed: Invalid response');
+        }
+    })
+        .catch(error => {
+        console.error('Prediction error:', error);
+        
+        // Hide loading
+        hideLoading();
+        
+        let errorMessage = "Failed to analyze image. Please try again.";
+        
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            errorMessage = "Network error. Please check your connection.";
+        } else if (error.message.includes('HTTP 413')) {
+            errorMessage = "File too large. Please upload a smaller image.";
+        } else if (error.message.includes('HTTP')) {
+            errorMessage = `Server error: ${error.message}`;
+        } else {
+            errorMessage = error.message || errorMessage;
+        }
+        
+        showError(errorMessage);
+    });
+}
 
 /**
  * Get current active mode (file or camera)
@@ -1557,6 +1810,17 @@ function getCurrentLocation() {
     const $locationInput = $('#sampling-location');
     const rawLocation = $locationInput.length ? $locationInput.val() : '';
     return validateLocationInput(rawLocation);
+}
+
+/**
+ * Hide loading overlay
+ */
+function hideLoading() {
+    const $loading = $('#load');
+    const $transparant = $('#transparant-bg');
+    
+    $loading.hide();
+    $transparant.hide();
 }
 
 // MAIN INITIALIZATION
@@ -1818,3 +2082,20 @@ window.getCurrentGPSLocation = getCurrentGPSLocation;
 window.clearLocationInput = clearLocationInput;
 window.startWatchingGPS = startWatchingGPS;
 window.stopWatchingGPS = stopWatchingGPS;
+window.handlePredictionSuccess = handlePredictionSuccess;
+window.submitPrediction = submitPrediction;  
+window.showError = showError;  
+window.hideLoading = hideLoading; 
+window.setRating = setRating;
+window.resetFeedbackForm = resetFeedbackForm;
+window.updateCharCount = updateCharCount;
+window.editFeedback = editFeedback;
+window.submitFeedback = submitFeedback;
+window.initializeFeedbackForm = initializeFeedbackForm;
+
+// FEEDBACK FORM INITIALIZATION
+document.addEventListener('DOMContentLoaded', function() {
+    initializeFeedbackForm();
+
+    console.log('DOM Content Loaded - Feedback form initialization attempted');
+});

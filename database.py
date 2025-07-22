@@ -1,6 +1,6 @@
 import os
 import logging
-from sqlalchemy import Column, Integer, String, DateTime, Float, Text
+from sqlalchemy import Column, Integer, String, DateTime, Float, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
@@ -28,6 +28,7 @@ except ImportError:
 # Define the base class for SQLAlchemy models
 Base = declarative_base()
 
+# PlanktonUpload model for storing plankton image uploads and classification results
 class PlanktonUpload(Base):
     __tablename__ = "plankton_uploads"
     
@@ -57,6 +58,33 @@ class PlanktonUpload(Base):
     
     def __repr__(self):
         return f"<PlanktonUpload(id={self.id}, filename='{self.stored_filename}', class='{self.top_class}')>"
+    
+# User model for authentication and feedback
+class User(Base):
+    __tablename__ = "users"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    name = Column(String(255), nullable=False)
+    user_type = Column(String(50), nullable=False)  # 'brin_internal' or 'external'
+    organization = Column(String(255), nullable=True)  # BRIN unit or external organization
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
+
+# Feedback model for user feedback on classification results
+class Feedback(Base):
+    __tablename__ = "feedback"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    result_id = Column(Integer, nullable=False)  # Reference to PlanktonUpload.id
+    user_id = Column(Integer, nullable=False)  # Reference to User.id
+    status = Column(String(20), nullable=False)  # 'sesuai' or 'belum_sesuai'
+    message = Column(Text, nullable=False)
+    rating = Column(Integer, nullable=True)  # 1-5 rating
+    is_anonymous = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 # Database configuration with support for multiple database types
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./planktoscan.db")

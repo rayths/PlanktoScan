@@ -854,6 +854,23 @@ body {
     .table-responsive {
         font-size: 0.9rem;
     }
+
+    /* Feedback section styling */
+    .feedback-section .card-body {
+        padding: 1rem;
+    }
+    
+    .d-flex.flex-md-row {
+        flex-direction: column;
+    }
+    
+    .rating-input {
+        justify-content: center;
+    }
+    
+    .btn-rating {
+        font-size: 1.3rem;
+    }
 }
 
 @media (min-width: 769px) and (max-width: 1200px) {
@@ -1430,6 +1447,122 @@ body {
     backdrop-filter: blur(10px);
     box-shadow: 0 2px 20px rgba(52, 152, 219, 0.2);
     z-index: 1000;
+}
+
+/* Feedback Section Styles */
+.feedback-section {
+    background: #fff;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    margin-top: 2rem;
+}
+
+.card-header {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    border-bottom: 1px solid #dee2e6;
+    border-radius: 15px 15px 0 0;
+    padding: 1rem 1.5rem;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Rating Input Styles */
+.rating-input {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.btn-rating {
+    background: none;
+    border: none;
+    color: #ddd;
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    padding: 5px;
+}
+
+.btn-rating:hover,
+.btn-rating.active {
+    color: #ffc107;
+}
+
+.btn-rating.active ~ .btn-rating {
+    color: #ddd;
+}
+
+/* Feedback Form Styles */
+#feedback-form .form-select,
+#feedback-form .form-control {
+    border-radius: 8px;
+    border: 2px solid #e9ecef;
+    transition: border-color 0.3s ease;
+}
+
+#feedback-form .form-select:focus,
+#feedback-form .form-control:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+}
+
+/* Feedback Item Styles */
+.feedback-item {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef !important;
+    transition: box-shadow 0.3s ease;
+}
+
+.feedback-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.rating-display {
+    display: inline-flex;
+    gap: 2px;
+}
+
+.rating-display .fa-star {
+    font-size: 0.9rem;
+}
+
+/* Login Prompt Styles */
+.login-prompt {
+    background: linear-gradient(135deg, #f8f9fa, #e3f2fd);
+    border-radius: 15px;
+    padding: 2rem;
+}
+
+.login-prompt .fa-3x {
+    opacity: 0.6;
+}
+
+/* User Info Styles */
+.user-info {
+    background: linear-gradient(135deg, #e8f5e8, #f0f8ff) !important;
+    border: 1px solid #d4edda;
+}
+
+/* Character Counter */
+#char-count {
+    font-weight: 600;
+    color: #6c757d;
+}
+
+/* Badge Styles */
+.badge.bg-success {
+    background-color: #27ae60 !important;
+}
+
+.badge.bg-warning {
+    background-color: #f39c12 !important;
+    color: white;
+}
+
+.badge.bg-info {
+    background-color: #3498db !important;
 }
 
 /* Loading Animation */

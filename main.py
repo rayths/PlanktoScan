@@ -1,9 +1,10 @@
 import uvicorn
 import asyncio
-from fastapi import FastAPI, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from routers import api
 from contextlib import asynccontextmanager
 import logging
@@ -84,6 +85,17 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Session Middleware
+app.add_middleware(
+    SessionMiddleware,
+    secret_key="your-secret-key",  # Change this
+    max_age=86400,  # 24 hours
+    same_site="lax",
+    https_only=False,  # Set to True in production with HTTPS
+    session_cookie="planktoscan_session"
+)
+
+# CORS Middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -92,40 +104,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Static files 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Favicon route
 @app.get('/favicon.ico', include_in_schema=False)
 async def favicon():
     return FileResponse('static/assets/judul.png')
 
+# Include API router
 app.include_router(api.router)
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize application on startup"""
-    logger.info("Starting PlanktoScan application...")
-    
-    # Preload models for better performance
-    logger.info("Preloading models...")
-    try:
-        preloaded_count = preload_models()
-        logger.info(f"Preloaded {preloaded_count} models successfully")
-    except Exception as e:
-        logger.error(f"Model preloading failed: {e}")
-        logger.warning("Application will continue without preloaded models")
-    
-    logger.info("PlanktoScan startup completed!")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on application shutdown"""
-    logger.info("Shutting down PlanktoScan application...")
-    
-    # Clear model cache
-    from utils import clear_model_cache
-    clear_model_cache()
-    
-    logger.info("PlanktoScan shutdown completed!")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
