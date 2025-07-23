@@ -1,0 +1,588 @@
+/* MOBILE RESPONSIVE STYLES */
+
+@media (max-width: 768px) {
+    
+    /* BASE TYPOGRAPHY */
+    
+    body { 
+        font-size: 14px; 
+    }
+    
+    h1 { font-size: 1.75rem; }
+    h2 { font-size: 1.5rem; }
+    h3 { font-size: 1.25rem; }
+    h4 { font-size: 1.125rem; }
+    h5 { font-size: 1rem; }
+    h6 { font-size: 0.875rem; }
+    
+    /* LAYOUT CONTAINERS */
+    
+    .container {
+        padding-left: var(--spacing-sm);
+        padding-right: var(--spacing-sm);
+    }
+    
+    .dashboard-content {
+        padding-top: 80px;
+        padding-bottom: var(--spacing-lg);
+    }
+    
+    .results-content {
+        padding-top: 90px;
+        padding-bottom: var(--spacing-lg);
+    }
+    
+    /* CARDS */
+    
+    .upload-card {
+        margin: var(--spacing-sm) auto;
+        padding: var(--spacing-lg) var(--spacing-md);
+        border-radius: var(--radius-xl);
+        width: 95%;
+        max-width: none;
+    }
+    
+    .results-card {
+        margin: var(--spacing-md) auto;
+        padding: var(--spacing-md);
+        width: 95%;
+        max-width: none;
+    }
+    
+    /* UPLOAD ZONE */
+
+    .upload-zone {
+        border-radius: var(--radius-large);
+        min-height: 250px;
+    }
+    
+    .upload-content {
+        padding: var(--spacing-lg) var(--spacing-md);
+        min-height: 250px;
+    }
+    
+    .upload-icon {
+        font-size: 3rem;
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    .upload-text {
+        font-size: 1.1rem;
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .upload-subtext {
+        font-size: 0.9rem;
+    }
+    
+    /* CAMERA STYLES */
+    
+    .camera-container {
+        min-height: 250px;
+        border-radius: var(--radius-large);
+    }
+    
+    .camera-controls-zone {
+        height: 70px;
+    }
+    
+    .camera-controls {
+        gap: 12px;
+    }
+    
+    .camera-btn {
+        width: 45px;
+        height: 45px;
+        font-size: 1.1rem;
+    }
+    
+    .camera-btn.capture {
+        width: 55px;
+        height: 55px;
+        font-size: 1.3rem;
+    }
+    /* MODE SWITCH */
+    .upload-mode-switch {
+        display: flex;
+        flex-direction: row;
+        gap: var(--spacing-xs);
+        margin-bottom: var(--spacing-sm);
+        justify-content: center;
+        align-items: center;
+        flex-wrap: nowrap;
+    }
+    
+    .mode-btn {
+        width: 150px;
+        text-align: center;
+        padding: 10px 15px;
+        font-size: 0.9rem;
+    }
+
+    /* BUTTONS */
+    
+    .btn-modern {
+        width: 100%;
+        padding: 16px 25px;
+        font-size: var(--font-size-base);
+        min-width: auto;
+        height: 55px;
+    }
+    
+    .btn {
+        font-size: 0.9rem;
+        padding: 0.5rem 1rem;
+    }
+    
+    /* FORMS & INPUTS */
+    
+    .form-group {
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    .text-label {
+        font-size: var(--font-size-base);
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    /* Dropdown Styles */
+    .dropdown-toggle,
+    .btn-outline-secondary.dropdown-toggle {
+        padding: 12px 16px !important;
+        font-size: 14px !important;
+        height: 50px !important;
+    }
+    
+    .dropdown-menu {
+        font-size: 14px;
+        max-height: 250px;
+    }
+    
+    .dropdown-item {
+        padding: 10px 16px;
+        font-size: 13px;
+    }
+
+    /* LOCATION INPUT */
+    
+    .location-input-group {
+        flex-direction: column;
+        gap: var(--spacing-xs);
+    }
+    
+    .location-input-group .location-input {
+        border-radius: var(--radius-medium);
+        border: 2px solid #e9ecef;
+        width: 100%;
+        font-size: 14px;
+        padding: 12px 16px;
+    }
+    
+    .location-buttons {
+        width: 100%;
+        justify-content: center;
+        gap: var(--spacing-xs);
+    }
+    
+    .btn-gps, 
+    .btn-clear-location {
+        border-radius: var(--radius-small);
+        flex: 1;
+        max-width: 120px;
+        padding: 12px 10px;
+        font-size: 13px;
+    }
+    
+    .btn-gps .gps-text {
+        display: inline;
+    }
+    
+    .btn-gps .gps-icon {
+        margin-right: 4px;
+    }
+    
+    /* GPS Status */
+    .gps-status {
+        margin-top: 12px;
+        padding: 12px;
+        font-size: 14px;
+    }
+    
+    .location-accuracy {
+        margin-top: 10px;
+        padding: 10px;
+    }
+    
+    .location-accuracy small {
+        flex-direction: column;
+        gap: 4px;
+        text-align: center;
+    }
+    
+    /* GRID SYSTEM */
+    
+    .row.g-4 {
+        margin-left: -0.5rem;
+        margin-right: -0.5rem;
+    }
+    
+    .row.g-4 > * {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    .col-lg-5.col-md-6 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+    
+    /* RESULTS PAGE */
+    
+    .image-preview img {
+        max-height: 200px;
+        border-radius: var(--radius-medium);
+    }
+    
+    .table-responsive {
+        font-size: 0.9rem;
+    }
+    
+    .table-modern th {
+        padding: 0.75rem 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .table-modern td {
+        padding: 0.75rem 0.5rem;
+        font-size: 0.85rem;
+    }
+    
+    .species-rank {
+        width: 25px;
+        height: 25px;
+        font-size: 0.8rem;
+    }
+    
+    .probability-bar {
+        height: 6px;
+        margin-top: 0.25rem;
+    }
+    
+    /* FEEDBACK SECTION */
+
+    .feedback-section .card-body {
+        padding: var(--spacing-sm);
+    }
+    
+    .rating-input {
+        justify-content: center;
+        gap: 3px;
+    }
+    
+    .btn-rating {
+        font-size: 1.3rem;
+        width: 35px;
+        height: 35px;
+    }
+    
+    .d-flex.flex-md-row {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+    
+    .feedback-stats {
+        flex-direction: column;
+        gap: var(--spacing-sm);
+    }
+    
+    .feedback-stat {
+        padding: var(--spacing-xs);
+        background: white;
+        border-radius: var(--radius-small);
+    }
+    
+    .feedback-item {
+        padding: var(--spacing-xs);
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .feedback-meta {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+    
+    .feedback-actions {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    /* NAVIGATION BAR */
+    
+    .navbar-brand img {
+        height: 40px;
+        max-width: 100px;
+    }
+    
+    .card-title-logo {
+        max-width: 200px;
+        height: auto;
+    }
+    
+    /* LOADING ANIMATION */
+    
+    #load {
+        width: 300px;
+        height: 30px;
+        margin-left: -150px;
+        font-size: 30px;
+    }
+    
+    #load div {
+        width: 15px;
+        height: 30px;
+        font-size: 30px;
+    }
+    
+    /* WELCOME POPUP */
+
+    .popup-content {
+        padding: var(--spacing-lg) var(--spacing-sm);
+        max-width: 90%;
+        margin: var(--spacing-sm);
+    }
+    
+    .popup-logo {
+        width: 200px;
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    .popup-title {
+        font-size: 1.75rem;
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .popup-subtitle {
+        font-size: 1rem;
+        margin-bottom: var(--spacing-lg);
+    }
+    
+    .btn-start-popup {
+        padding: 12px 30px;
+        font-size: 1rem;
+    }
+    
+    /* FILE INFO */
+    
+    .file-info {
+        padding: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    .file-info-content {
+        gap: 10px;
+        font-size: 0.9rem;
+    }
+    
+    .file-icon {
+        font-size: 1.2rem;
+    }
+    
+    .file-cancel-btn {
+        width: 24px;
+        height: 24px;
+        font-size: 0.9rem;
+    }
+    
+    /* UTILITIES */
+    
+    .d-flex.gap-3 {
+        flex-direction: column;
+        gap: var(--spacing-sm) !important;
+        margin-top: var(--spacing-sm);
+    }
+    
+    .text-center.mb-4 {
+        margin-bottom: var(--spacing-sm) !important;
+    }
+    
+    .text-muted {
+        font-size: var(--font-size-base);
+        margin-top: var(--spacing-xs);
+    }
+    
+    /* ANIMATIONS ADJUSTMENTS */
+    
+    @keyframes gentle-bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+    }
+    
+    .upload-card:hover .card-title-logo {
+        animation: gentle-bounce 2s ease-in-out infinite;
+    }
+}
+
+/* EXTRA SMALL DEVICES (< 576px) */
+
+@media (max-width: 575.98px) {
+    
+    body {
+        font-size: 13px;
+    }
+    
+    .upload-card {
+        width: 98%;
+        padding: var(--spacing-sm);
+        margin: 0.5rem auto;
+    }
+    
+    .upload-mode-switch {
+        flex-direction: column;
+        gap: var(--spacing-xs);
+    }
+    
+    .mode-btn {
+        width: 100%;
+        max-width: 200px;
+    }
+    
+    .camera-controls {
+        gap: 8px;
+    }
+    
+    .camera-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+    
+    .camera-btn.capture {
+        width: 50px;
+        height: 50px;
+        font-size: 1.2rem;
+    }
+    
+    .btn-modern {
+        padding: 14px 20px;
+        font-size: 0.9rem;
+        height: 50px;
+    }
+    
+    .popup-content {
+        padding: var(--spacing-md) var(--spacing-sm);
+    }
+    
+    .popup-title {
+        font-size: 1.5rem;
+    }
+    
+    .popup-subtitle {
+        font-size: 0.9rem;
+    }
+    
+    .table-modern th,
+    .table-modern td {
+        padding: 0.5rem 0.25rem;
+        font-size: 0.8rem;
+    }
+    
+    .feedback-stats {
+        padding: var(--spacing-xs);
+    }
+    
+    .feedback-stat-number {
+        font-size: var(--font-size-lg);
+    }
+    
+    .feedback-stat-label {
+        font-size: 0.75rem;
+    }
+}
+
+/* LANDSCAPE ORIENTATION (MOBILE) */
+
+@media (max-width: 768px) and (orientation: landscape) {
+    
+    .dashboard-content {
+        padding-top: 70px;
+    }
+    
+    .results-content {
+        padding-top: 80px;
+    }
+    
+    .upload-card {
+        margin: var(--spacing-xs) auto;
+        padding: var(--spacing-sm);
+    }
+    
+    .camera-container {
+        min-height: 200px;
+    }
+    
+    .upload-zone {
+        min-height: 200px;
+    }
+    
+    .upload-content {
+        padding: var(--spacing-sm);
+        min-height: 200px;
+    }
+    
+    .popup-content {
+        max-width: 80%;
+        padding: var(--spacing-sm);
+    }
+    
+    .popup-logo {
+        width: 150px;
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .popup-title {
+        font-size: 1.25rem;
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .popup-subtitle {
+        font-size: 0.9rem;
+        margin-bottom: var(--spacing-sm);
+    }
+}
+
+/* ACCESSIBILITY IMPROVEMENTS */
+
+@media (max-width: 768px) {
+    
+    /* Increase touch targets */
+    .btn,
+    .dropdown-toggle,
+    .camera-btn,
+    .mode-btn {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    /* Improve text readability */
+    .text-muted {
+        color: #666 !important;
+    }
+    
+    /* Better focus indicators */
+    :focus {
+        outline: 3px solid var(--primary-color);
+        outline-offset: 2px;
+    }
+    
+    /* Improved contrast for small screens */
+    .upload-text {
+        color: #333;
+        font-weight: 600;
+    }
+    
+    .upload-subtext {
+        color: #555;
+    }
+}

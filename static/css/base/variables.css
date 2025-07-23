@@ -1,0 +1,51 @@
+/* CSS CUSTOM PROPERTIES */
+
+:root {
+    /* Colors */
+    --primary-blue: #3498DB;
+    --primary-blue-hover: #2980B9;
+    --primary-green: #27AE60;
+    --primary-green-hover: #229954;
+    --success-green: #2ECC71;
+    --warning-orange: #F39C12;
+    --error-red: #E74C3C;
+    
+    /* Text Colors */
+    --text-primary: #2C3E50;
+    --text-secondary: #7F8C8D;
+    --text-muted: #6C757D;
+    
+    /* Background Colors */
+    --bg-primary: #f5f5f5;
+    --bg-card: rgba(255, 255, 255, 0.98);
+    --bg-overlay: rgba(52, 152, 219, 0.1);
+    
+    /* Border Colors */
+    --border-light: #e9ecef;
+    --border-primary: #3498DB;
+    --border-success: #27AE60;
+    
+    /* Shadows */
+    --shadow-light: 0 2px 5px rgba(0, 0, 0, 0.1);
+    --shadow-medium: 0 8px 25px rgba(52, 152, 219, 0.15);
+    --shadow-heavy: 0 25px 80px rgba(52, 152, 219, 0.15);
+    
+    /* Border Radius */
+    --radius-small: 8px;
+    --radius-medium: 12px;
+    --radius-large: 15px;
+    --radius-xl: 20px;
+    --radius-xxl: 25px;
+    
+    /* Spacing */
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 1rem;
+    --spacing-md: 1.5rem;
+    --spacing-lg: 2rem;
+    --spacing-xl: 3rem;
+    
+    /* Transitions */
+    --transition-fast: 0.2s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}

@@ -1,0 +1,25 @@
+/* MAIN CSS FILE */
+
+/* Base Styles */
+@import url('./base/fonts.css');
+@import url('./base/variables.css');
+@import url('./base/reset.css');
+
+/* Components */
+@import url('./components/buttons.css');
+@import url('./components/cards.css');
+@import url('./components/dropdowns.css');
+@import url('./components/forms.css');
+@import url('./components/loading.css');
+@import url('./components/navbar.css');
+
+/* Features */
+@import url('./features/welcome-popup.css');
+@import url('./features/upload.css');
+@import url('./features/camera.css');
+@import url('./features/location.css');
+@import url('./features/results.css');
+@import url('./features/feedback.css');
+
+/* Responsive */
+@import url('./responsive/mobile.css');
