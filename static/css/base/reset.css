@@ -66,7 +66,7 @@ body {
     z-index: 2;
     padding: 2rem 0;
     min-height: calc(100vh - 70px);
-    padding-top: 90px;
+    padding-top: 32px;
     display: flex;
     justify-content: center;
     align-items: flex-start;

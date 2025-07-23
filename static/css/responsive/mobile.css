@@ -35,7 +35,7 @@
     /* CARDS */
     
     .upload-card {
-        margin: var(--spacing-sm) auto;
+        margin: 0;
         padding: var(--spacing-lg) var(--spacing-md);
         border-radius: var(--radius-xl);
         width: 95%;
@@ -435,7 +435,7 @@
     .upload-card {
         width: 98%;
         padding: var(--spacing-sm);
-        margin: 0.5rem auto;
+        margin: 0;
     }
     
     .upload-mode-switch {
@@ -514,7 +514,7 @@
     }
     
     .upload-card {
-        margin: var(--spacing-xs) auto;
+        margin: 0;
         padding: var(--spacing-sm);
     }
     
