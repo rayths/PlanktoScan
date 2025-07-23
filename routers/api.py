@@ -860,7 +860,6 @@ async def predict(
 
         # Store in cache using database ID
         result_cache[str(result_id)] = {
-            "image_path": f"/static/uploads/results/{stored_filename}",
             "img_path": f"/static/uploads/results/{stored_filename}",
             "class1": actual_class[0],
             "class2": actual_class[1],
@@ -987,7 +986,7 @@ async def get_result(
             "csrf_token": "dummy_token",
             
             # Template variables
-            "image_path": image_url,
+            "img_path": image_url,
             "class1": upload_record.top_class,
             "class2": upload_record.second_class or "Unknown",
             "class3": upload_record.third_class or "Unknown", 

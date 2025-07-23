@@ -110,7 +110,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Favicon route
 @app.get('/favicon.ico', include_in_schema=False)
 async def favicon():
-    return FileResponse('static/assets/judul.png')
+    return FileResponse('static/assets/icon.png')
 
 # Include API router
 app.include_router(api.router)

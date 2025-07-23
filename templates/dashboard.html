@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PlanktoScan - Analysis Dashboard</title>
-    
-    <link rel="icon" type="image/png" href="{{ url_for('static', path='assets/judul.png') }}">
-    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', path='assets/judul.png') }}">
+
+    <!-- Favicon and Stylesheets -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', path='assets/icon.png') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', path='assets/icon.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap/css/bootstrap.css') }}">    
     <link rel="stylesheet" href="{{ url_for('static', path='lib/fontawesome/css/all.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
@@ -27,24 +28,28 @@
         </div>
     </div>
 
+    <!-- Main Dashboard -->
     <div class="dashboard-container">
+
+        <!-- Background and Overlay -->
         <div class="background">
             <img src="{{ url_for('static', path='assets/background.png') }}" alt="background" class="background-image">
         </div>
         <div class="dashboard-overlay"></div>
 
+        <!-- Loading Animation -->
+        <div id="load">
+            <div>G</div>
+            <div>N</div>
+            <div>I</div>
+            <div>D</div>
+            <div>A</div>
+            <div>O</div>
+            <div>L</div>
+        </div>    
+        <div id="transparant-bg"></div>
 
-    <div id="load">
-        <div>G</div>
-        <div>N</div>
-        <div>I</div>
-        <div>D</div>
-        <div>A</div>
-        <div>O</div>
-        <div>L</div>
-    </div>    
-    <div id="transparant-bg"></div>
-
+        <!-- Navigation Bar -->
         <nav class="navbar navbar-expand-lg navbar-light navbar-dashboard">
             <div class="container">
                 <a class="navbar-brand" href="https://www.brin.go.id" target="_blank" rel="noopener noreferrer">
@@ -53,6 +58,7 @@
             </div>
         </nav>
         
+        <!-- Main Content -->
         <main class="dashboard-content">
             <div class="container">
                 <div class="row justify-content-center">
@@ -105,6 +111,7 @@
                                 </div>
                             </div>
                             
+                            <!-- File Info Display -->
                             <div class="file-info" id="file-info">
                                 <div class="file-info-content">
                                     <i class="fas fa-check-circle file-icon"></i>
@@ -224,13 +231,23 @@
             </div>
         </main>
     </div>
-    
+
+    <!-- Load JavaScript Modules -->
     <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
     <script src="{{ url_for('static', path='lib/bootstrap/js/bootstrap.js') }}"></script>
     <script src="{{ url_for('static', path='lib/swal.js') }}"></script>
-    <script src="{{ url_for('static', path='script.js') }}"></script>
+    <script src="{{ url_for('static', path='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', path='js/dropdown.js') }}"></script>
+    <script src="{{ url_for('static', path='js/gps-location.js') }}"></script>
+    <script src="{{ url_for('static', path='js/file-upload.js') }}"></script>
+    <script src="{{ url_for('static', path='js/camera.js') }}"></script>
+    <script src="{{ url_for('static', path='js/prediction.js') }}"></script>
+    <script src="{{ url_for('static', path='js/welcome-popup.js') }}"></script>
     
+    <!-- Main application -->
+    <script src="{{ url_for('static', path='js/app.js') }}"></script>
+
     <script>
         // Handle welcome popup based on server-side variable
         document.addEventListener('DOMContentLoaded', function() {
