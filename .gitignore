@@ -3,6 +3,8 @@ model
 static/lib/bootstrap
 static/lib/fontawesome
 static/uploads
+static/script.js
+static/style.css
 __pycache__
 routers/__pycache__
 planktoscan.db
