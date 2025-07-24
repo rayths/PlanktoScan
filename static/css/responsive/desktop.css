@@ -88,7 +88,16 @@
     }
     
     .btn-modern {
-        letter-spacing: 0.8px;
         text-transform: none;
+    }
+
+    .upload-mode-switch {
+        gap: 8px;
+    }
+    
+    .mode-btn {
+        min-width: 110px;
+        padding: 9px 18px;
+        font-size: var(--font-size-sm);
     }
 } 

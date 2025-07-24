@@ -210,10 +210,13 @@
     cursor: pointer;
     transition: var(--transition-normal);
     font-weight: 600;
-    flex: 0 0 auto;
+    flex: 1;
     min-width: 120px; 
     text-align: center;
     font-size: var(--font-size-sm);
+    position: relative;
+    overflow: hidden;
+    gap: 4px;
 }
 
 .mode-btn.active {

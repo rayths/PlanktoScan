@@ -26,6 +26,17 @@
         gap: 4px;
     }
 
+    .upload-mode-switch {
+        gap: 8px;
+        flex-wrap: nowrap;
+    }
+    
+    .mode-btn {
+        min-width: 100px;
+        padding: 10px 16px;
+        font-size: var(--font-size-sm);
+    }
+
     .upload-zone {
         border-radius: var(--radius-large);
         min-height: 350px;
@@ -91,7 +102,6 @@
     }
     
     /* CARDS */
-    
     .upload-card {
         margin: 0;
         padding: var(--spacing-lg) var(--spacing-md);
@@ -107,8 +117,37 @@
         max-width: none;
     }
     
-    /* UPLOAD ZONE */
+    /* SWITCH MODE */
+    .upload-mode-switch {
+        gap: 8px;
+        flex-wrap: nowrap;
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    .mode-btn {
+        min-width: 0;
+        padding: 12px 10px;
+        font-size: var(--font-size-xs);
+        letter-spacing: 0.5px;
+        border-radius: 20px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+    }
+    
+    .mode-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 3px 10px rgba(52, 152, 219, 0.2);
+    }
+    
+    .mode-btn.active {
+        transform: scale(1.01);
+        box-shadow: 0 3px 12px rgba(52, 152, 219, 0.3);
+    }
 
+    /* UPLOAD ZONE */
     .upload-zone {
         border-radius: var(--radius-large);
         min-height: 300px;
@@ -489,7 +528,7 @@
     }
 }
 
-/* EXTRA SMALL DEVICES */
+/* Mobile Small */
 @media (max-width: 575.98px) {
     :root {
     --font-size-xs: 0.55rem;    /* 8.8px */
@@ -532,6 +571,37 @@
         gap: 2px;
     }
 
+    .upload-mode-switch {
+        gap: 6px;
+        flex-wrap: nowrap;
+        margin-bottom: var(--spacing-sm);
+        padding: 0 var(--spacing-xs);
+    }
+    
+    .mode-btn {
+        min-width: 0;
+        padding: 10px 8px;
+        font-size: 0.65rem;
+        letter-spacing: 0.3px;
+        border-radius: 18px;
+        height: 40px;
+        border-width: 1.5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+        font-weight: 600;
+    }
+    
+    .mode-btn:hover {
+        transform: none;
+    }
+    
+    .mode-btn.active {
+        transform: scale(1.005);
+        box-shadow: 0 2px 8px rgba(52, 152, 219, 0.3);
+    }
+
     .upload-zone {
         min-height: 250px;
     }
@@ -555,16 +625,6 @@
         width: 98%;
         padding: var(--spacing-sm);
         margin: 0;
-    }
-    
-    .upload-mode-switch {
-        flex-direction: column;
-        gap: var(--spacing-xs);
-    }
-    
-    .mode-btn {
-        width: 100%;
-        max-width: 200px;
     }
     
     .camera-controls {
@@ -642,10 +702,24 @@
     }
 }
 
-/* LANDSCAPE ORIENTATION (MOBILE) */
-
-@media (max-width: 768px) and (orientation: landscape) {
+/* Mobile Extra Small */
+@media (max-width: 375px) {
+    .upload-mode-switch {
+        gap: 4px;
+        padding: 0 4px;
+    }
     
+    .mode-btn {
+        padding: 8px 6px;
+        font-size: 0.6rem;
+        height: 36px;
+        border-radius: 15px;
+        letter-spacing: 0.2px;
+    }
+}
+
+/* LANDSCAPE ORIENTATION (MOBILE) */
+@media (max-width: 767.9px) and (orientation: landscape) {
     .dashboard-content {
         padding-top: 70px;
     }
@@ -654,6 +728,17 @@
         padding-top: 80px;
     }
     
+    .upload-mode-switch {
+        gap: 10px;
+        margin-bottom: 0.75rem;
+    }
+    
+    .mode-btn {
+        padding: 8px 16px;
+        height: 36px;
+        font-size: var(--font-size-xs);
+    }
+
     .upload-card {
         margin: 0;
         padding: var(--spacing-sm);
@@ -693,37 +778,49 @@
     }
 }
 
-/* ACCESSIBILITY IMPROVEMENTS */
-
-@media (max-width: 768px) {
-    
-    /* Increase touch targets */
-    .btn,
-    .dropdown-toggle,
-    .camera-btn,
+/* TOUCH DEVICE OPTIMIZATIONS */
+@media (pointer: coarse) {
     .mode-btn {
         min-height: 44px;
-        min-width: 44px;
     }
     
-    /* Improve text readability */
-    .text-muted {
-        color: #666 !important;
+    .mode-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
     }
     
-    /* Better focus indicators */
-    :focus {
-        outline: 3px solid var(--primary-color);
-        outline-offset: 2px;
+    .mode-btn:active {
+        transform: scale(0.95);
+        transition: transform 0.1s ease;
+    }
+}
+
+/* ACCESSIBILITY & MOTION PREFERENCES */
+@media (prefers-reduced-motion: reduce) {
+    .mode-btn,
+    .mode-btn::before {
+        transition: none;
     }
     
-    /* Improved contrast for small screens */
-    .upload-text {
-        color: #333;
-        font-weight: 600;
+    .mode-btn:hover,
+    .mode-btn.active {
+        transform: none;
     }
     
-    .upload-subtext {
-        color: #555;
+    .mode-btn::before {
+        display: none;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    .mode-btn {
+        border-width: 3px;
+    }
+    
+    .mode-btn.active {
+        background: #000;
+        color: #fff;
+        border-color: #000;
     }
 }
