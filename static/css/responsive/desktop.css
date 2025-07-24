@@ -23,6 +23,14 @@
     .btn-modern {
         letter-spacing: 1.2px;
     }  
+
+    .upload-zone {
+        min-height: 450px;
+    }
+
+    .upload-content {
+        min-height: 450px;
+    }
 }
 
 /* Desktop */
@@ -45,6 +53,14 @@
     
     .text-label {
         letter-spacing: 0.6px;
+    }
+
+    .upload-zone {
+        min-height: 400px;
+    }
+
+    .upload-content {
+        min-height: 400px;
     }
 } 
 

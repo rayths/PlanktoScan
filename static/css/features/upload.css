@@ -11,7 +11,7 @@
     cursor: pointer;
     position: relative;
     overflow: hidden;
-    min-height: 300px;
+    min-height: 350px;
     box-sizing: border-box;
 }
 
@@ -24,7 +24,7 @@
 
 .upload-content {
     padding: 3.5rem 2rem;
-    min-height: 300px;
+    min-height: 350px;
     display: flex;
     flex-direction: column;
     justify-content: center;
