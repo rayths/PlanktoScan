@@ -17,19 +17,25 @@
     
     /* Background Colors */
     --bg-primary: #f5f5f5;
+    --bg-white: #ffffff;
     --bg-card: rgba(255, 255, 255, 0.98);
     --bg-overlay: rgba(52, 152, 219, 0.1);
     
-    /* Border Colors */
-    --border-light: #e9ecef;
-    --border-primary: #3498DB;
-    --border-success: #27AE60;
-    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, #3498DB, #5DADE2);
+    --gradient-secondary: linear-gradient(135deg, #27AE60, #2ECC71, #58D68D);
+    --gradient-upload: linear-gradient(135deg, rgba(236, 240, 241, 0.8), rgba(247, 249, 250, 0.9));
+
     /* Shadows */
     --shadow-light: 0 2px 5px rgba(0, 0, 0, 0.1);
     --shadow-medium: 0 8px 25px rgba(52, 152, 219, 0.15);
     --shadow-heavy: 0 25px 80px rgba(52, 152, 219, 0.15);
     
+    /* Border Colors */
+    --border-light: #e9ecef;
+    --border-primary: #3498DB;
+    --border-success: #27AE60;
+
     /* Border Radius */
     --radius-small: 8px;
     --radius-medium: 12px;
@@ -44,8 +50,37 @@
     --spacing-lg: 2rem;
     --spacing-xl: 3rem;
     
+    
+    /* Typography */
+    --font-family: 'Poppins', sans-serif;
+    --font-size-xs: 0.75rem;    /* 12px */
+    --font-size-sm: 0.875rem;   /* 14px */
+    --font-size-base: 1rem;     /* 16px */
+    --font-size-lg: 1.125rem;   /* 18px */
+    --font-size-xl: 1.25rem;    /* 20px */
+    --font-size-2xl: 1.5rem;    /* 24px */
+    --font-size-3xl: 2rem;      /* 32px */
+    --font-size-4xl: 2.5rem;    /* 40px */
+    --font-size-5xl: 3rem;      /* 48px */
+
+    /* Line Heights */
+    --line-height-tight: 1.2;
+    --line-height-normal: 1.5;
+    --line-height-relaxed: 1.6;
+    --line-height-loose: 1.8;
+
     /* Transitions */
     --transition-fast: 0.2s ease;
     --transition-normal: 0.3s ease;
     --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Z-index */
+    --z-dropdown: 1000;
+    --z-sticky: 1020;
+    --z-fixed: 1030;
+    --z-modal-backdrop: 1040;
+    --z-modal: 1050;
+    --z-popover: 1060;
+    --z-tooltip: 1070;
+    --z-toast: 1080;    
 }

@@ -3,7 +3,7 @@
 /* Modern Button Styles */
 .btn-modern {
     padding: 12px 35px;
-    font-size: 1rem;
+    font-size: var(--font-size-base);
     font-weight: 700;
     border-radius: var(--radius-large);
     border: none;
@@ -103,7 +103,7 @@
     background: linear-gradient(45deg, var(--primary-green), var(--success-green));
     border: none;
     padding: 15px 40px;
-    font-size: 1.2rem;
+    font-size: var(--font-size-lg);
     font-weight: 600;
     border-radius: 50px;
     color: white;
@@ -128,7 +128,7 @@
     border: none;
     border-radius: 0;
     padding: 12px 15px;
-    font-size: 14px;
+    font-size: var(--font-size-sm);
     transition: var(--transition-normal);
     min-width: 80px;
     display: flex;
@@ -189,7 +189,7 @@
     border: none;
     border-radius: 0 var(--radius-medium) var(--radius-medium) 0;
     padding: 12px 15px;
-    font-size: 14px;
+    font-size: var(--font-size-sm);
     transition: var(--transition-normal);
     min-width: 50px;
 }
@@ -213,6 +213,7 @@
     flex: 0 0 auto;
     min-width: 120px; 
     text-align: center;
+    font-size: var(--font-size-sm);
 }
 
 .mode-btn.active {
@@ -264,7 +265,7 @@
     background: none;
     border: none;
     color: #ddd;
-    font-size: 1.5rem;
+    font-size: var(--font-size-xl);
     cursor: pointer;
     transition: color var(--transition-fast);
     padding: 5px;
@@ -285,7 +286,7 @@
     background: none;
     border: none;
     color: var(--error-red);
-    font-size: 1.1rem;
+    font-size: var(--font-size-lg);
     cursor: pointer;
     padding: 5px;
     border-radius: 50%;

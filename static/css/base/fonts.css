@@ -2,25 +2,132 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
 
-body {
-    font-family: 'Poppins', sans-serif;
+/* Base Typography */
+html {
     font-size: 16px;
-    letter-spacing: 0.5px;
+}
+
+body {
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-normal);
+    color: var(--text-primary);
+    letter-spacing: 0.3px;
+}
+
+/* Headings */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    line-height: var(--line-height-tight);
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-primary);
+    letter-spacing: -0.025em;
+}
+
+h1 { 
+    font-size: var(--font-size-5xl);
+    font-weight: 900;
+    line-height: 1.1;
+}
+
+h2 { 
+    font-size: var(--font-size-4xl);
+    font-weight: 800;
+    line-height: 1.15;
+}
+
+h3 { 
+    font-size: var(--font-size-3xl);
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+h4 { 
+    font-size: var(--font-size-2xl);
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+h5 { 
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+h6 { 
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+/* Paragraphs & Text */
+p {
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-primary);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-normal);
 }
 
 /* Typography Utilities */
+/* Text Alignment */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+/* Text Colors */
+.text-primary { color: var(--primary-blue); }
+.text-success { color: var(--primary-green); }
+.text-error { color: var(--error-red); }
+.text-warning { color: var(--warning-orange); }
+
+.text-muted { 
+    color: var(--text-muted) !important;
+    font-size: var(--font-size-lg) !important;
+    font-weight: 500;
+    margin-top: var(--spacing-sm);
+}
+
+/* Font Weights */
+.font-light { font-weight: 300; }
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+.font-black { font-weight: 900; }
+
+/* Font Sizes */
+.text-xs { font-size: var(--font-size-xs); }
+.text-sm { font-size: var(--font-size-sm); }
+.text-base { font-size: var(--font-size-base); }
+.text-lg { font-size: var(--font-size-lg); }
+.text-xl { font-size: var(--font-size-xl); }
+.text-2xl { font-size: var(--font-size-2xl); }
+.text-3xl { font-size: var(--font-size-3xl); }
+.text-4xl { font-size: var(--font-size-4xl); }
+.text-5xl { font-size: var(--font-size-5xl); }
+
+/* Line Heights */
+.leading-tight { line-height: var(--line-height-tight); }
+.leading-normal { line-height: var(--line-height-normal); }
+.leading-relaxed { line-height: var(--line-height-relaxed); }
+.leading-loose { line-height: var(--line-height-loose); }
+
+/* 
+ * Specific Text Styles 
+ */
+/* Text Labels */
 .text-label {
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 1rem;
+    margin-bottom: var(--spacing-sm);
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 20px !important;
+    font-size: var(--font-size-lg);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    height: 24px;
-    line-height: 1.2;
+    height: auto;
+    line-height: var(--line-height-tight);
 }
 
 .text-label i {
@@ -28,9 +135,121 @@ body {
     font-size: 1.2rem;
 }
 
-.text-muted {
-    color: #6C757D !important;
-    font-size: 1.1rem;
-    font-weight: 500;
-    margin-top: 1rem;
+/* Upload Zone Text */
+.upload-text {
+    font-size: var(--font-size-xl);
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+    font-weight: 600;
+    line-height: var(--line-height-tight);
+}
+
+.upload-subtext {
+    font-size: var(--font-size-base);
+    color: var(--text-secondary);
+    font-weight: 400;
+    line-height: var(--line-height-normal);
+}
+
+/* Popup Text */
+.popup-title {
+    color: #163D17;
+    font-size: var(--font-size-4xl);
+    font-weight: 900;
+    margin-bottom: var(--spacing-sm);
+    text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.80);
+    line-height: var(--line-height-tight);
+}
+
+.popup-subtitle {
+    color: #163D17;
+    font-size: var(--font-size-xl);
+    font-weight: bold;
+    margin-bottom: var(--spacing-lg);
+    text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.80);
+    line-height: var(--line-height-normal);
+}
+
+/* Button Text */
+.btn-modern {
+    font-size: var(--font-size-base);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn-start-popup {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* Table Text */
+.table-modern th {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    letter-spacing: 0.025em;
+}
+
+.table-modern td {
+    font-size: var(--font-size-sm);
+    font-weight: 400;
+}
+
+/* File Info Text */
+.file-info-content {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: var(--font-size-base);
+}
+
+/* GPS Text */
+.gps-text {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.gps-loading {
+    color: #16A085;
+    font-size: var(--font-size-sm);
+}
+
+/* 
+ * Accessibility Enhancements
+ */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    body {
+        color: #000;
+    }
+    
+    .text-muted {
+        color: #333 !important;
+    }
+    
+    .text-secondary {
+        color: #444;
+    }
+}
+
+/* Reading preferences */
+@media (prefers-reading: high) {
+    body {
+        line-height: var(--line-height-loose);
+        letter-spacing: 0.1em;
+    }
+    
+    p {
+        margin-bottom: var(--spacing-md);
+    }
 }

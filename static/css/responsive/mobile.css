@@ -1,22 +1,70 @@
 /* MOBILE RESPONSIVE STYLES */
 
-@media (max-width: 768px) {
-    
-    /* BASE TYPOGRAPHY */
-    
-    body { 
-        font-size: 14px; 
+/* Tablet */
+@media (min-width: 768px) and (max-width: 991px) {
+    :root {
+        --font-size-xs: 0.65rem;    /* 10.4px */
+        --font-size-sm: 0.8rem;     /* 12.8px */
+        --font-size-base: 0.9rem;   /* 14.4px */
+        --font-size-lg: 1rem;       /* 16px */
+        --font-size-xl: 1.1rem;     /* 17.6px */
+        --font-size-2xl: 1.25rem;   /* 20px */
+        --font-size-3xl: 1.5rem;    /* 24px */
+        --font-size-4xl: 1.9rem;    /* 30.4px */
+        --font-size-5xl: 2.3rem;    /* 36.8px */
+    }
+
+    body {
+        letter-spacing: 0.2px;
     }
     
-    h1 { font-size: 1.75rem; }
-    h2 { font-size: 1.5rem; }
-    h3 { font-size: 1.25rem; }
-    h4 { font-size: 1.125rem; }
-    h5 { font-size: 1rem; }
-    h6 { font-size: 0.875rem; }
+    .text-label {
+        letter-spacing: 0.3px;
+        text-transform: none;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
     
+    .upload-text {
+        text-align: center;
+    }
+    
+    .upload-subtext {
+        text-align: center;
+    }
+    
+    .popup-title,
+    .popup-subtitle {
+        text-align: center;
+    }
+}
+
+/*Mobile Large */
+@media (max-width: 768px) {
+    :root {
+        --font-size-xs: 0.6rem;     /* 9.6px */
+        --font-size-sm: 0.75rem;    /* 12px */
+        --font-size-base: 0.875rem; /* 14px */
+        --font-size-lg: 0.95rem;    /* 15.2px */
+        --font-size-xl: 1.05rem;    /* 16.8px */
+        --font-size-2xl: 1.15rem;   /* 18.4px */
+        --font-size-3xl: 1.35rem;   /* 21.6px */
+        --font-size-4xl: 1.6rem;    /* 25.6px */
+        --font-size-5xl: 1.9rem;    /* 30.4px */
+    }
+
+    body {
+        letter-spacing: 0.15px;
+        line-height: var(--line-height-relaxed);
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+        text-align: center;
+        margin-bottom: var(--spacing-xs);
+    }
+        
     /* LAYOUT CONTAINERS */
-    
     .container {
         padding-left: var(--spacing-sm);
         padding-right: var(--spacing-sm);
@@ -67,12 +115,13 @@
     }
     
     .upload-text {
-        font-size: 1.1rem;
+        font-size: var(--font-size-lg);
+        text-align: center;
         margin-bottom: var(--spacing-xs);
     }
     
     .upload-subtext {
-        font-size: 0.9rem;
+        text-align: center;
     }
     
     /* CAMERA STYLES */
@@ -124,7 +173,9 @@
     .btn-modern {
         width: 100%;
         padding: 16px 25px;
-        font-size: var(--font-size-base);
+        font-size: var(--font-size-sm);
+        letter-spacing: 0.5px;
+        text-transform: none;
         min-width: auto;
         height: 55px;
     }
@@ -142,6 +193,10 @@
     
     .text-label {
         font-size: var(--font-size-base);
+        letter-spacing: 0.2px;
+        text-transform: none;
+        text-align: center;
+        justify-content: center;
         margin-bottom: var(--spacing-xs);
     }
     
@@ -359,18 +414,18 @@
     }
     
     .popup-title {
-        font-size: 1.75rem;
-        margin-bottom: var(--spacing-xs);
+        font-size: var(--font-size-3xl);
+        text-align: center;
     }
     
     .popup-subtitle {
-        font-size: 1rem;
-        margin-bottom: var(--spacing-lg);
+        font-size: var(--font-size-base);
+        text-align: center;
     }
     
     .btn-start-popup {
         padding: 12px 30px;
-        font-size: 1rem;
+        font-size: var(--font-size-base);
     }
     
     /* FILE INFO */
@@ -424,14 +479,56 @@
     }
 }
 
-/* EXTRA SMALL DEVICES (< 576px) */
-
+/* EXTRA SMALL DEVICES */
 @media (max-width: 575.98px) {
-    
-    body {
-        font-size: 13px;
+    :root {
+    --font-size-xs: 0.55rem;    /* 8.8px */
+    --font-size-sm: 0.7rem;     /* 11.2px */
+    --font-size-base: 0.8rem;   /* 12.8px */
+    --font-size-lg: 0.9rem;     /* 14.4px */
+    --font-size-xl: 1rem;       /* 16px */
+    --font-size-2xl: 1.1rem;    /* 17.6px */
+    --font-size-3xl: 1.25rem;   /* 20px */
+    --font-size-4xl: 1.45rem;   /* 23.2px */
+    --font-size-5xl: 1.7rem;    /* 27.2px */
     }
     
+    html {
+        font-size: 14px; /* Reduce base font size */
+    }
+    
+    body {
+        letter-spacing: 0.1px;
+        line-height: var(--line-height-relaxed);
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+        text-align: center;
+        margin-bottom: var(--spacing-xs);
+        letter-spacing: 0;
+    }
+
+    .text-label {
+        font-size: var(--font-size-sm);
+        letter-spacing: 0.1px;
+        text-transform: none;
+        text-align: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .upload-text {
+        font-size: var(--font-size-base);
+        text-align: center;
+        font-weight: 700;
+    }
+    
+    .upload-subtext {
+        font-size: var(--font-size-sm);
+        text-align: center;
+    }
+
     .upload-card {
         width: 98%;
         padding: var(--spacing-sm);
@@ -465,9 +562,15 @@
     }
     
     .btn-modern {
-        padding: 14px 20px;
-        font-size: 0.9rem;
-        height: 50px;
+        font-size: var(--font-size-xs);
+        letter-spacing: 0.3px;
+        text-transform: none;
+        padding: 12px 20px;
+    }
+
+    .btn-start-popup {
+        font-size: var(--font-size-sm);
+        padding: 10px 25px;
     }
     
     .popup-content {
@@ -475,17 +578,33 @@
     }
     
     .popup-title {
-        font-size: 1.5rem;
+        font-size: var(--font-size-2xl);
+        text-align: center;
     }
     
     .popup-subtitle {
-        font-size: 0.9rem;
+        font-size: var(--font-size-sm);
+        text-align: center;
+
     }
     
     .table-modern th,
     .table-modern td {
-        padding: 0.5rem 0.25rem;
-        font-size: 0.8rem;
+        font-size: var(--font-size-xs);
+        padding: 8px 4px;
+    }
+    
+    .file-info-content {
+        font-size: var(--font-size-sm);
+    }
+    
+    .gps-text {
+        font-size: 0.6rem;
+    }
+    
+    .text-muted {
+        font-size: var(--font-size-sm) !important;
+        margin-top: var(--spacing-xs);
     }
     
     .feedback-stats {

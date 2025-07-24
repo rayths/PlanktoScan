@@ -13,7 +13,7 @@
 .location-input {
     width: 100%;
     padding: 0.875rem 1.25rem;
-    font-size: 1rem;
+    font-size: var(--font-size-base);
     background-color: #fff;
     border: 2px solid var(--border-light);
     border-radius: var(--radius-medium);
@@ -86,11 +86,12 @@
     color: var(--text-primary);
     position: relative;
     width: 100%;
+    font-size: var(--font-size-base);
 }
 
 .file-icon {
     color: var(--border-success);
-    font-size: 1.5rem;
+    font-size: var(--font-size-xl);
     animation: pulse 2s infinite;
 }
 
@@ -100,6 +101,8 @@
     border-radius: var(--radius-small);
     border: 2px solid var(--border-light);
     transition: border-color var(--transition-normal);
+    padding: 12px 16px;
+    font-size: var(--font-size-base);
 }
 
 #feedback-form .form-select:focus,
@@ -108,10 +111,23 @@
     box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
 }
 
+#feedback-form .form-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size-base);
+}
+
+#feedback-form textarea.form-control {
+    resize: vertical;
+    min-height: 100px;
+}
+
 /* Character Counter */
 #char-count {
     font-weight: 600;
     color: var(--text-muted);
+    font-size: var(--font-size-sm);
 }
 
 /* Ensure equal height columns */
