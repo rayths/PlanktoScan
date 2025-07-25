@@ -118,21 +118,23 @@ p {
 /* Text Labels */
 .text-label {
     font-weight: 700;
+    width: 100%;
     color: var(--text-primary);
     margin-bottom: var(--spacing-sm);
-    display: flex;
+    display: block;
     align-items: center;
     gap: 8px;
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-xl);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     height: auto;
     line-height: var(--line-height-tight);
+    text-align: left;
 }
 
 .text-label i {
     color: var(--primary-blue);
-    font-size: 1.2rem;
+    font-size: var(--font-size-xl);
 }
 
 /* Upload Zone Text */

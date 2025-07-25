@@ -22,16 +22,6 @@
     width: 100%;
 }
 
-.model-selection-container .text-label {
-    display: block;
-    width: 100%;
-    font-size: var(--font-size-base);
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.75rem;
-    text-align: left;
-}
-
 .model-dropdown-btn {
     width: 100%;
     padding: 0.875rem 1.25rem;

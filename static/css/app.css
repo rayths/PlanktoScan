@@ -1,8 +1,8 @@
 /* MAIN CSS FILE */
 
 /* Base Styles */
-@import url('./base/fonts.css');
 @import url('./base/variables.css');
+@import url('./base/fonts.css');
 @import url('./base/reset.css');
 
 /* Components */
