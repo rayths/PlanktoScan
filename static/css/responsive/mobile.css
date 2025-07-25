@@ -2,16 +2,8 @@
 
 /* Tablet */
 @media (max-width: 991px) {
-    :root {
-        --font-size-xs: 0.65rem;    /* 10.4px */
-        --font-size-sm: 0.8rem;     /* 12.8px */
-        --font-size-base: 0.9rem;   /* 14.4px */
-        --font-size-lg: 1rem;       /* 16px */
-        --font-size-xl: 1.1rem;     /* 17.6px */
-        --font-size-2xl: 1.25rem;   /* 20px */
-        --font-size-3xl: 1.5rem;    /* 24px */
-        --font-size-4xl: 1.9rem;    /* 30.4px */
-        --font-size-5xl: 2.3rem;    /* 36.8px */
+    html {
+        font-size: 14.4px;
     }
 
     body {
@@ -21,7 +13,6 @@
     .text-label {
         letter-spacing: 0.3px;
         text-transform: none;
-        flex-direction: column;
         align-items: flex-start;
         gap: 4px;
     }
@@ -34,7 +25,6 @@
     .mode-btn {
         min-width: 100px;
         padding: 10px 16px;
-        font-size: var(--font-size-sm);
     }
 
     .upload-zone {
@@ -63,16 +53,8 @@
 
 /*Mobile Large */
 @media (max-width: 767.9px) {
-    :root {
-        --font-size-xs: 0.6rem;     /* 9.6px */
-        --font-size-sm: 0.75rem;    /* 12px */
-        --font-size-base: 0.875rem; /* 14px */
-        --font-size-lg: 0.95rem;    /* 15.2px */
-        --font-size-xl: 1.05rem;    /* 16.8px */
-        --font-size-2xl: 1.15rem;   /* 18.4px */
-        --font-size-3xl: 1.35rem;   /* 21.6px */
-        --font-size-4xl: 1.6rem;    /* 25.6px */
-        --font-size-5xl: 1.9rem;    /* 30.4px */
+    html {
+        font-size: 14px;
     }
 
     body {
@@ -127,7 +109,6 @@
     .mode-btn {
         min-width: 0;
         padding: 12px 10px;
-        font-size: var(--font-size-xs);
         letter-spacing: 0.5px;
         border-radius: 20px;
         height: 44px;
@@ -159,12 +140,10 @@
     }
     
     .upload-icon {
-        font-size: 3rem;
         margin-bottom: var(--spacing-sm);
     }
     
     .upload-text {
-        font-size: var(--font-size-lg);
         text-align: center;
         margin-bottom: var(--spacing-xs);
     }
@@ -191,14 +170,13 @@
     .camera-btn {
         width: 45px;
         height: 45px;
-        font-size: 1.1rem;
     }
     
     .camera-btn.capture {
         width: 55px;
         height: 55px;
-        font-size: 1.3rem;
     }
+
     /* MODE SWITCH */
     .upload-mode-switch {
         display: flex;
@@ -214,7 +192,6 @@
         width: 150px;
         text-align: center;
         padding: 10px 15px;
-        font-size: 0.9rem;
     }
 
     /* BUTTONS */
@@ -222,7 +199,6 @@
     .btn-modern {
         width: 100%;
         padding: 16px 25px;
-        font-size: var(--font-size-sm);
         letter-spacing: 0.5px;
         text-transform: none;
         min-width: auto;
@@ -230,7 +206,6 @@
     }
     
     .btn {
-        font-size: 0.9rem;
         padding: 0.5rem 1rem;
     }
     
@@ -241,11 +216,8 @@
     }
     
     .text-label {
-        font-size: var(--font-size-base);
         letter-spacing: 0.2px;
         text-transform: none;
-        text-align: center;
-        justify-content: center;
         margin-bottom: var(--spacing-xs);
     }
     
@@ -253,18 +225,15 @@
     .dropdown-toggle,
     .btn-outline-secondary.dropdown-toggle {
         padding: 12px 16px !important;
-        font-size: 14px !important;
         height: 50px !important;
     }
     
     .dropdown-menu {
-        font-size: 14px;
         max-height: 250px;
     }
     
     .dropdown-item {
         padding: 10px 16px;
-        font-size: 13px;
     }
 
     /* LOCATION INPUT */
@@ -278,7 +247,6 @@
         border-radius: var(--radius-medium);
         border: 2px solid #e9ecef;
         width: 100%;
-        font-size: 14px;
         padding: 12px 16px;
     }
     
@@ -294,7 +262,6 @@
         flex: 1;
         max-width: 120px;
         padding: 12px 10px;
-        font-size: 13px;
     }
     
     .btn-gps .gps-text {
@@ -309,7 +276,6 @@
     .gps-status {
         margin-top: 12px;
         padding: 12px;
-        font-size: 14px;
     }
     
     .location-accuracy {
@@ -348,24 +314,17 @@
         border-radius: var(--radius-medium);
     }
     
-    .table-responsive {
-        font-size: 0.9rem;
-    }
-    
     .table-modern th {
         padding: 0.75rem 0.5rem;
-        font-size: 0.9rem;
     }
     
     .table-modern td {
         padding: 0.75rem 0.5rem;
-        font-size: 0.85rem;
     }
     
     .species-rank {
         width: 25px;
         height: 25px;
-        font-size: 0.8rem;
     }
     
     .probability-bar {
@@ -385,7 +344,6 @@
     }
     
     .btn-rating {
-        font-size: 1.3rem;
         width: 35px;
         height: 35px;
     }
@@ -440,13 +398,11 @@
         width: 300px;
         height: 30px;
         margin-left: -150px;
-        font-size: 30px;
     }
     
     #load div {
         width: 15px;
         height: 30px;
-        font-size: 30px;
     }
     
     /* WELCOME POPUP */
@@ -463,18 +419,15 @@
     }
     
     .popup-title {
-        font-size: var(--font-size-3xl);
         text-align: center;
     }
     
     .popup-subtitle {
-        font-size: var(--font-size-base);
         text-align: center;
     }
     
     .btn-start-popup {
         padding: 12px 30px;
-        font-size: var(--font-size-base);
     }
     
     /* FILE INFO */
@@ -486,17 +439,11 @@
     
     .file-info-content {
         gap: 10px;
-        font-size: 0.9rem;
-    }
-    
-    .file-icon {
-        font-size: 1.2rem;
     }
     
     .file-cancel-btn {
         width: 24px;
         height: 24px;
-        font-size: 0.9rem;
     }
     
     /* UTILITIES */
@@ -512,7 +459,6 @@
     }
     
     .text-muted {
-        font-size: var(--font-size-base);
         margin-top: var(--spacing-xs);
     }
     
@@ -530,20 +476,8 @@
 
 /* Mobile Small */
 @media (max-width: 575.98px) {
-    :root {
-    --font-size-xs: 0.55rem;    /* 8.8px */
-    --font-size-sm: 0.7rem;     /* 11.2px */
-    --font-size-base: 0.8rem;   /* 12.8px */
-    --font-size-lg: 0.9rem;     /* 14.4px */
-    --font-size-xl: 1rem;       /* 16px */
-    --font-size-2xl: 1.1rem;    /* 17.6px */
-    --font-size-3xl: 1.25rem;   /* 20px */
-    --font-size-4xl: 1.45rem;   /* 23.2px */
-    --font-size-5xl: 1.7rem;    /* 27.2px */
-    }
-    
     html {
-        font-size: 14px; /* Reduce base font size */
+        font-size: 12.8px;
     }
     
     body {
@@ -562,12 +496,8 @@
     }   
 
     .text-label {
-        font-size: var(--font-size-sm);
         letter-spacing: 0.1px;
         text-transform: none;
-        text-align: center;
-        justify-content: center;
-        flex-direction: column;
         gap: 2px;
     }
 
@@ -581,7 +511,6 @@
     .mode-btn {
         min-width: 0;
         padding: 10px 8px;
-        font-size: 0.65rem;
         letter-spacing: 0.3px;
         border-radius: 18px;
         height: 40px;
@@ -611,13 +540,11 @@
     }
 
     .upload-text {
-        font-size: var(--font-size-base);
         text-align: center;
         font-weight: 700;
     }
     
     .upload-subtext {
-        font-size: var(--font-size-sm);
         text-align: center;
     }
 
@@ -634,24 +561,20 @@
     .camera-btn {
         width: 40px;
         height: 40px;
-        font-size: 1rem;
     }
     
     .camera-btn.capture {
         width: 50px;
         height: 50px;
-        font-size: 1.2rem;
     }
     
     .btn-modern {
-        font-size: var(--font-size-xs);
         letter-spacing: 0.3px;
         text-transform: none;
         padding: 12px 20px;
     }
 
     .btn-start-popup {
-        font-size: var(--font-size-sm);
         padding: 10px 25px;
     }
     
@@ -660,50 +583,34 @@
     }
     
     .popup-title {
-        font-size: var(--font-size-2xl);
         text-align: center;
     }
     
     .popup-subtitle {
-        font-size: var(--font-size-sm);
         text-align: center;
 
     }
     
     .table-modern th,
     .table-modern td {
-        font-size: var(--font-size-xs);
         padding: 8px 4px;
     }
     
-    .file-info-content {
-        font-size: var(--font-size-sm);
-    }
-    
-    .gps-text {
-        font-size: 0.6rem;
-    }
-    
     .text-muted {
-        font-size: var(--font-size-sm) !important;
         margin-top: var(--spacing-xs);
     }
     
     .feedback-stats {
         padding: var(--spacing-xs);
     }
-    
-    .feedback-stat-number {
-        font-size: var(--font-size-lg);
-    }
-    
-    .feedback-stat-label {
-        font-size: 0.75rem;
-    }
 }
 
 /* Mobile Extra Small */
 @media (max-width: 375px) {
+    html {
+        font-size: 12px;
+    }
+
     .upload-mode-switch {
         gap: 4px;
         padding: 0 4px;
@@ -711,7 +618,6 @@
     
     .mode-btn {
         padding: 8px 6px;
-        font-size: 0.6rem;
         height: 36px;
         border-radius: 15px;
         letter-spacing: 0.2px;
@@ -736,7 +642,6 @@
     .mode-btn {
         padding: 8px 16px;
         height: 36px;
-        font-size: var(--font-size-xs);
     }
 
     .upload-card {
@@ -768,12 +673,10 @@
     }
     
     .popup-title {
-        font-size: 1.25rem;
         margin-bottom: var(--spacing-xs);
     }
     
     .popup-subtitle {
-        font-size: 0.9rem;
         margin-bottom: var(--spacing-sm);
     }
 }
