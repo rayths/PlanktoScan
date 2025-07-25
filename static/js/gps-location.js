@@ -240,71 +240,62 @@ function resetGPSButton() {
 function reverseGeocode(latitude, longitude) {
     const $locationInput = $('#sampling-location');
     
-    // Try multiple geocoding services for better coverage
-    const geocodingServices = [
-        {
-            name: 'OpenStreetMap Nominatim',
-            url: `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=14&addressdetails=1`,
-            parser: (data) => {
-                if (data && data.display_name) {
-                    // Extract meaningful location parts
-                    const address = data.address || {};
+    $.ajax({
+        url: `/api/reverse-geocode?lat=${latitude}&lon=${longitude}`,
+        method: 'GET',
+        timeout: 15000,
+        success: (data) => {
+            if (data && data.display_name) {
+                let location = data.display_name;
+
+                if (data.address) {
+                    const address = data.address;
                     const parts = [];
                     
-                    if (address.road) parts.push(address.road);
-                    if (address.suburb || address.neighbourhood) parts.push(address.suburb || address.neighbourhood);
-                    if (address.city || address.town || address.village) parts.push(address.city || address.town || address.village);
+                    if (address.village) parts.push(address.village);
+                    if (address.subdistrict) parts.push(address.subdistrict);
+                    if (address.city || address.town || address.village) {
+                        parts.push(address.city || address.town || address.village);
+                    }
                     if (address.state) parts.push(address.state);
                     
-                    return parts.length > 0 ? parts.join(', ') : data.display_name;
+                    if (parts.length > 0) {
+                        location = parts.join(', ');
+                    }
                 }
-                return null;
-            }
-        }
-    ];
+                
+                $locationInput.val(location);
+                $locationInput.trigger('input');
+                console.log('Reverse geocoding successful:', location);
 
-    // Try each service until one succeeds
-    function tryService(serviceIndex = 0) {
-        if (serviceIndex >= geocodingServices.length) {
-            // All services failed, use coordinates
+                // Show success message 
+                if (!location.startsWith('GPS:')) {
+                    console.log('Location found:', location);
+                }
+            } else {
+                // Fallback
+                const coordsLocation = `GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+                $locationInput.val(coordsLocation);
+                $locationInput.trigger('input');
+                console.log('Reverse geocoding returned no location, using coordinates:', coordsLocation);
+            }
+        },
+        error: (xhr, status, error) => {
+            // Error handling
             const coordsLocation = `GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
             $locationInput.val(coordsLocation);
-            console.log('Reverse geocoding failed, using coordinates:', coordsLocation);
-            return;
+            $locationInput.trigger('input');
+            
+            console.log('Reverse geocoding request failed:', {
+                status: xhr.status,
+                statusText: xhr.statusText,
+                error: error
+            });
+            
+            // Show user-friendly message for GPS coordinates
+            console.log('Using GPS coordinates as fallback:', coordsLocation);
         }
-
-        const service = geocodingServices[serviceIndex];
-        
-        $.ajax({
-            url: service.url,
-            method: 'GET',
-            timeout: 10000,
-            success: (data) => {
-                try {
-                    const location = service.parser(data);
-                    if (location) {
-                        $locationInput.val(location);
-                        console.log('Reverse geocoding successful:', location);
-                        
-                        // Trigger input event to notify other parts of the system
-                        $locationInput.trigger('input');
-                    } else {
-                        tryService(serviceIndex + 1);
-                    }
-                } catch (error) {
-                    console.error(`${service.name} parsing error:`, error);
-                    tryService(serviceIndex + 1);
-                }
-            },
-            error: (xhr, status, error) => {
-                console.error(`${service.name} request failed:`, error);
-                tryService(serviceIndex + 1);
-            }
-        });
-    }
-
-    // Start trying services
-    tryService(0);
+    });
 }
 
 /**

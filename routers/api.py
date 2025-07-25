@@ -1,5 +1,6 @@
 import os
 import time
+import requests
 from datetime import datetime
 from utils import predict_img, get_cache_info, get_detailed_cache_info, get_model_mapping, MODEL_CACHE, generate_stored_filename, save_upload_to_database, get_image_metadata
 from typing import Optional
@@ -294,6 +295,60 @@ async def logout(request: Request, next: str = "/"):
     request.session.clear()
     return RedirectResponse(url=next, status_code=302)
 
+# Location Routes
+@router.get("/api/reverse-geocode")
+async def reverse_geocode(lat: float, lon: float):
+    headers = {
+        "User-Agent": "PlanktoScanApp/1.0"
+    }
+
+    # URL untuk Nominatim API
+    url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=14&addressdetails=1"
+    
+    try:
+        # Request ke Nominatim dengan headers yang benar
+        resp = requests.get(url, headers=headers, timeout=15)
+        resp.raise_for_status()  # Raise exception jika status code error
+        
+        data = resp.json()
+        
+        # Pastikan response valid
+        if data and 'display_name' in data:
+            return JSONResponse(content=data)
+        else:
+            # Jika tidak ada display_name, return koordinat
+            return JSONResponse(content={
+                "display_name": f"GPS: {lat:.4f}, {lon:.4f}",
+                "address": {}
+            })
+            
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP Error: {e}")
+        # Return koordinat jika HTTP error
+        return JSONResponse(content={
+            "display_name": f"GPS: {lat:.4f}, {lon:.4f}",
+            "address": {},
+            "error": f"Geocoding service error: {str(e)}"
+        })
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Request Error: {e}")
+        # Return koordinat jika request error
+        return JSONResponse(content={
+            "display_name": f"GPS: {lat:.4f}, {lon:.4f}",
+            "address": {},
+            "error": f"Network error: {str(e)}"
+        })
+        
+    except Exception as e:
+        print(f"Unexpected Error: {e}")
+        # Return koordinat jika error lainnya
+        return JSONResponse(content={
+            "display_name": f"GPS: {lat:.4f}, {lon:.4f}",
+            "address": {},
+            "error": f"Unexpected error: {str(e)}"
+        })
+    
 @router.get("/cache-status")
 async def get_cache_status():
     """Get current model cache status"""
