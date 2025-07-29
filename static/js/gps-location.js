@@ -193,6 +193,9 @@ function handleGPSError(error) {
     $gpsStatus.addClass('error');
     $gpsStatus.find('span').text(errorMessage);
 
+    // Update placeholder
+    updateLocationPlaceholder('default');
+
     // Show error alert
     swal({
         title: "GPS Error",
@@ -232,6 +235,12 @@ function resetGPSButton() {
     $gpsButton.removeClass('loading success error');
     $gpsButton.find('.gps-icon').removeClass('fa-spinner fa-spin fa-check fa-exclamation').addClass('fa-location-arrow');
     $gpsButton.find('.gps-text').text('GPS');
+
+    // Reset GPS state
+    gpsState.isGettingLocation = false;
+
+    // Reset placeholder
+    updateLocationPlaceholder('default');
 }
 
 /**
@@ -314,7 +323,11 @@ function clearLocationInput() {
     // Reset GPS state
     gpsState.lastKnownPosition = null;
     gpsState.accuracy = null;
+    gpsState.lastUpdate = null;
     resetGPSButton();
+
+    // Update placeholder
+    updateLocationPlaceholder('default');
 
     // Trigger input event
     $locationInput.trigger('input');
