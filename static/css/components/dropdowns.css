@@ -125,7 +125,7 @@
     padding: 12px 20px;
     font-size: var(--font-size-sm);
     font-weight: 400;
-    color: #495057;
+    color: var(--text-primary);
     transition: var(--transition-fast);
     border: none;
     background: transparent;
@@ -165,7 +165,7 @@
     align-items: center;
     gap: var(--spacing-xs);
     min-width: 180px;
-    color: white;
+    color: var(--text-primary);
 }
 
 .user-dropdown-btn:hover {
@@ -173,14 +173,14 @@
     border-color: rgba(255, 255, 255, 0.5);
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    color: white;
+    color: var(--text-primary);
 }
 
 .user-dropdown-btn:focus {
     background: rgba(255, 255, 255, 0.2);
     border-color: rgba(255, 255, 255, 0.5);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    color: white;
+    color: var(--text-primary);
 }
 
 .user-dropdown-btn .user-name {
@@ -220,7 +220,7 @@
 
 .user-dropdown-btn + .dropdown-menu .dropdown-item:hover {
     background-color: var(--primary-blue) !important;
-    color: white !important;
+    color: white;
     transform: translateX(2px) !important;
 }
 
@@ -249,4 +249,38 @@
 @keyframes logout-spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+}
+
+/* NAVBAR USER DROPDOWN SPECIFIC OVERRIDES */
+.navbar .user-dropdown-btn + .dropdown-menu {
+    z-index: 9999 !important;
+    position: absolute !important;
+    background-color: #fff !important;
+    border: none !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+}
+
+.navbar .user-dropdown-btn + .dropdown-menu .dropdown-item {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    z-index: 10000 !important;
+    position: relative !important;
+}
+
+.navbar .dropdown-menu {
+    z-index: 9999 !important;
+}
+
+.navbar .dropdown-toggle {
+    z-index: 1002 !important;
+}
+
+/* DROPDOWN BACKDROP PREVENTION */
+.dropdown-backdrop {
+    display: none !important;
+}
+
+.navbar .dropdown.show .dropdown-menu {
+    display: block !important;
+    z-index: 9999 !important;
 }

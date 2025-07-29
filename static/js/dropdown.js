@@ -22,13 +22,87 @@ function initializeDropdowns() {
  * Initialize user dropdown functionality
  */
 function initializeUserDropdown() {
-    // Ensure Bootstrap dropdown is initialized
     const dropdownToggle = document.querySelector('#userDropdown');
-    if (dropdownToggle && typeof bootstrap !== 'undefined') {
-        new bootstrap.Dropdown(dropdownToggle);
-    }
+    const dropdownMenu = document.querySelector('#userDropdown + .dropdown-menu, .user-dropdown-btn + .dropdown-menu');
 
-    console.log('User dropdown initialized');
+    if (dropdownToggle) {
+        console.log('Initializing user dropdown...');
+        
+        // Remove any existing event listeners
+        const newToggle = dropdownToggle.cloneNode(true);
+        dropdownToggle.parentNode.replaceChild(newToggle, dropdownToggle);
+        
+        // Get the new reference
+        const freshToggle = document.querySelector('#userDropdown');
+        const freshMenu = document.querySelector('#userDropdown + .dropdown-menu, .user-dropdown-btn + .dropdown-menu');
+        
+        if (freshToggle && freshMenu) {
+            // Initialize Bootstrap dropdown
+            let bsDropdown;
+            if (typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
+                bsDropdown = new bootstrap.Dropdown(freshToggle);
+            }
+            
+            // Manual click handler
+            freshToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                console.log('User dropdown clicked');
+                
+                const isShown = freshMenu.classList.contains('show');
+                
+                // Close all other dropdowns first
+                document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
+                    if (menu !== freshMenu) {
+                        menu.classList.remove('show');
+                    }
+                });
+                
+                if (isShown) {
+                    freshMenu.classList.remove('show');
+                    freshToggle.setAttribute('aria-expanded', 'false');
+                } else {
+                    freshMenu.classList.add('show');
+                    freshToggle.setAttribute('aria-expanded', 'true');
+                }
+            });
+            
+            // Prevent menu from closing when clicking inside
+            if (freshMenu) {
+                freshMenu.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+                
+                // Ensure dropdown items are clickable
+                const dropdownItems = freshMenu.querySelectorAll('.dropdown-item');
+                dropdownItems.forEach(item => {
+                    item.addEventListener('click', function(e) {
+                        console.log('Dropdown item clicked:', this.textContent.trim());
+                        
+                        // Close dropdown after item click
+                        freshMenu.classList.remove('show');
+                        freshToggle.setAttribute('aria-expanded', 'false');
+                        
+                        // Allow the default action (href or onclick)
+                        return true;
+                    });
+                });
+            }
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!freshToggle.contains(e.target) && !freshMenu?.contains(e.target)) {
+                    freshMenu?.classList.remove('show');
+                    freshToggle.setAttribute('aria-expanded', 'false');
+                }
+            });
+            
+            console.log('User dropdown initialized successfully');
+        }
+    } else {
+        console.warn('User dropdown toggle not found');
+    }
 }
 
 /**
