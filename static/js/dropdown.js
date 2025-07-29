@@ -19,6 +19,32 @@ function initializeDropdowns() {
 }
 
 /**
+ * Initialize user dropdown functionality
+ */
+function initializeUserDropdown() {
+    // Ensure Bootstrap dropdown is initialized
+    const dropdownToggle = document.querySelector('#userDropdown');
+    if (dropdownToggle && typeof bootstrap !== 'undefined') {
+        new bootstrap.Dropdown(dropdownToggle);
+    }
+
+    console.log('User dropdown initialized');
+}
+
+/**
+ * Setup all dropdown initializations
+ */
+function initializeAllDropdowns() {
+    // Initialize regular dropdowns
+    initializeDropdowns();
+    
+    // Initialize user dropdown
+    initializeUserDropdown();
+    
+    console.log('All dropdowns initialized');
+}
+
+/**
  * Setup dropdown event handlers
  */
 function setupDropdownHandlers() {
@@ -78,8 +104,6 @@ function setupDropdownHandlers() {
 
 /**
  * Get dropdown value with validation
- * @param {string} dropdownId - ID of the dropdown
- * @returns {string} Selected value or default
  */
 function getDropdownValue(dropdownId) {
     const $select = $(`#${dropdownId}`);
@@ -103,8 +127,6 @@ function getDropdownValue(dropdownId) {
 
 /**
  * Set dropdown value programmatically
- * @param {string} dropdownId - ID of the dropdown
- * @param {string} value - Value to set
  */
 function setDropdownValue(dropdownId, value) {
     const $select = $(`#${dropdownId}`);
@@ -138,7 +160,6 @@ function setDropdownValue(dropdownId, value) {
 
 /**
  * Validate all dropdown selections
- * @returns {Object} Validation result with status and errors
  */
 function validateDropdowns() {
     const validationResult = {
@@ -162,7 +183,6 @@ function validateDropdowns() {
 
 /**
  * Reset dropdown to default values
- * @param {string} dropdownId - ID of dropdown to reset (optional, resets all if not provided)
  */
 function resetDropdown(dropdownId = null) {
     if (dropdownId) {
@@ -184,7 +204,6 @@ function resetDropdown(dropdownId = null) {
 
 /**
  * Get all dropdown values as an object
- * @returns {Object} Object containing all dropdown values
  */
 function getAllDropdownValues() {
     return {
@@ -194,7 +213,6 @@ function getAllDropdownValues() {
 
 /**
  * Update dropdown button text based on current selection
- * @param {string} dropdownId - ID of the dropdown to update
  */
 function updateDropdownButtonText(dropdownId) {
     const $select = $(`#${dropdownId}`);
@@ -287,6 +305,8 @@ function positionDropdownMenu($dropdown, $menu) {
 // Export to global scope
 if (typeof window !== 'undefined') {
     window.initializeDropdowns = initializeDropdowns;
+    window.initializeUserDropdown = initializeUserDropdown;
+    window.initializeAllDropdowns = initializeAllDropdowns;
     window.setupDropdownHandlers = setupDropdownHandlers;
     window.getDropdownValue = getDropdownValue;
     window.setDropdownValue = setDropdownValue;

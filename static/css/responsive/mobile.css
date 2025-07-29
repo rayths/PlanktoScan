@@ -1,7 +1,7 @@
 /* MOBILE RESPONSIVE STYLES */
 
 /* Tablet */
-@media (max-width: 991px) {
+@media (width < 991px) {
     html {
         font-size: 14.4px;
     }
@@ -49,10 +49,28 @@
     .popup-subtitle {
         text-align: center;
     }
+
+    .login-card {
+        padding: var(--spacing-lg);
+        margin: var(--spacing-md);
+    }
+    
+    .login-logo {
+        max-width: 180px;
+    }
+
+    .user-dropdown-btn {
+        min-width: 160px !important;
+        padding: var(--spacing-xs) var(--spacing-sm) !important;
+    }
+    
+    .user-dropdown-btn .user-name {
+        max-width: 100px;
+    }
 }
 
 /*Mobile Large */
-@media (max-width: 767.9px) {
+@media (width < 768px) {
     html {
         font-size: 14px;
     }
@@ -472,10 +490,50 @@
     .upload-card:hover .card-title-logo {
         animation: gentle-bounce 2s ease-in-out infinite;
     }
+
+    .login-container {
+        padding: var(--spacing-sm);
+    }
+    
+    .login-card {
+        padding: var(--spacing-md);
+        margin: var(--spacing-sm);
+    }
+    
+    .login-logo {
+        max-width: 160px;
+    }
+    
+    .login-options {
+        gap: var(--spacing-md);
+    }
+    
+    .login-option {
+        padding: var(--spacing-md);
+    }
+    
+    .option-title {
+        flex-direction: column;
+        gap: var(--spacing-xs);
+        text-align: center;
+    }
+    
+    .option-description {
+        text-align: center;
+    }
+
+    .user-dropdown-btn {
+        min-width: 140px !important;
+        padding: 8px 12px !important;
+    }
+    
+    .user-dropdown-btn .user-name {
+        max-width: 80px;
+    }
 }
 
 /* Mobile Small */
-@media (max-width: 575.98px) {
+@media (width < 576px) {
     html {
         font-size: 12.8px;
     }
@@ -603,10 +661,47 @@
     .feedback-stats {
         padding: var(--spacing-xs);
     }
+
+    .login-card {
+        padding: var(--spacing-sm);
+        border-radius: var(--radius-large);
+    }
+    
+    .login-logo {
+        max-width: 140px;
+    }
+    
+    .login-header {
+        margin-bottom: var(--spacing-lg);
+    }
+    
+    .login-options {
+        gap: var(--spacing-sm);
+    }
+    
+    .login-option {
+        padding: var(--spacing-sm);
+    }
+
+    .user-dropdown-btn {
+        min-width: 120px !important;
+        padding: 6px 10px !important;
+        gap: 4px !important;
+    }
+    
+    .user-dropdown-btn .user-name {
+        max-width: 60px;
+    }
+    
+    .user-dropdown-btn + .dropdown-menu {
+        min-width: 180px !important;
+        right: 0 !important;
+        left: auto !important;
+    }
 }
 
 /* Mobile Extra Small */
-@media (max-width: 375px) {
+@media (width < 375px) {
     html {
         font-size: 12px;
     }
@@ -625,7 +720,7 @@
 }
 
 /* LANDSCAPE ORIENTATION (MOBILE) */
-@media (max-width: 767.9px) and (orientation: landscape) {
+@media (width < 768px) and (orientation: landscape) {
     .dashboard-content {
         padding-top: 70px;
     }

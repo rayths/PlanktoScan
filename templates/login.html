@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - PlanktoScan</title>
+
+    <!-- Favicon and Stylesheets -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', path='assets/icon.png') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', path='assets/icon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap/css/bootstrap.css') }}">    
+    <link rel="stylesheet" href="{{ url_for('static', path='lib/fontawesome/css/all.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}">
+</head>
+<body>
+    <!-- Background -->
+    <div class="background">
+        <img src="{{ url_for('static', path='assets/background.png') }}" alt="background" class="background-image">
+    </div>
+    <div class="login-overlay"></div>
+
+    <!-- Login Container -->
+    <div class="login-container">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-5 col-md-7 col-sm-9">
+                    <div class="login-card">
+                        <!-- Header -->
+                        <div class="login-header text-center">
+                            <img src="{{ url_for('static', path='assets/judul.png') }}" alt="PlanktoScan" class="login-logo">
+                            <h2 class="login-title">Welcome Back</h2>
+                            <p class="login-subtitle">Choose your login method</p>
+                        </div>
+
+                        <!-- Login Options -->
+                        <div class="login-options">
+                            <!-- BRIN Staff Login -->
+                            <div class="login-option">
+                                <h4 class="option-title">
+                                    <i class="fas fa-id-badge text-success"></i>
+                                    BRIN Staff
+                                </h4>
+                                <p class="option-description">Login dengan akun resmi BRIN</p>
+                                <a href="/login/brin" class="btn btn-success-modern btn-modern w-100">
+                                    <i class="fas fa-building"></i>
+                                    Login as BRIN Staff
+                                </a>
+                            </div>
+
+                            <!-- Divider -->
+                            <div class="login-divider">
+                                <span>OR</span>
+                            </div>
+
+                            <!-- Guest Login -->
+                            <div class="login-option">
+                                <h4 class="option-title">
+                                    <i class="fas fa-user-plus text-primary"></i>
+                                    Guest Access
+                                </h4>
+                                <p class="option-description">Login sebagai tamu untuk memberikan feedback</p>
+                                <a href="/login/guest" class="btn btn-primary-modern btn-modern w-100">
+                                    <i class="fas fa-user-friends"></i>
+                                    Login as Guest
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="login-footer text-center">
+                            <a href="/" class="btn btn-link">
+                                <i class="fas fa-arrow-left"></i>
+                                Back to Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
+    <script src="{{ url_for('static', path='lib/bootstrap/js/bootstrap.js') }}"></script>
+</body>
+</html>

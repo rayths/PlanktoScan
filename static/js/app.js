@@ -21,11 +21,16 @@ function initializePlanktoScan() {
     
     try {
         // Initialize all modules in correct order
-        initializeDropdowns();
+        initializeAllDropdowns();
         setupAllEventHandlers();
         initializeLocationInput();
         initializeModeButtons();
         setupWelcomePopupHandlers();
+
+        // Initialize welcome popup with server data
+        if (typeof initializeWelcomePopupWithServerData === 'function') {
+            initializeWelcomePopupWithServerData();
+        }
         
         // Set default file mode
         setTimeout(() => {

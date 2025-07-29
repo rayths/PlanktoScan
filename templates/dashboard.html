@@ -57,9 +57,35 @@
                 </a>
                 <div class="d-flex align-items-center ms-auto">
                     <div class="navbar-nav">
-                        <button class="btn btn-primary-modern btn-modern" onclick="window.location.href='/login'">
-                            <i class="fas fa-right-to-bracket"></i> Login
-                        </button>
+                        {% if request.session.get('user_id') %}
+                            <div class="dropdown">
+                                <button class="btn btn-outline-light dropdown-toggle user-dropdown-btn" 
+                                        type="button" 
+                                        id="userDropdown" 
+                                        data-bs-toggle="dropdown" 
+                                        aria-expanded="false">
+                                    <i class="fas fa-user-circle"></i>
+                                    <span class="user-name">{{ request.session.get('user_name', 'User') }}</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                                    <li>
+                                        <a class="dropdown-item" href="/history">
+                                            <i class="fas fa-history"></i> Prediction History
+                                        </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <a class="dropdown-item logout-item" href="#" onclick="logout()">
+                                            <i class="fas fa-sign-out-alt"></i> Logout
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        {% else %}
+                            <button class="btn btn-primary-modern btn-modern" onclick="window.location.href='/login'">
+                                <i class="fas fa-sign-in-alt"></i> Login
+                            </button>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -256,16 +282,15 @@
     <script src="{{ url_for('static', path='js/app.js') }}"></script>
 
     <script>
-        // Handle welcome popup based on server-side variable
+        // Set server data for JavaScript modules
+        window.SHOW_WELCOME_POPUP = {% if show_welcome %}true{% else %}false{% endif %};
+
+        // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
-            {% if show_welcome %}
-                showWelcomePopup();
-            {% else %}
-                const welcomePopup = document.getElementById('welcomePopup');
-                if (welcomePopup) {
-                    welcomePopup.style.display = 'none';
-                }
-            {% endif %}
+            // Initialize welcome popup with server data
+            if (typeof handleWelcomePopupFromServer === 'function') {
+                handleWelcomePopupFromServer(window.SHOW_WELCOME_POPUP);
+            }
         });
     </script>
 </body>

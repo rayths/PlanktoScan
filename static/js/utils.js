@@ -4,7 +4,6 @@
 
 /**
  * Show error message using SweetAlert
- * @param {string} message - Error message to display
  */
 function showError(message) {
     if (typeof swal !== 'undefined') {
@@ -21,7 +20,6 @@ function showError(message) {
 
 /**
  * Show success message using SweetAlert
- * @param {string} message - Success message to display
  */
 function showSuccess(message) {
     if (typeof swal !== 'undefined') {
@@ -60,8 +58,6 @@ function hideLoading() {
 
 /**
  * Get cookie value by name
- * @param {string} name - Cookie name
- * @returns {string|null} Cookie value or null
  */
 function getCookie(name) {
     const nameEQ = name + "=";
@@ -76,9 +72,6 @@ function getCookie(name) {
 
 /**
  * Set cookie
- * @param {string} name - Cookie name
- * @param {string} value - Cookie value
- * @param {number} days - Days to expire
  */
 function setCookie(name, value, days) {
     let expires = "";
@@ -91,9 +84,46 @@ function setCookie(name, value, days) {
 }
 
 /**
+ * Logout function with confirmation and loading state
+ */
+function logout() {
+    // Show confirmation dialog
+    if (confirm('Are you sure you want to logout?')) {
+        // Show loading state
+        const logoutBtn = document.querySelector('.logout-item');
+        if (logoutBtn) {
+            logoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging out...';
+        }
+
+        // Send logout request
+        fetch('/logout', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            if (response.ok) {
+                // Redirect to dashboard after successful logout
+                window.location.href = '/';
+            } else {
+                throw new Error('Logout failed');
+            }
+        })
+        .catch(error => {
+            console.error('Logout error:', error);
+            alert('Logout failed. Please try again.');
+            // Reset button text
+            if (logoutBtn) {
+                logoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Logout';
+            }
+        });
+    }
+}
+
+/**
  * Format file size for display
- * @param {number} bytes - File size in bytes
- * @returns {string} Formatted file size
  */
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 Bytes';
@@ -105,8 +135,6 @@ function formatFileSize(bytes) {
 
 /**
  * Validate image file type
- * @param {File} file - File to validate
- * @returns {boolean} True if valid image
  */
 function isValidImageFile(file) {
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -115,9 +143,6 @@ function isValidImageFile(file) {
 
 /**
  * Validate file size
- * @param {File} file - File to validate
- * @param {number} maxSizeMB - Maximum size in MB
- * @returns {boolean} True if size is valid
  */
 function isValidFileSize(file, maxSizeMB = 10) {
     const maxSizeBytes = maxSizeMB * 1024 * 1024;
@@ -126,9 +151,6 @@ function isValidFileSize(file, maxSizeMB = 10) {
 
 /**
  * Debounce function to limit rate of function calls
- * @param {Function} func - Function to debounce
- * @param {number} wait - Wait time in milliseconds
- * @returns {Function} Debounced function
  */
 function debounce(func, wait) {
     let timeout;
@@ -144,9 +166,6 @@ function debounce(func, wait) {
 
 /**
  * Throttle function to limit rate of function calls
- * @param {Function} func - Function to throttle
- * @param {number} limit - Time limit in milliseconds
- * @returns {Function} Throttled function
  */
 function throttle(func, limit) {
     let inThrottle;
@@ -163,7 +182,6 @@ function throttle(func, limit) {
 
 /**
  * Check if geolocation is supported
- * @returns {boolean} True if supported
  */
 function isGeolocationSupported() {
     return "geolocation" in navigator;
@@ -171,7 +189,6 @@ function isGeolocationSupported() {
 
 /**
  * Check if device has camera
- * @returns {Promise<boolean>} True if camera is available
  */
 async function isCameraAvailable() {
     try {
@@ -185,7 +202,6 @@ async function isCameraAvailable() {
 
 /**
  * Get current mode (file or camera)
- * @returns {string} Current mode
  */
 function getCurrentMode() {
     const fileModeBtn = document.getElementById('file-mode-btn');
@@ -202,8 +218,6 @@ function getCurrentMode() {
 
 /**
  * Update file info display
- * @param {string} fileName - File name to display
- * @param {boolean} show - Whether to show or hide
  */
 function updateFileInfo(fileName, show = true) {
     const $fileInfo = $('#file-info');
@@ -289,4 +303,5 @@ if (typeof window !== 'undefined') {
     window.updateFileInfo = updateFileInfo;
     window.resetAllUIStates = resetAllUIStates;
     window.updatePredictButtonState = updatePredictButtonState;
+    window.logout = logout;
 }

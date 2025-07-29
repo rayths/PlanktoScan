@@ -44,6 +44,30 @@ function closeWelcomePopup() {
 }
 
 /**
+ * Handle welcome popup based on server-side variable
+ */
+function handleWelcomePopupFromServer(showWelcome) {
+    if (showWelcome) {
+        showWelcomePopup();
+    } else {
+        const welcomePopup = document.getElementById('welcomePopup');
+        if (welcomePopup) {
+            welcomePopup.style.display = 'none';
+        }
+    }
+}
+
+/**
+ * Initialize welcome popup with server data
+ * This function should be called from template with server data
+ */
+function initializeWelcomePopupWithServerData() {
+    // This will be set by the template
+    const showWelcome = window.SHOW_WELCOME_POPUP || false;
+    handleWelcomePopupFromServer(showWelcome);
+}
+
+/**
  * Setup welcome popup event handlers
  */
 function setupWelcomePopupHandlers() {
@@ -81,6 +105,8 @@ function checkWelcomePopupStatus() {
 if (typeof window !== 'undefined') {
     window.showWelcomePopup = showWelcomePopup;
     window.closeWelcomePopup = closeWelcomePopup;
+    window.handleWelcomePopupFromServer = handleWelcomePopupFromServer;
+    window.initializeWelcomePopupWithServerData = initializeWelcomePopupWithServerData;
     window.setupWelcomePopupHandlers = setupWelcomePopupHandlers;
     window.checkWelcomePopupStatus = checkWelcomePopupStatus;
 }

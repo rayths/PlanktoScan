@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction History - PlanktoScan</title>
+    
+    <!-- Stylesheets -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', path='assets/icon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap/css/bootstrap.css') }}">    
+    <link rel="stylesheet" href="{{ url_for('static', path='lib/fontawesome/css/all.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}">
+</head>
+<body>
+    <div class="history-container">
+        <!-- Header -->
+        <nav class="navbar navbar-expand-lg navbar-light">
+            <div class="container">
+                <a class="navbar-brand" href="/">
+                    <img src="{{ url_for('static', path='assets/judul.png') }}" alt="PlanktoScan" style="height: 40px;">
+                </a>
+                <a href="/" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="container mt-4">
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h4><i class="fas fa-history"></i> Prediction History</h4>
+                            <p class="text-muted mb-0">Your recent plankton analysis results</p>
+                        </div>
+                        <div class="card-body">
+                            {% if predictions %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Date</th>
+                                                <th>Image</th>
+                                                <th>Classification</th>
+                                                <th>Confidence</th>
+                                                <th>Location</th>
+                                                <th>Model</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for prediction in predictions %}
+                                            <tr>
+                                                <td>
+                                                    <small>{{ prediction.upload_date.strftime('%d/%m/%Y %H:%M') if prediction.upload_date else 'Unknown' }}</small>
+                                                </td>
+                                                <td>
+                                                    <img src="/static/uploads/results/{{ prediction.stored_filename }}" 
+                                                         alt="Plankton" 
+                                                         style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;">
+                                                </td>
+                                                <td>
+                                                    <strong>{{ prediction.top_class }}</strong>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-success">{{ prediction.top_probability|round(3) * 100 }}%</span>
+                                                </td>
+                                                <td>
+                                                    <small>{{ prediction.location if prediction.location else 'Unknown' }}</small>
+                                                </td>
+                                                <td>
+                                                    <small>{{ prediction.model_used }}</small>
+                                                </td>
+                                                <td>
+                                                    <a href="/result/{{ prediction.id }}" class="btn btn-sm btn-primary">
+                                                        <i class="fas fa-eye"></i> View
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-5">
+                                    <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                                    <h5>No Prediction History</h5>
+                                    <p class="text-muted">You haven't made any predictions yet.</p>
+                                    <a href="/" class="btn btn-primary">
+                                        <i class="fas fa-plus"></i> Start Analysis
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
+    <script src="{{ url_for('static', path='lib/bootstrap/js/bootstrap.js') }}"></script>
+</body>
+</html>

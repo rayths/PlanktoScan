@@ -151,3 +151,102 @@
 .dropdown-item.active:hover {
     background-color: #218838;
 }
+
+/* User Dropdown Button */
+.user-dropdown-btn {
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    font-weight: 600;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-medium);
+    transition: var(--transition-normal);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 180px;
+    color: white;
+}
+
+.user-dropdown-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    color: white;
+}
+
+.user-dropdown-btn:focus {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    color: white;
+}
+
+.user-dropdown-btn .user-name {
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-dropdown-btn i.fa-user-circle {
+    font-size: 1.2em;
+    margin-right: 2px;
+}
+
+/* User Dropdown Menu - Override general dropdown styles */
+.user-dropdown-btn + .dropdown-menu {
+    border: none !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+    border-radius: var(--radius-medium) !important;
+    padding: var(--spacing-sm) !important;
+    min-width: 200px !important;
+    margin-top: 8px !important;
+}
+
+.user-dropdown-btn + .dropdown-menu .dropdown-item {
+    padding: var(--spacing-sm) var(--spacing-md) !important;
+    border-radius: var(--radius-small) !important;
+    transition: var(--transition-fast) !important;
+    font-weight: 500 !important;
+    color: var(--text-primary) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: var(--spacing-xs) !important;
+}
+
+.user-dropdown-btn + .dropdown-menu .dropdown-item:hover {
+    background-color: var(--primary-blue) !important;
+    color: white !important;
+    transform: translateX(2px) !important;
+}
+
+.user-dropdown-btn + .dropdown-menu .dropdown-item i {
+    width: 16px !important;
+    text-align: center !important;
+    font-size: 14px !important;
+}
+
+.user-dropdown-btn + .dropdown-menu .dropdown-divider {
+    margin: var(--spacing-xs) 0 !important;
+    border-color: var(--border-light) !important;
+}
+
+/* Logout Item Specific Styling */
+.user-dropdown-btn + .dropdown-menu .logout-item:hover {
+    background-color: #dc3545;
+    color: white;
+}
+
+/* Loading State for Logout */
+.logout-item .fa-spinner {
+    animation: logout-spin 1s linear infinite;
+}
+
+@keyframes logout-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}

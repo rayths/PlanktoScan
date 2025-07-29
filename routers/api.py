@@ -22,6 +22,21 @@ templates = Jinja2Templates(directory="templates")
 result_cache = {}
 
 # Login Routes
+@router.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request, next: str = "/"):
+    """Main login selection page"""
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "next": next
+    })
+
+def get_current_user(request: Request, db: Session = Depends(get_db)):
+    """Get current user from session"""
+    user_id = request.session.get('user_id')
+    if user_id:
+        return db.query(User).filter(User.id == user_id).first()
+    return None
+
 @router.get("/login/brin", response_class=HTMLResponse)
 async def login_brin(request: Request, next: str = "/"):
     """Login page for BRIN internal users"""
@@ -166,6 +181,7 @@ async def authenticate_brin(
         
         # Set session
         request.session['user_id'] = user.id
+        request.session['user_name'] = user.name
         request.session['user_type'] = 'brin_internal'
         
         return RedirectResponse(url=next, status_code=302)
@@ -207,6 +223,7 @@ async def authenticate_guest(
         
         # Set session
         request.session['user_id'] = user.id
+        request.session['user_name'] = user.name
         request.session['user_type'] = 'external'
         
         return RedirectResponse(url=next, status_code=302)
@@ -215,6 +232,39 @@ async def authenticate_guest(
         logger.error(f"Guest auth error: {str(e)}")
         return JSONResponse(status_code=500, content={"error": "Authentication failed"})
 
+# Prediction History
+@router.get("/history", response_class=HTMLResponse)
+async def prediction_history(request: Request, db: Session = Depends(get_db)):
+    """User prediction history page"""
+    user_id = request.session.get('user_id')
+    if not user_id:
+        return RedirectResponse(url="/login?next=/history", status_code=302)
+    
+    try:
+        # Get user data
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            request.session.clear()
+            return RedirectResponse(url="/login", status_code=302)
+        
+        # Get user's prediction history from PlanktonUpload table
+        from database import PlanktonUpload
+        predictions = db.query(PlanktonUpload)\
+                       .filter(PlanktonUpload.user_ip == request.client.host)\
+                       .order_by(PlanktonUpload.upload_date.desc())\
+                       .limit(50)\
+                       .all()
+        
+        return templates.TemplateResponse("history.html", {
+            "request": request,
+            "user": user,
+            "predictions": predictions
+        })
+        
+    except Exception as e:
+        print(f"History error: {e}")
+        return RedirectResponse(url="/", status_code=302)
+    
 # Feedback Routes
 @router.post("/submit-feedback")
 async def submit_feedback(
@@ -289,11 +339,29 @@ async def submit_feedback(
         )
 
 # Logout Route
-@router.get("/logout")
-async def logout(request: Request, next: str = "/"):
+@router.post("/logout")
+async def logout(request: Request):
     """Logout user and clear session"""
-    request.session.clear()
-    return RedirectResponse(url=next, status_code=302)
+    try:
+        # Clear session
+        request.session.clear()
+        
+        # Return success response
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": "Logged out successfully"
+            }
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "success": False,
+                "message": f"Logout failed: {str(e)}"
+            }
+        )
 
 # Location Routes
 @router.get("/api/reverse-geocode")
