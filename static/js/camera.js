@@ -1,5 +1,135 @@
 // CAMERA MANAGEMENT MODULE
 
+window.isCameraActive = false;
+
+/**
+ * Start camera stream
+ */
+async function startCamera() {
+    // Check if camera is already active
+    if (window.isCameraActive) return;
+    window.isCameraActive = true;
+
+    // Stop any existing camera stream
+    await stopCamera();
+
+    console.log('Starting camera stream...');
+
+    // Initialize facing mode if not set
+    try {
+        const constraints = {
+            video: {
+                facingMode: PlanktoScanApp.facingMode,
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        };
+        
+        PlanktoScanApp.currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const video = document.getElementById('camera-preview');
+        if (video) {
+            video.srcObject = PlanktoScanApp.currentStream;
+        }
+        
+        // Ensure camera container is visible
+        const container = document.getElementById('camera-container');
+        if (container) {
+            container.style.opacity = '0';
+            container.style.display = 'block';
+            setTimeout(() => {
+                container.style.transition = 'opacity 0.3s ease';
+                container.style.opacity = '1';
+            }, 10);
+        }
+        
+        window.isCameraActive = true;
+    } catch (error) {
+        window.isCameraActive = false;
+        console.error('Error accessing camera:', error);
+        alert('Error accessing camera. Please make sure you have granted camera permissions.');
+        switchToFileMode();
+    }
+}
+
+/**
+ * Stop camera stream
+ */
+function stopCamera() {
+    window.isCameraActive = false;
+    console.log('Stopping camera stream...');
+
+    // Stop stream from PlanktoScanApp
+    if (window.PlanktoScanApp && PlanktoScanApp.currentStream) {
+        PlanktoScanApp.currentStream.getTracks().forEach(track => track.stop());
+        PlanktoScanApp.currentStream = null;
+    }
+    // Stop stream from video element directly (in case it's not the same as PlanktoScanApp.currentStream)
+    const video = document.getElementById('camera-preview');
+    if (video && video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+        video.srcObject = null;
+    }
+
+    // Reset camera state
+    if (window.CameraState) {
+        if (CameraState.stream) {
+            CameraState.stream.getTracks().forEach(track => track.stop());
+            CameraState.stream = null;
+        }
+        CameraState.isActive = false;
+    }
+
+    console.log('Camera stopped successfully');
+}
+
+/**
+ * Switch between front and back camera
+ */
+function switchCamera() {
+    PlanktoScanApp.facingMode = PlanktoScanApp.facingMode === 'user' ? 'environment' : 'user';
+    stopCamera();
+    startCamera();
+}
+
+/**
+ * Capture photo from camera
+ */
+function capturePhoto() {
+    const video = document.getElementById('camera-preview');
+    const canvas = document.getElementById('camera-canvas');
+    const cameraContainer = document.getElementById('camera-container');
+    
+    if (!video || !canvas) {
+        console.error('Camera preview or canvas not found');
+        return;
+    }
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas dimensions to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    // Draw video frame to canvas
+    ctx.drawImage(video, 0, 0);
+    
+    // Convert to blob and create file
+    canvas.toBlob(function(blob) {
+        const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
+        
+        // Show image preview from canvas in camera container
+        const dataURL = canvas.toDataURL('image/jpeg', 1);
+
+        // Store captured file globally
+        PlanktoScanApp.capturedImageFile = file;
+        PlanktoScanApp.uploadedImagePath = dataURL;
+
+        // Upload the captured image
+        uploadCapturedImage(file, dataURL, cameraContainer);
+        
+    }, 'image/jpeg', 0.9);
+}
+
 /**
  * Clean camera state by removing overlays and resetting video
  */
@@ -98,100 +228,6 @@ function switchToFileMode() {
     stopCamera();
 }
 
-/**
- * Start camera stream
- */
-async function startCamera() {
-    try {
-        const constraints = {
-            video: {
-                facingMode: PlanktoScanApp.facingMode,
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            }
-        };
-        
-        PlanktoScanApp.currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-        const video = document.getElementById('camera-preview');
-        if (video) {
-            video.srcObject = PlanktoScanApp.currentStream;
-        }
-        
-        // Ensure camera container is visible
-        const container = document.getElementById('camera-container');
-        if (container) {
-            container.style.opacity = '0';
-            container.style.display = 'block';
-            setTimeout(() => {
-                container.style.transition = 'opacity 0.3s ease';
-                container.style.opacity = '1';
-            }, 10);
-        }
-        
-    } catch (error) {
-        console.error('Error accessing camera:', error);
-        alert('Error accessing camera. Please make sure you have granted camera permissions.');
-        switchToFileMode();
-    }
-}
-
-/**
- * Stop camera stream
- */
-function stopCamera() {
-    if (PlanktoScanApp.currentStream) {
-        PlanktoScanApp.currentStream.getTracks().forEach(track => track.stop());
-        PlanktoScanApp.currentStream = null;
-    }
-}
-
-/**
- * Switch between front and back camera
- */
-function switchCamera() {
-    PlanktoScanApp.facingMode = PlanktoScanApp.facingMode === 'user' ? 'environment' : 'user';
-    stopCamera();
-    startCamera();
-}
-
-/**
- * Capture photo from camera
- */
-function capturePhoto() {
-    const video = document.getElementById('camera-preview');
-    const canvas = document.getElementById('camera-canvas');
-    const cameraContainer = document.getElementById('camera-container');
-    
-    if (!video || !canvas) {
-        console.error('Camera preview or canvas not found');
-        return;
-    }
-    
-    const ctx = canvas.getContext('2d');
-    
-    // Set canvas dimensions to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    // Draw video frame to canvas
-    ctx.drawImage(video, 0, 0);
-    
-    // Convert to blob and create file
-    canvas.toBlob(function(blob) {
-        const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
-        
-        // Show image preview from canvas in camera container
-        const dataURL = canvas.toDataURL('image/jpeg', 1);
-
-        // Store captured file globally
-        PlanktoScanApp.capturedImageFile = file;
-        PlanktoScanApp.uploadedImagePath = dataURL;
-
-        // Upload the captured image
-        uploadCapturedImage(file, dataURL, cameraContainer);
-        
-    }, 'image/jpeg', 0.9);
-}
 
 /**
  * Upload captured image to server
