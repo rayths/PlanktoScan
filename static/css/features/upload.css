@@ -110,7 +110,7 @@
 }
 
 .upload-text {
-    font-size: 1.2rem;
+    font-size: var(--font-size-xl);
     color: var(--text-primary);
     margin-bottom: 0.8rem;
     font-weight: 600;
@@ -124,7 +124,7 @@
 }
 
 .upload-subtext {
-    font-size: 0.95rem;
+    font-size: var(--font-size-base);
     color: var(--text-secondary);
     font-weight: 400;
     position: relative;

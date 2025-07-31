@@ -42,23 +42,23 @@
 /* Modern Bootstrap Dropdown Styles */
 .dropdown-toggle,
 .btn-outline-secondary.dropdown-toggle {
-    background-color: #fff !important;
-    border: 2px solid var(--border-light) !important;
-    border-radius: var(--radius-medium) !important;
-    padding: 14px 20px !important;
-    font-size: var(--font-size-base) !important;
-    font-weight: 500 !important;
-    color: #495057 !important;
-    min-width: 100% !important;
-    width: 100% !important;
-    height: 58px !important;
-    transition: var(--transition-normal) !important;
-    box-shadow: var(--shadow-light) !important;
-    text-align: left !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    line-height: 1.4 !important;
+    background-color: #fff;
+    border: 2px solid var(--border-light);
+    border-radius: var(--radius-medium);
+    padding: 14px 20px;
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    color: #495057;
+    min-width: 100%;
+    width: 100%;
+    height: 50px;
+    transition: var(--transition-normal);
+    box-shadow: var(--shadow-light);
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    line-height: 1.4;
 }
 
 .dropdown-toggle:hover,

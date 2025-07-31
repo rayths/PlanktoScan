@@ -82,7 +82,7 @@ p {
 
 .text-muted { 
     color: var(--text-muted) !important;
-    font-size: var(--font-size-lg) !important;
+    font-size: var(--font-size-base) !important;
     font-weight: 500;
     margin-top: var(--spacing-sm);
 }

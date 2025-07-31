@@ -17,14 +17,21 @@
 }
 
 .location-input {
-    width: 100%;
-    padding: 0.875rem 1.25rem;
-    font-size: var(--font-size-base);
     background-color: #fff;
     border: 2px solid var(--border-light);
     border-radius: var(--radius-medium);
+    padding: 14px 20px;
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    width: 100%;
+    height: 50px;
     transition: var(--transition-normal);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    box-shadow: var(--shadow-light);
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    line-height: 1.4;
 }
 
 .location-input:focus {
@@ -65,11 +72,6 @@
     flex: 1;
     border-radius: var(--radius-medium) 0 0 var(--radius-medium);
     border-right: none;
-}
-
-.location-buttons {
-    display: flex;
-    gap: 5px;
 }
 
 /* File Info */
