@@ -59,7 +59,6 @@ function setupFileUploadHandlers() {
 
 /**
  * Handle file selection - Updated to match script.js functionality
- * @param {File} file - Selected file
  */
 function handleFileSelection(file) {
     console.log('File selected:', file.name, formatFileSize(file.size));
@@ -134,7 +133,6 @@ function handleFileSelection(file) {
 
 /**
  * Show image preview in upload zone - Dari script.js
- * @param {File} file - The image file to preview
  */
 function showImagePreview(file) {
     const $uploadZone = $('.upload-zone');
@@ -159,43 +157,14 @@ function showImagePreview(file) {
             
             $uploadZone.html(`
                 <div class="image-preview-container" style="
-                    position: relative;
                     width: ${displayWidth}px;
                     height: ${displayHeight}px;
-                    margin: 0 auto;
-                    overflow: hidden;
-                    border-radius: 15px;
                 ">
-                    <img src="${e.target.result}" alt="Preview" class="image-preview" style="
-                        width: 100%;
-                        height: 100%;
-                        border-radius: 15px;
-                        object-fit: contain;
-                        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-                        display: block;
-                    ">
-                    <div class="upload-overlay" style="
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        right: 0;
-                        bottom: 0;
-                        background: rgba(0,0,0,0.8);
-                        color: white;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        justify-content: center;
-                        opacity: 0;
-                        transition: opacity 0.3s ease;
-                        border-radius: 15px;
-                        cursor: pointer;
-                        z-index: 50;
-                        pointer-events: auto;
-                    ">
-                        <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 15px; color: #27AE60;"></i>
-                        <div style="font-size: 1.2rem; color: #27AE60; margin-bottom: 5px;">File Uploaded!</div>
-                        <div style="font-size: 1rem; color: #fff; text-align: center;">Click to change image</div>
+                    <img src="${e.target.result}" alt="Preview" class="image-preview">
+                    <div class="upload-overlay">
+                        <i class="fas fa-check-circle"></i>
+                        <div class="success-text">File Uploaded!</div>
+                        <div class="change-text">Click to change image</div>
                     </div>
                 </div>
             `);
@@ -355,7 +324,7 @@ function resetFileUpload() {
     $uploadZone.removeAttr('style');
     $uploadZone.removeClass('success with-image uploading dragover');
     $uploadZone.html(`
-        <div class="upload-content" style="padding: 3.5rem 2rem; min-height: 300px;">
+        <div class="upload-content">
             <div class="upload-icon">
                 <i class="fas fa-cloud-upload-alt"></i>
             </div>

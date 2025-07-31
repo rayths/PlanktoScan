@@ -36,11 +36,56 @@
     width: 100%;
     height: auto;
     border-radius: var(--radius-large);
+    margin: 0 auto;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
     min-height: 200px;
+}
+
+.image-preview {
+    width: 100%;
+    height: 100%;
+    border-radius: var(--radius-large);
+    object-fit: contain;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    display: block;
+}
+
+.upload-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    border-radius: 15px;
+    cursor: pointer;
+    z-index: 50;
+    pointer-events: auto;
+}
+
+.upload-overlay i {
+    font-size: var(--font-size-5xl);
+    margin-bottom: 15px;
+    color: #27AE60;
+}
+
+.upload-overlay .success-text {
+    font-size: var(--font-size-xl);
+    color: #27AE60;
+    margin-bottom: 5px;
+}
+
+.upload-overlay .change-text {
+    font-size: var(--font-size-base);
+    color: #fff;
+    text-align: center;
 }
 
 .upload-zone::before {
@@ -147,7 +192,7 @@
 .upload-mode-switch {
     display: flex;
     gap: 10px;
-    margin-bottom: 1rem;
+    margin-bottom: var(--spacing-md);
     justify-content: center;
     flex-wrap: wrap;
 }
