@@ -277,7 +277,11 @@ function uploadCapturedImage(file, dataURL, cameraContainer) {
             $uploadZone.addClass('success');
             
             // Update camera preview with success indicator
-            updateCameraPreviewSuccess();
+            const tempImg = new Image();
+            tempImg.onload = function() {
+            setupCameraPreviewOverlay(dataURL, this.width, this.height, 'uploaded');
+            };
+            tempImg.src = dataURL;
             
             console.log('Camera image uploaded successfully:', data.img_path);
             stopCamera();
@@ -326,7 +330,7 @@ function showCameraPreview(dataURL) {
         }
         
         // Set overlay content and styles
-        setupCameraPreviewOverlay(previewOverlay, dataURL, originalWidth, originalHeight);
+        setupCameraPreviewOverlay(dataURL, originalWidth, originalHeight, 'captured');
         
         console.log('Camera preview overlay created');
     };
@@ -341,128 +345,49 @@ function showCameraPreview(dataURL) {
 /**
  * Setup camera preview overlay with interactive elements
  */
-function setupCameraPreviewOverlay(previewOverlay, dataURL, originalWidth, originalHeight) {
-    // Set overlay styles
-    previewOverlay.style.position = 'absolute';
-    previewOverlay.style.top = '0';
-    previewOverlay.style.left = '0';
-    previewOverlay.style.width = '100%';
-    previewOverlay.style.height = '100%';
-    previewOverlay.style.zIndex = '20';
-    previewOverlay.style.background = '#000';
-    previewOverlay.style.borderRadius = '15px';
-    previewOverlay.style.display = 'flex';
-    previewOverlay.style.alignItems = 'center';
-    previewOverlay.style.justifyContent = 'center';
+function setupCameraPreviewOverlay(dataURL, originalWidth, originalHeight, status = 'captured') {
+    const cameraContainer = document.getElementById('camera-container');
+    if (!cameraContainer) return;
+    
+    // Get or create overlay
+    let previewOverlay = document.getElementById('camera-preview-overlay');
+    if (!previewOverlay) {
+        previewOverlay = document.createElement('div');
+        previewOverlay.id = 'camera-preview-overlay';
+        cameraContainer.appendChild(previewOverlay);    
+    }
+    
+    // Determine message based on status
+    const message = status === 'captured' ? 'Photo Captured!' : 'Upload Successful!';
     
     previewOverlay.innerHTML = `
-        <div class="camera-image-preview" style="
-            position: relative;
-            width: ${originalWidth}px;
-            height: ${originalHeight}px;
-            max-width: 100%;
-            max-height: 100%;
-            background: #000;
-            border-radius: 15px;
-            overflow: hidden;
-            cursor: pointer;
-            pointer-events: auto;
-        ">
-            <img src="${dataURL}" alt="Camera Capture" style="
-                width: ${originalWidth}px;
-                height: ${originalHeight}px;
-                max-width: 100%;
-                max-height: 100%;
-                object-fit: contain;
-                border-radius: 15px;
-                display: block;
-                pointer-events: none;
-            ">
-            <div class="camera-success-indicator" style="
-                position: absolute;
-                top: 15px;
-                right: 15px;
-                background: #27AE60;
-                color: white;
-                border-radius: 50%;
-                width: 40px;
-                height: 40px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 1.2rem;
-                box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
-                z-index: 30;
-                pointer-events: none;
-            ">
-                <i class="fas fa-check"></i>
-            </div>
-            <div class="camera-overlay" style="
-                position: absolute;
-                top: 0;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                background: rgba(0,0,0,0.8);
-                color: white;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                opacity: 0;
-                transition: opacity 0.3s ease;
-                border-radius: 15px;
-                z-index: 25;
-                pointer-events: none;
-            ">
-                <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 15px; color: #27AE60;"></i>
-                <div style="font-size: 1.2rem; color: #27AE60; margin-bottom: 5px;">Photo Captured!</div>
-                <div style="font-size: 1rem; color: #fff; text-align: center;">Click to take another photo</div>
+        <div class="camera-image-preview" style="width: ${originalWidth}px; height: ${originalHeight}px;">
+            <img src="${dataURL}" alt="Camera Capture">
+            <div class="camera-overlay">
+                <i class="fas fa-check-circle"></i>
+                <div class="success-text">${message}</div>
+                <div class="change-text">Click to take another photo</div>
             </div>
         </div>
     `;
     
     // Add click functionality to retake photo
-    previewOverlay.onclick = function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        retakePhoto();
-    };
-    
-    // Add hover effects
-    setupCameraOverlayHover(previewOverlay);
-}
-
-/**
- * Setup hover effects for camera overlay
- */
-function setupCameraOverlayHover(previewOverlay) {
-    const overlay = previewOverlay.querySelector('.camera-overlay');
-    if (overlay) {
-        previewOverlay.onmouseenter = function() {
-            overlay.style.opacity = '1';
+    if (status === 'captured') {
+        previewOverlay.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            resetCameraCapture();
         };
-        previewOverlay.onmouseleave = function() {
-            overlay.style.opacity = '0';
-        };
-    }
-}
 
-/**
- * Retake photo functionality
- */
-function retakePhoto() {
-    console.log('Retake photo clicked');
-    
-    const cameraContainer = document.getElementById('camera-container');
-    
-    // Remove success state from camera container
-    if (cameraContainer) {
-        cameraContainer.classList.remove('success');
+        // Add hover effects
+        const overlay = previewOverlay.querySelector('.camera-overlay');
+        if (overlay) {
+            previewOverlay.onmouseenter = () => overlay.style.opacity = '1';
+            previewOverlay.onmouseleave = () => overlay.style.opacity = '0';
+        }
     }
 
-    // Reset camera capture state
-    resetCameraCapture();
+    console.log('Camera preview overlay setup complete');
 }
 
 /**
@@ -518,33 +443,6 @@ function resetCameraCapture() {
 }
 
 /**
- * Update camera preview with success indicator
- */
-function updateCameraPreviewSuccess() {
-    const previewOverlay = document.getElementById('camera-preview-overlay');
-    if (!previewOverlay) return;
-    
-    // Update the success indicator
-    const successIndicator = previewOverlay.querySelector('.camera-success-indicator');
-    if (successIndicator) {
-        successIndicator.innerHTML = '<i class="fas fa-check"></i>';
-        successIndicator.style.background = '#27AE60';
-    }
-    
-    // Update overlay text
-    const overlay = previewOverlay.querySelector('.camera-overlay');
-    if (overlay) {
-        overlay.innerHTML = `
-            <i class="fas fa-check-circle" style="font-size: 3rem; margin-bottom: 15px; color: #27AE60;"></i>
-            <div style="font-size: 1.2rem; color: #27AE60; margin-bottom: 5px;">Upload Successful!</div>
-            <div style="font-size: 1rem; color: #fff; text-align: center;">Click to take another photo</div>
-        `;
-    }
-    
-    console.log('Camera preview updated with success indicator');
-}
-
-/**
  * Setup camera event handlers
  */
 function setupCameraHandlers() {
@@ -589,7 +487,6 @@ if (typeof window !== 'undefined') {
     window.switchCamera = switchCamera;
     window.capturePhoto = capturePhoto;
     window.showCameraPreview = showCameraPreview;
-    window.updateCameraPreviewSuccess = updateCameraPreviewSuccess;
     window.resetCameraCapture = resetCameraCapture;
     window.setupCameraHandlers = setupCameraHandlers;
 }
