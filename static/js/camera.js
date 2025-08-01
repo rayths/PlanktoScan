@@ -5,18 +5,19 @@ const CameraElements = {
     cameraModeBtn: null, fileModeBtn: null, uploadZone: null,
     
     init() {
-        this.container = document.getElementById('camera-container');
-        this.video = document.getElementById('camera-preview');
-        this.canvas = document.getElementById('camera-canvas');
+        const elements = {
+            container: 'camera-container', video: 'camera-preview', canvas: 'camera-canvas',
+            fileName: 'file-name', fileInfo: 'file-info', locationInput: 'sampling-location',
+            cameraModeBtn: 'camera-mode-btn', fileModeBtn: 'file-mode-btn', uploadZone: 'upload-zone'
+        };
+        
+        Object.keys(elements).forEach(key => {
+            this[key] = document.getElementById(elements[key]);
+        });
+        
         this.controls = document.querySelector('.camera-controls');
         this.preview = document.getElementById('camera-preview-overlay');
-        this.fileName = document.getElementById('file-name');
-        this.fileInfo = document.getElementById('file-info');
         this.predictButton = document.querySelector('.btn-predict-image');
-        this.locationInput = document.getElementById('sampling-location');
-        this.cameraModeBtn = document.getElementById('camera-mode-btn');
-        this.fileModeBtn = document.getElementById('file-mode-btn');
-        this.uploadZone = document.getElementById('upload-zone');
     },
     
     refresh() { this.init(); }
@@ -24,519 +25,296 @@ const CameraElements = {
 
 window.isCameraActive = false;
 
-// Unified stream management
+// Stream management
 function stopAllStreams() {
-    const streamSources = [
-        PlanktoScanApp?.currentStream,
-        CameraElements.video?.srcObject,
-        window.CameraState?.stream
-    ];
+    [PlanktoScanApp?.currentStream, CameraElements.video?.srcObject, window.CameraState?.stream]
+        .forEach(stream => stream?.getTracks?.()?.forEach(track => track.stop()));
     
-    streamSources.forEach(stream => {
-        if (stream && stream.getTracks) {
-            stream.getTracks().forEach(track => {
-                track.stop();
-                console.log(`Stopped ${track.kind} track`);
-            });
-        }
-    });
-    
-    // Reset all references
     if (PlanktoScanApp) PlanktoScanApp.currentStream = null;
-    if (window.CameraState) {
-        CameraState.stream = null;
-        CameraState.isActive = false;
-    }
-    
-    if (CameraElements.video) {
-        CameraElements.video.srcObject = null;
-    }
-    
-    console.log('All camera streams stopped and references cleared');
+    if (window.CameraState) Object.assign(CameraState, { stream: null, isActive: false });
+    if (CameraElements.video) CameraElements.video.srcObject = null;
 }
 
-/**
- * Unified camera management
- */
+// Camera management
 async function manageCamera(action, facingMode = null) {
     try {
         switch(action) {
             case 'start':
-                if (window.isCameraActive) {
-                    console.log('Camera already active, skipping start');
-                    return;
-                }
-                
+                if (window.isCameraActive) return;
                 await stopAllStreams();
                 window.isCameraActive = true;
                 
-                const constraints = {
-                    video: {
-                        facingMode: PlanktoScanApp.facingMode || 'environment',
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: PlanktoScanApp.facingMode || 'environment', 
+                        width: { ideal: 1280 }, height: { ideal: 720 } 
                     }
-                };
+                });
                 
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
                 PlanktoScanApp.currentStream = stream;
-                
                 if (CameraElements.video) {
                     CameraElements.video.srcObject = stream;
                     await CameraElements.video.play();
                 }
-                
-                console.log('Camera started successfully');
                 break;
                 
             case 'stop':
                 window.isCameraActive = false;
                 stopAllStreams();
-                console.log('Camera stopped successfully');
                 break;
                 
             case 'switch':
-                if (facingMode) {
-                    PlanktoScanApp.facingMode = facingMode;
-                } else {
-                    PlanktoScanApp.facingMode = PlanktoScanApp.facingMode === 'user' ? 'environment' : 'user';
-                }
-                
-                console.log(`Switching camera to: ${PlanktoScanApp.facingMode}`);
+                PlanktoScanApp.facingMode = facingMode || 
+                    (PlanktoScanApp.facingMode === 'user' ? 'environment' : 'user');
                 await manageCamera('stop');
-                await new Promise(resolve => setTimeout(resolve, 300)); // Brief delay
+                await new Promise(resolve => setTimeout(resolve, 300));
                 await manageCamera('start');
                 break;
         }
     } catch (error) {
-        console.error(`Camera management error (${action}):`, error);
+        console.error(`Camera ${action} error:`, error);
         window.isCameraActive = false;
         throw error;
     }
 }
 
-/**
- * Start camera stream
- */
-async function startCamera() {
-    return await manageCamera('start');
+// Camera control wrappers
+const startCamera = () => manageCamera('start');
+const stopCamera = () => manageCamera('stop');
+const switchCamera = () => manageCamera('switch');
+
+// UI state management helper
+function updateUIState(state, fileName = '') {
+    const states = {
+        reset: { fileName: 'No file selected', fileInfo: 'none', predictButton: true },
+        captured: { fileName: fileName || 'camera-capture.jpg', fileInfo: 'block', predictButton: false },
+        uploading: { fileName: 'Uploading camera capture...', fileInfo: 'block', predictButton: true },
+        failed: { fileName: 'Upload failed', fileInfo: 'block', predictButton: true }
+    };
+    
+    const config = states[state];
+    if (!config) return;
+    
+    if (CameraElements.fileName) CameraElements.fileName.textContent = config.fileName;
+    if (CameraElements.fileInfo) CameraElements.fileInfo.style.display = config.fileInfo;
+    if (CameraElements.predictButton) CameraElements.predictButton.disabled = config.predictButton;
 }
 
-/**
- * Stop camera stream
- */
-async function stopCamera() {
-    return await manageCamera('stop');
-}
-
-/**
- * Switch  camera
- */
-async function switchCamera() {
-    return await manageCamera('switch');
-}
-
-/**
- * Capture photo from camera
- */
+// Capture photo
 function capturePhoto() {
-    if (!CameraElements.video || !CameraElements.canvas || !CameraElements.container) {
-        console.error('Camera elements not found');
-        return;
-    }
+    if (!CameraElements.video || !CameraElements.canvas || !CameraElements.container) return;
     
     const ctx = CameraElements.canvas.getContext('2d');
+    Object.assign(CameraElements.canvas, { 
+        width: CameraElements.video.videoWidth, 
+        height: CameraElements.video.videoHeight 
+    });
     
-    // Set canvas dimensions to match video
-    CameraElements.canvas.width = CameraElements.video.videoWidth;
-    CameraElements.canvas.height = CameraElements.video.videoHeight;
-    
-    // Draw video frame to canvas
     ctx.drawImage(CameraElements.video, 0, 0);
     
-    // Convert to blob and create file
-    CameraElements.canvas.toBlob(function(blob) {
+    CameraElements.canvas.toBlob(blob => {
         const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
-        
-        // Show image preview from canvas in camera container
         const dataURL = CameraElements.canvas.toDataURL('image/jpeg', 1);
-
-        // Store captured file globally
-        PlanktoScanApp.capturedImageFile = file;
-        PlanktoScanApp.uploadedImagePath = dataURL;
-
-        // Upload the captured image using createCameraPreview
-        uploadCapturedImage(file, dataURL, CameraElements.container);
         
+        Object.assign(PlanktoScanApp, { capturedImageFile: file, uploadedImagePath: dataURL });
+        uploadCapturedImage(file, dataURL, CameraElements.container);
     }, 'image/jpeg', 0.9);
 }
 
-/**
- * Clean camera state by removing overlays and resetting video
- */
+// Clean camera state
 function cleanCameraState() {
-    // Remove any existing preview overlays
-    const existingOverlays = document.querySelectorAll('#camera-preview-overlay');
-    existingOverlays.forEach(overlay => overlay.remove());
+    document.querySelectorAll('#camera-preview-overlay').forEach(overlay => overlay.remove());
     
-    // Reset camera container state
-    if (CameraElements.container) {
-        CameraElements.container.classList.remove('success');
-    }
-
-    // Ensure video is visible and reset
+    if (CameraElements.container) CameraElements.container.classList.remove('success');
     if (CameraElements.video) {
-        CameraElements.video.style.display = 'block';
-        CameraElements.video.style.visibility = 'visible';
-        CameraElements.video.style.opacity = '1';
-        CameraElements.video.style.zIndex = '1';
+        Object.assign(CameraElements.video.style, { 
+            display: 'block', visibility: 'visible', opacity: '1', zIndex: '1' 
+        });
     }
-    
-    // Ensure camera controls are visible
     if (CameraElements.controls) {
-        CameraElements.controls.style.display = 'flex';
-        CameraElements.controls.style.visibility = 'visible';
+        Object.assign(CameraElements.controls.style, { 
+            display: 'flex', visibility: 'visible' 
+        });
     }
-
-    // Clear cached preview overlay reference
-    CameraElements.preview = null;
     
-    console.log('Camera state cleaned');
+    CameraElements.preview = null;
 }
 
-/**
- * Unified mode switching function
- */
+// Mode switching
 function switchMode(mode) {
-    console.log(`Switching to ${mode} mode`);
-    
-    // Reset state first
     window.capturedImageFile = null;
     PlanktoScanApp.uploadedImagePath = '';
+    updateUIState('reset');
     
-    // Reset UI elements
-    if (CameraElements.fileName) CameraElements.fileName.textContent = 'No file selected';
-    if (CameraElements.fileInfo) CameraElements.fileInfo.style.display = 'none';
-    if (CameraElements.predictButton) CameraElements.predictButton.disabled = true;
-    
-    // Reset location if no GPS
-    if (CameraElements.locationInput && (!gpsState || !gpsState.lastKnownPosition)) {
+    if (CameraElements.locationInput && (!gpsState?.lastKnownPosition)) {
         CameraElements.locationInput.value = 'Unknown';
     }
     
-    if (mode === 'camera') {
-        // Camera mode activation
-        CameraElements.cameraModeBtn?.classList.add('active');
-        CameraElements.fileModeBtn?.classList.remove('active');
-        
-        if (CameraElements.uploadZone) CameraElements.uploadZone.style.display = 'none';
-        if (CameraElements.container) CameraElements.container.style.display = 'block';
-        
-        cleanCameraState();
+    const isCamera = mode === 'camera';
+    CameraElements.cameraModeBtn?.classList.toggle('active', isCamera);
+    CameraElements.fileModeBtn?.classList.toggle('active', !isCamera);
+    
+    if (CameraElements.uploadZone) CameraElements.uploadZone.style.display = isCamera ? 'none' : 'block';
+    if (CameraElements.container) CameraElements.container.style.display = isCamera ? 'block' : 'none';
+    
+    cleanCameraState();
+    
+    if (isCamera) {
         startCamera().catch(error => {
             console.error('Failed to start camera:', error);
             showError('Failed to start camera. Please check permissions.');
         });
-        
-    } else if (mode === 'file') {
-        // File mode activation
-        CameraElements.fileModeBtn?.classList.add('active');
-        CameraElements.cameraModeBtn?.classList.remove('active');
-        
-        if (CameraElements.uploadZone) CameraElements.uploadZone.style.display = 'block';
-        if (CameraElements.container) CameraElements.container.style.display = 'none';
-        
-        cleanCameraState();
+    } else {
         stopCamera();
-        
-        // Reset upload zone to initial state
-        if (typeof resetFileUpload === 'function') {
-            resetFileUpload();
-        }
+        if (typeof resetFileUpload === 'function') resetFileUpload();
     }
-    
-    console.log(`Successfully switched to ${mode} mode`);
 }
 
-/**
- * Switch to camera mode and initialize camera
- */
-function switchToCameraMode() {
-    switchMode('camera');
-}
+const switchToCameraMode = () => switchMode('camera');
+const switchToFileMode = () => switchMode('file');
 
-/**
- * Switch to file upload mode
- */
-function switchToFileMode() {
-    switchMode('file');
-}
-
-/**
- * Upload captured image to server
- */
+// Upload captured image
 function uploadCapturedImage(file, dataURL, cameraContainer) {
     const formData = new FormData();
     formData.append('file', file);
-
-    // Show uploading state menggunakan cached elements
-    if (CameraElements.fileName) CameraElements.fileName.textContent = 'Uploading camera capture...';
-    if (CameraElements.fileInfo) CameraElements.fileInfo.style.display = 'block';
-    if (CameraElements.predictButton) CameraElements.predictButton.disabled = true;
     
-    // Stop camera stream
+    updateUIState('uploading');
     stopCamera();
-
-    // Add success state to camera container
-    if (cameraContainer) {
-        cameraContainer.classList.add('success');
-        console.log('Camera container success state added');
-    }
     
-    // Show camera preview
+    if (cameraContainer) cameraContainer.classList.add('success');
     createCameraPreview(dataURL, 'captured');
-    console.log('Photo captured successfully, camera stopped, and preview displayed');
-
-    // Upload to server
+    
     $.ajax({
-        url: '/upload',
-        type: 'POST',
-        data: formData,
-        processData: false,
-        contentType: false,
+        url: '/upload', type: 'POST', data: formData, processData: false, contentType: false,
         success: (data) => {
             PlanktoScanApp.uploadedImagePath = data.img_path;
-
-            // Update UI using cached elements
-            if (CameraElements.fileName) CameraElements.fileName.textContent = 'Camera capture: ' + file.name;
-            if (CameraElements.fileInfo) CameraElements.fileInfo.style.display = 'block';
-            if (CameraElements.predictButton) CameraElements.predictButton.disabled = false;
+            updateUIState('captured', `Camera capture: ${file.name}`);
             
-            // Update jQuery elements
             $('.upload-zone').removeClass('uploading').addClass('success');
             $('#image-upload').val(data.img_path);
-            
-            // Update camera preview with success using optimized function
             createCameraPreview(dataURL, 'uploaded');
-            
-            console.log('Camera image uploaded successfully:', data.img_path);
         },
         error: () => {
             $('.upload-zone').removeClass('uploading');
-            if (CameraElements.fileName) CameraElements.fileName.textContent = 'Upload failed';
+            updateUIState('failed');
             showError("Failed to upload camera image. Please try again.");
         }
     });
 }
 
-/**
- * Unified camera preview creation and management
- */
+// Create camera preview
 function createCameraPreview(dataURL, status = 'captured') {
-    if (!CameraElements.container) {
-        console.error('Camera container not found');
-        return;
-    }
+    if (!CameraElements.container) return;
     
-    // Create temp image to get dimensions
     const tempImg = new Image();
     tempImg.onload = function() {
-        const originalWidth = this.width;
-        const originalHeight = this.height;
+        setupPreviewOverlay(dataURL, this.width, this.height, status);
         
-        // Setup or update preview overlay
-        setupPreviewOverlay(dataURL, originalWidth, originalHeight, status);
-        
-        // Update container state based on status
         if (status === 'captured') {
             CameraElements.container.classList.add('success');
-            
-            // Hide camera controls when photo is captured
-            if (CameraElements.controls) {
-                CameraElements.controls.style.display = 'none';
-            }
-            
-            // Update UI elements
-            if (CameraElements.fileName) {
-                CameraElements.fileName.textContent = 'camera-capture.jpg';
-            }
-            if (CameraElements.fileInfo) {
-                CameraElements.fileInfo.style.display = 'block';
-            }
-            if (CameraElements.predictButton) {
-                CameraElements.predictButton.disabled = false;
-            }
-            
-        } else if (status === 'uploaded') {
-            // Keep success state, just update message
-            console.log('Preview updated to show upload success');
+            if (CameraElements.controls) CameraElements.controls.style.display = 'none';
+            updateUIState('captured');
         }
-        
-        console.log(`Camera preview ${status === 'captured' ? 'created' : 'updated'} with status: ${status}`);
     };
-    
-    tempImg.onerror = function() {
-        console.error('Failed to load camera preview image');
-        showError('Failed to process camera image');
-    };
-    
+    tempImg.onerror = () => showError('Failed to process camera image');
     tempImg.src = dataURL;
 }
 
-/**
- * Setup/Update preview overlay
- */
-function setupPreviewOverlay(dataURL, originalWidth, originalHeight, status) {
-    // Get or create overlay
-    let previewOverlay = CameraElements.preview;
-    if (!previewOverlay) {
-        previewOverlay = document.createElement('div');
-        previewOverlay.id = 'camera-preview-overlay';
-        CameraElements.container.appendChild(previewOverlay);
-        CameraElements.preview = previewOverlay; // Cache it
+// Setup preview overlay
+function setupPreviewOverlay(dataURL, width, height, status) {
+    let overlay = CameraElements.preview;
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'camera-preview-overlay';
+        CameraElements.container.appendChild(overlay);
+        CameraElements.preview = overlay;
     }
     
-    // Determine message based on status
     const message = status === 'captured' ? 'Photo Captured!' : 'Upload Successful!';
-    
-    // Set content using CSS classes (styles moved to CSS)
-    previewOverlay.innerHTML = `
-        <div class="camera-image-preview" style="width: ${originalWidth}px; height: ${originalHeight}px;">
+    overlay.innerHTML = `
+        <div class="camera-image-preview" style="width: ${width}px; height: ${height}px;">
             <img src="${dataURL}" alt="Camera Capture">
             <div class="camera-overlay">
                 <i class="fas fa-check-circle"></i>
                 <div class="success-text">${message}</div>
                 <div class="change-text">Click to take another photo</div>
             </div>
-        </div>
-    `;
+        </div>`;
     
-    // Add click functionality only for captured status
     if (status === 'captured') {
-        previewOverlay.onclick = function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            resetCameraCapture();
+        overlay.onclick = e => { 
+            e.preventDefault(); 
+            e.stopPropagation(); 
+            resetCameraCapture(); 
         };
     }
 }
 
-/**
- * Update preview to show upload success
- */
+// Update preview success
 function updateCameraPreviewSuccess() {
-    if (window.capturedImageFile && window.capturedImageFile.dataURL) {
+    if (window.capturedImageFile?.dataURL) {
         createCameraPreview(window.capturedImageFile.dataURL, 'uploaded');
-    } else {
-        console.warn('No captured image data found for upload success update');
     }
 }
 
-/**
- * Reset camera capture state to initial state
- */
-function resetCameraCapture() {    
-    // Reset global variables
+// Reset camera capture
+function resetCameraCapture() {
     window.capturedImageFile = null;
     PlanktoScanApp.uploadedImagePath = '';
     
-    // Reset location input to default if no GPS position
-    if (CameraElements.locationInput) {
-        if (!gpsState || !gpsState.lastKnownPosition) {
-            CameraElements.locationInput.value = 'Unknown';
-            console.log('Location input reset to default: Unknown');
-        } else {
-            console.log('Keeping GPS location after reset');
-        }
-    }
-
-    // Reset UI elements using cached elements
-    if (CameraElements.fileName) CameraElements.fileName.textContent = 'No file selected';
-    if (CameraElements.fileInfo) CameraElements.fileInfo.style.display = 'none';
-    if (CameraElements.predictButton) CameraElements.predictButton.disabled = true;
-    
-    // Remove success state from camera container
-    if (CameraElements.container) {
-        CameraElements.container.classList.remove('success');
+    if (CameraElements.locationInput && (!gpsState?.lastKnownPosition)) {
+        CameraElements.locationInput.value = 'Unknown';
     }
     
-    // Clean camera state completely
+    updateUIState('reset');
+    if (CameraElements.container) CameraElements.container.classList.remove('success');
     cleanCameraState();
     
-    // Restart camera stream with optimized function
     setTimeout(async () => {
         try {
             if (PlanktoScanApp.currentStream) {
                 await manageCamera('stop');
                 await new Promise(resolve => setTimeout(resolve, 300));
-                await manageCamera('start');
-            } else {
-                await manageCamera('start');
             }
+            await manageCamera('start');
         } catch (error) {
             console.error('Failed to restart camera:', error);
             showError('Failed to restart camera');
         }
     }, 100);
-    
-    console.log('Camera capture state reset completely');
 }
 
-/**
- * Setup camera event handlers
- */
+// Setup event handlers
 function setupCameraHandlers() {
-    // Initialize camera elements
     CameraElements.init();
-
-    // Camera mode button
-    if (CameraElements.cameraModeBtn) {
-        CameraElements.cameraModeBtn.addEventListener('click', switchToCameraMode);
-    }
     
-    // File mode button
-    if (CameraElements.fileModeBtn) {
-        CameraElements.fileModeBtn.addEventListener('click', switchToFileMode);
-    }
+    // Mode buttons
+    CameraElements.cameraModeBtn?.addEventListener('click', switchToCameraMode);
+    CameraElements.fileModeBtn?.addEventListener('click', switchToFileMode);
     
     // Camera control buttons
-    const captureBtn = document.getElementById('capture-btn');
-    const switchBtn = document.getElementById('switch-camera-btn');
-    const uploadBtn = document.getElementById('upload-captured-btn');
-
-    if (captureBtn) {
-        captureBtn.addEventListener('click', capturePhoto);
-    }
+    const btnConfigs = [
+        { id: 'capture-btn', handler: capturePhoto },
+        { id: 'switch-camera-btn', handler: switchCamera },
+        { 
+            id: 'upload-captured-btn', 
+            handler: () => window.capturedImageFile && uploadCapturedImage(window.capturedImageFile.dataURL) 
+        }
+    ];
     
-    if (switchBtn) {
-        switchBtn.addEventListener('click', switchCamera);
-    }
-    
-    if (uploadBtn) {
-        uploadBtn.addEventListener('click', function() {
-            if (window.capturedImageFile) {
-                uploadCapturedImage(window.capturedImageFile.dataURL);
-            }
-        });
-    }
-    
-    console.log('Camera event handlers setup complete with cached elements');
+    btnConfigs.forEach(({ id, handler }) => {
+        const btn = document.getElementById(id);
+        if (btn) btn.addEventListener('click', handler);
+    });
 }
 
-// Cleanup camera when page unloads
-window.addEventListener('beforeunload', function() {
-    stopCamera();
-});
+// Cleanup and exports
+window.addEventListener('beforeunload', stopCamera);
 
-// Export to global scope
 if (typeof window !== 'undefined') {
-    window.cleanCameraState = cleanCameraState;
-    window.switchToCameraMode = switchToCameraMode;
-    window.switchToFileMode = switchToFileMode;
-    window.startCamera = startCamera;
-    window.stopCamera = stopCamera;
-    window.switchCamera = switchCamera;
-    window.capturePhoto = capturePhoto;
-    window.resetCameraCapture = resetCameraCapture;
-    window.setupCameraHandlers = setupCameraHandlers;
+    Object.assign(window, {
+        cleanCameraState, switchToCameraMode, switchToFileMode, startCamera, 
+        stopCamera, switchCamera, capturePhoto, resetCameraCapture, setupCameraHandlers,
+        updateCameraPreviewSuccess
+    });
 }
