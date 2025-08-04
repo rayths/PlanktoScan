@@ -79,9 +79,9 @@ async function manageCamera(action, facingMode = null) {
 }
 
 // Camera control wrappers
-const startCamera = () => manageCamera('start');
-const stopCamera = () => manageCamera('stop');
-const switchCamera = () => manageCamera('switch');
+function startCamera() { return manageCamera('start'); }
+function stopCamera() { return manageCamera('stop'); }
+function switchCamera() { return manageCamera('switch'); }
 
 // UI state management helper
 function updateUIState(state, fileName = '') {
@@ -170,8 +170,8 @@ function switchMode(mode) {
     }
 }
 
-const switchToCameraMode = () => switchMode('camera');
-const switchToFileMode = () => switchMode('file');
+function switchToCameraMode() { return switchMode('camera'); }
+function switchToFileMode() { return switchMode('file'); }
 
 // Upload captured image
 function uploadCapturedImage(file, dataURL, cameraContainer) {
