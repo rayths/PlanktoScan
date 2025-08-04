@@ -1,16 +1,57 @@
-/**
- * Dropdown management module for PlanktoScan
- */
+// DROPDOWN MANAGEMENT MODULE
 
-/**
- * Initialize dropdown values with default selections
- */
+function getDefaultValue(dropdownId) {
+    const defaults = { 'classification-model': 'efficientnetv2b0' };
+    return defaults[dropdownId] || '';
+}
+
+function updateActiveState($dropdown, $activeItem) {
+    $dropdown.find('.dropdown-item').removeClass('active');
+    $activeItem.addClass('active');
+}
+
+function setupOutsideClickHandler() {
+    document.addEventListener('click', function(e) {
+        const userToggle = document.querySelector('#userDropdown');
+        const userMenu = document.querySelector('#userDropdown + .dropdown-menu, .user-dropdown-btn + .dropdown-menu');
+        
+        if (userToggle && userMenu && !userToggle.contains(e.target) && !userMenu.contains(e.target)) {
+            userMenu.classList.remove('show');
+            userToggle.setAttribute('aria-expanded', 'false');
+        }
+        
+        if (!e.target.closest('.dropdown')) {
+            document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
+                if (menu !== userMenu) menu.classList.remove('show');
+            });
+        }
+    });
+}
+
+function setupMenuClickHandlers(menu, toggle) {
+    menu.addEventListener('click', function(e) {
+        if (!e.target.classList.contains('dropdown-item')) {
+            e.stopPropagation();
+        }
+    });
+    
+    menu.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            logDropdownAction('item clicked', this.textContent.trim());
+            menu.classList.remove('show');
+            toggle.setAttribute('aria-expanded', 'false');
+            return true;
+        });
+    });
+}
+
+// Initialize dropdown values with default selections
 function initializeDropdowns() {
     const $modelSelect = $('#classification-model');
     
     // Set default values if not already set
     if (!$modelSelect.val() || $modelSelect.val() === '') {
-        $modelSelect.val('efficientnetv2b0');
+        $modelSelect.val(getDefaultValue('classification-model'));
     }
     
     console.log('Dropdowns initialized:', {
@@ -26,8 +67,6 @@ function initializeUserDropdown() {
     const dropdownMenu = document.querySelector('#userDropdown + .dropdown-menu, .user-dropdown-btn + .dropdown-menu');
 
     if (dropdownToggle) {
-        console.log('Initializing user dropdown...');
-        
         // Remove any existing event listeners
         const newToggle = dropdownToggle.cloneNode(true);
         dropdownToggle.parentNode.replaceChild(newToggle, dropdownToggle);
@@ -48,8 +87,6 @@ function initializeUserDropdown() {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                console.log('User dropdown clicked');
-                
                 const isShown = freshMenu.classList.contains('show');
                 
                 // Close all other dropdowns first
@@ -68,40 +105,14 @@ function initializeUserDropdown() {
                 }
             });
             
-            // Prevent menu from closing when clicking inside
+            // Setup menu from closing when clicking inside
             if (freshMenu) {
-                freshMenu.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                });
-                
-                // Ensure dropdown items are clickable
-                const dropdownItems = freshMenu.querySelectorAll('.dropdown-item');
-                dropdownItems.forEach(item => {
-                    item.addEventListener('click', function(e) {
-                        console.log('Dropdown item clicked:', this.textContent.trim());
-                        
-                        // Close dropdown after item click
-                        freshMenu.classList.remove('show');
-                        freshToggle.setAttribute('aria-expanded', 'false');
-                        
-                        // Allow the default action (href or onclick)
-                        return true;
-                    });
-                });
+                setupMenuClickHandlers(freshMenu, freshToggle);
             }
-            
-            // Close dropdown when clicking outside
-            document.addEventListener('click', function(e) {
-                if (!freshToggle.contains(e.target) && !freshMenu?.contains(e.target)) {
-                    freshMenu?.classList.remove('show');
-                    freshToggle.setAttribute('aria-expanded', 'false');
-                }
-            });
-            
-            console.log('User dropdown initialized successfully');
+
+            // Setup outside click handler
+            setupOutsideClickHandler();
         }
-    } else {
-        console.warn('User dropdown toggle not found');
     }
 }
 
@@ -109,13 +120,8 @@ function initializeUserDropdown() {
  * Setup all dropdown initializations
  */
 function initializeAllDropdowns() {
-    // Initialize regular dropdowns
     initializeDropdowns();
-    
-    // Initialize user dropdown
     initializeUserDropdown();
-    
-    console.log('All dropdowns initialized');
 }
 
 /**
@@ -154,15 +160,7 @@ function setupDropdownHandlers() {
         }
         
         // Update active state
-        $dropdown.find('.dropdown-item').removeClass('active');
-        $item.addClass('active');
-        
-        console.log('Dropdown updated:', {
-            button: dropdownId,
-            value: value,
-            text: text,
-            hiddenInputExists: $hiddenInput && $hiddenInput.length > 0
-        });
+        updateActiveState($dropdown, $item);
     });
 
     // Remove any existing model select handlers to prevent duplicates
@@ -172,8 +170,6 @@ function setupDropdownHandlers() {
     $modelSelect.on('change', function() {
         console.log('Classification model changed to:', $(this).val());
     });
-    
-    console.log('Dropdown event handlers setup complete');
 }
 
 /**
@@ -185,15 +181,7 @@ function getDropdownValue(dropdownId) {
     
     // Validate and return default if needed
     if (!value || value === 'null' || value === 'undefined') {
-        console.warn(`Invalid dropdown value for ${dropdownId}:`, value);
-        
-        // Return appropriate defaults
-        switch(dropdownId) {
-            case 'classification-model':
-                return 'efficientnetv2b0';
-            default:
-                return '';
-        }
+        return getDefaultValue(dropdownId);
     }
     
     return value;
@@ -217,17 +205,9 @@ function setDropdownValue(dropdownId, value) {
         $button.text($targetItem.text());
         
         // Update active states
-        $dropdown.find('.dropdown-item').removeClass('active');
-        $targetItem.addClass('active');
-        
-        console.log(`Dropdown ${dropdownId} set to:`, {
-            value: value,
-            text: $targetItem.text()
-        });
-    } else {
-        console.warn(`Dropdown item not found for value: ${value}`);
+        updateActiveState($dropdown, $targetItem);
     }
-    
+
     // Trigger change event
     $select.trigger('change');
 }
@@ -250,8 +230,7 @@ function validateDropdowns() {
     } else {
         validationResult.values.classification = classificationValue;
     }
-    
-    console.log('Dropdown validation result:', validationResult);
+
     return validationResult;
 }
 
@@ -260,20 +239,10 @@ function validateDropdowns() {
  */
 function resetDropdown(dropdownId = null) {
     if (dropdownId) {
-        // Reset specific dropdown
-        switch(dropdownId) {
-            case 'classification-model':
-                setDropdownValue(dropdownId, 'efficientnetv2b0');
-                break;
-            default:
-                console.warn('Unknown dropdown ID:', dropdownId);
-        }
+        setDropdownValue(dropdownId, getDefaultValue(dropdownId));
     } else {
-        // Reset all dropdowns
-        setDropdownValue('classification-model', 'efficientnetv2b0');
+        setDropdownValue('classification-model', getDefaultValue('classification-model'));
     }
-    
-    console.log('Dropdown(s) reset to default values');
 }
 
 /**
@@ -298,96 +267,16 @@ function updateDropdownButtonText(dropdownId) {
         const $activeItem = $dropdown.find(`.dropdown-item[data-value="${value}"]`);
         if ($activeItem.length) {
             $button.text($activeItem.text());
-            $activeItem.addClass('active');
-            console.log(`Updated ${dropdownId} button text to:`, $activeItem.text());
+            updateActiveState($dropdown, $activeItem);
         }
-    }
-}
-
-/**
- * Initialize dropdown button texts on page load
- */
-function initializeDropdownTexts() {
-    // Wait for DOM to be ready
-    setTimeout(() => {
-        console.log('=== Initializing Dropdown Texts ===');
-        
-        const classificationValue = getDropdownValue('classification-model');
-        
-        console.log('Setting initial dropdown texts:', {
-            classificationValue
-        });
-        
-        // Update classification dropdown
-        if (classificationValue) {
-            updateDropdownButtonText('classification-model');
-        }
-        
-        console.log('Dropdown texts initialization complete');
-    }, 100);
-}
-
-/**
- * Setup responsive dropdown behavior
- */
-function setupResponsiveDropdowns() {
-    // Close dropdowns when clicking outside
-    $(document).on('click', function(e) {
-        if (!$(e.target).closest('.dropdown').length) {
-            $('.dropdown-menu').removeClass('show');
-        }
-    });
-    
-    // Handle dropdown toggle clicks
-    $(document).on('click', '.dropdown-toggle', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const $this = $(this);
-        const $menu = $this.siblings('.dropdown-menu');
-        const $dropdown = $this.closest('.dropdown');
-        
-        // Close other dropdowns
-        $('.dropdown-menu').not($menu).removeClass('show');
-        
-        // Toggle current dropdown
-        $menu.toggleClass('show');
-        
-        // Position dropdown if needed
-        positionDropdownMenu($dropdown, $menu);
-    });
-    
-    console.log('Responsive dropdown behavior setup complete');
-}
-
-/**
- * Position dropdown menu to prevent overflow
- */
-function positionDropdownMenu($dropdown, $menu) {
-    const dropdownRect = $dropdown[0].getBoundingClientRect();
-    const menuHeight = $menu.outerHeight();
-    const windowHeight = window.innerHeight;
-    
-    // Check if dropdown would overflow bottom of viewport
-    if (dropdownRect.bottom + menuHeight > windowHeight) {
-        $menu.addClass('dropdown-menu-up');
-    } else {
-        $menu.removeClass('dropdown-menu-up');
     }
 }
 
 // Export to global scope
 if (typeof window !== 'undefined') {
-    window.initializeDropdowns = initializeDropdowns;
-    window.initializeUserDropdown = initializeUserDropdown;
-    window.initializeAllDropdowns = initializeAllDropdowns;
-    window.setupDropdownHandlers = setupDropdownHandlers;
-    window.getDropdownValue = getDropdownValue;
-    window.setDropdownValue = setDropdownValue;
-    window.validateDropdowns = validateDropdowns;
-    window.resetDropdown = resetDropdown;
-    window.getAllDropdownValues = getAllDropdownValues;
-    window.updateDropdownButtonText = updateDropdownButtonText;
-    window.initializeDropdownTexts = initializeDropdownTexts;
-    window.setupResponsiveDropdowns = setupResponsiveDropdowns;
+    Object.assign(window, {
+        initializeDropdowns, initializeUserDropdown, initializeAllDropdowns,
+        setupDropdownHandlers, getDropdownValue, setDropdownValue, validateDropdowns,
+        resetDropdown, getAllDropdownValues, updateDropdownButtonText
+    });
 }
