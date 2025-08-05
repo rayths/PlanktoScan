@@ -8,3 +8,5 @@ static/style.css
 __pycache__
 routers/__pycache__
 planktoscan.db
+firebase-service-account.json
+.env

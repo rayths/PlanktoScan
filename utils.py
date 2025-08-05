@@ -71,6 +71,23 @@ def clean_text(text):
     text = " ".join(text.split())
     return text
 
+def convert_numpy_types(obj):
+    """Convert numpy types to Python native types for Firestore compatibility"""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, dict):
+        return {key: convert_numpy_types(value) for key, value in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_numpy_types(item) for item in obj)
+    else:
+        return obj
+
 # ============================================================================
 # MODEL CONFIGURATION
 # ============================================================================
@@ -317,19 +334,39 @@ def get_detailed_cache_info():
     
     return detailed_info
 
-def predict_img(model_option, img_path):
-    """
-    Prediksi gambar menggunakan model yang dipilih dengan sistem caching
-    
-    Args:
-        model_option (str): Nama model yang dipilih
-        img_path (str): Path ke file gambar
+def validate_image_path(img_path):
+    """Validate that image path exists and is accessible"""
+    try:
+        if not img_path:
+            raise ValueError("Image path is empty")
         
-    Returns:
-        tuple: (actual_class, probability_class, response)
-    """
+        if img_path.startswith('data:'):
+            raise ValueError("Data URL detected - file not uploaded to server")
+        
+        if not os.path.exists(img_path):
+            raise FileNotFoundError(f"Image file not found: {img_path}")
+        
+        if not os.path.isfile(img_path):
+            raise ValueError(f"Path is not a file: {img_path}")
+        
+        # Check if file is readable
+        with open(img_path, 'rb') as f:
+            f.read(1)  # Try to read first byte
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Image path validation failed: {str(e)}")
+        raise e
+
+def predict_img(model_option, img_path):
+    """ Predict image using selected model """
     try:
         logger.info(f"Starting prediction with model: {model_option}")
+        logger.info(f"Image path: {img_path}")
+        
+        # Validate image path
+        validate_image_path(img_path)
 
         # Load model berdasarkan pilihan dengan mapping yang benar
         model_mapping = get_model_mapping()
@@ -380,12 +417,21 @@ def predict_img(model_option, img_path):
         actual_class = [class_names[str(i)] for i in top_3_indices]
         probability_class = [predictions[0][i] for i in top_3_indices]
         
+        # Convert to Python native types immediately
+        actual_class = [str(class_names[str(i)]) for i in top_3_indices]
+        probability_class = [float(predictions[0][i]) for i in top_3_indices]
+
         # Generate response message untuk UI
         response = f"Hasil prediksi: {actual_class[0]} ({probability_class[0]:.2%})"
         
         logger.info(f"Prediction completed successfully: {actual_class[0]} ({probability_class[0]:.2%})")
         
-        return actual_class, probability_class, response
+        # Ensure all returns are Python native types
+        return (
+            convert_numpy_types(actual_class),
+            convert_numpy_types(probability_class), 
+            str(response)
+        )
 
     except FileNotFoundError as e:
         error_msg = f"File gambar tidak ditemukan: {str(e)}"
@@ -490,6 +536,85 @@ def _predict_with_keras_model(model, processed_img):
 # DATABASE UTILITY FUNCTIONS
 # ============================================================================
 
+def save_classification_to_database(
+    firestore_db,
+    classification_id,
+    user_id,
+    user_role,
+    original_filename,
+    stored_filename,
+    file_path,
+    location,
+    model_used,
+    classification_results,
+    user_ip=None,
+    processing_time=None
+):
+    """
+    Save classification data to Firestore using Android-compatible structure
+    
+    Args:
+        firestore_db: Firestore database instance
+        classification_id (str): Unique classification ID
+        user_id (str): User ID
+        user_role (str): User role (guest, expert, admin)
+        original_filename (str): Original filename from user
+        stored_filename (str): Generated filename for storage
+        file_path (str): Full path to stored file
+        location (str): Location/sampling site
+        model_used (str): Model used for classification
+        classification_results (tuple): (actual_class, probability_class, response)
+        user_ip (str): User IP address
+        processing_time (float): Processing time in seconds
+    
+    Returns:
+        ClassificationEntry: Saved record
+    """
+    try:
+        from database import ClassificationEntry
+        from datetime import datetime
+        
+        actual_class, probability_class, response = classification_results
+        
+        # Get image metadata
+        metadata = get_image_metadata(file_path)
+        
+        # Create ClassificationEntry object matching Android structure
+        classification_entry = ClassificationEntry(
+            id=classification_id,
+            user_id=user_id,
+            user_role=user_role,
+            image_path=file_path,
+            classification_result=actual_class[0] if len(actual_class) > 0 else "Unknown",
+            confidence=probability_class[0] if len(probability_class) > 0 else 0.0,
+            model_used=model_used,
+            timestamp=datetime.utcnow(),
+            
+            # Web app specific fields
+            original_filename=original_filename,
+            stored_filename=stored_filename,
+            location=location,
+            second_class=actual_class[1] if len(actual_class) > 1 else None,
+            second_probability=probability_class[1] if len(probability_class) > 1 else None,
+            third_class=actual_class[2] if len(actual_class) > 2 else None,
+            third_probability=probability_class[2] if len(probability_class) > 2 else None,
+            file_size=metadata["file_size"],
+            image_width=metadata["width"],
+            image_height=metadata["height"],
+            user_ip=user_ip,
+            processing_time=processing_time
+        )
+        
+        # Save to Firestore using Android-compatible method
+        result_id = firestore_db.save_classification_to_database(classification_entry)
+        
+        logger.info(f"Classification saved to Firestore: ID={result_id}, filename={stored_filename}")
+        return classification_entry
+        
+    except Exception as e:
+        logger.error(f"Error saving to Firestore: {str(e)}")
+        raise e
+    
 def generate_stored_filename(location=None, classification_result=None, original_extension=".jpg"):
     """
     Generate filename dengan format: {tanggal}_{lokasi}_{hasil_klasifikasi}_{random}.{ext}
@@ -536,16 +661,19 @@ def get_image_metadata(file_path):
             width, height = img.size
         
         return {
-            "file_size": file_size,
-            "width": width,
-            "height": height
+            "file_size": int(file_size),  
+            "width": int(width),          
+            "height": int(height),        
+            "format": str(img.format) if hasattr(img, 'format') else "Unknown"
         }
+    
     except Exception as e:
         logger.error(f"Error getting image metadata: {str(e)}")
         return {
             "file_size": 0,
             "width": 0,
-            "height": 0
+            "height": 0,
+            "format": "Unknown"
         }
 
 def save_upload_to_database(

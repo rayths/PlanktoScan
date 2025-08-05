@@ -1,16 +1,19 @@
 import os
 import time
+import uuid
 import requests
 from datetime import datetime
-from utils import predict_img, get_cache_info, get_detailed_cache_info, get_model_mapping, MODEL_CACHE, generate_stored_filename, save_upload_to_database, get_image_metadata
 from typing import Optional
+from utils import predict_img, get_cache_info, get_detailed_cache_info, get_model_mapping, MODEL_CACHE, generate_stored_filename, save_upload_to_database, get_image_metadata
 
 from fastapi import APIRouter, UploadFile, File, Form, Request, Response, Depends, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
-from sqlalchemy import func, case
-from database import get_db, User, Feedback
+from database import (
+    get_db, FirestoreDB, AppUser, ClassificationEntry, UserRole,
+    create_guest_user, create_expert_user, create_admin_user,
+    convert_numpy_types
+)
 
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -21,6 +24,25 @@ templates = Jinja2Templates(directory="templates")
 
 result_cache = {}
 
+# Auth helper functions
+def get_current_user(request: Request, db: FirestoreDB = Depends(get_db)) -> Optional[AppUser]:
+    """Get current user from session"""
+    user_id = request.session.get('user_id')
+    if user_id:
+        return db.get_user_by_uid(user_id)
+    return None
+
+def require_role(required_role: UserRole):
+    """Decorator to require specific user role"""
+    def decorator(func):
+        async def wrapper(request: Request, *args, **kwargs):
+            user = get_current_user(request)
+            if not user or user.role != required_role:
+                raise HTTPException(status_code=403, detail="Insufficient permissions")
+            return await func(request, *args, **kwargs)
+        return wrapper
+    return decorator
+
 # Login Routes
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, next: str = "/"):
@@ -30,166 +52,6 @@ async def login_page(request: Request, next: str = "/"):
         "next": next
     })
 
-def get_current_user(request: Request, db: Session = Depends(get_db)):
-    """Get current user from session"""
-    user_id = request.session.get('user_id')
-    if user_id:
-        return db.query(User).filter(User.id == user_id).first()
-    return None
-
-@router.get("/login/brin", response_class=HTMLResponse)
-async def login_brin(request: Request, next: str = "/"):
-    """Login page for BRIN internal users"""
-    login_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Login Sivitas BRIN - PlanktoScan</title>
-        <link href="/static/style.css" rel="stylesheet">
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    </head>
-    <body>
-        <div class="login-container">
-            <div class="login-card">
-                <div class="text-center mb-4">
-                    <i class="fas fa-id-badge fa-3x text-success mb-3"></i>
-                    <h3>Login Sivitas BRIN</h3>
-                    <p class="text-muted">Masuk menggunakan akun resmi BRIN</p>
-                </div>
-                
-                <form id="brin-login-form" method="post" action="/auth/brin">
-                    <div class="mb-3">
-                        <label class="form-label">Email BRIN</label>
-                        <input type="email" name="email" class="form-control" placeholder="nama@brin.go.id" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Password</label>
-                        <input type="password" name="password" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Unit Kerja</label>
-                        <select name="organization" class="form-select" required>
-                            <option value="">Pilih Unit Kerja</option>
-                            <option value="Oseanografi">Oseanografi</option>
-                            <option value="Limnologi">Limnologi</option>
-                            <option value="Biodiversitas">Biodiversitas</option>
-                            <option value="Informatika">Informatika</option>
-                            <option value="Lainnya">Lainnya</option>
-                        </select>
-                    </div>
-                    <input type="hidden" name="next" value="{next}">
-                    <button type="submit" class="btn btn-success w-100">
-                        <i class="fas fa-sign-in-alt"></i> Login
-                    </button>
-                </form>
-                
-                <div class="text-center mt-3">
-                    <a href="/login/guest?next={next}" class="text-muted">Login sebagai Tamu</a>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=login_html)
-
-@router.get("/login/guest", response_class=HTMLResponse) 
-async def login_guest(request: Request, next: str = "/"):
-    """Login page for external/guest users"""
-    login_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Login Tamu - PlanktoScan</title>
-        <link href="/static/style.css" rel="stylesheet">
-        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    </head>
-    <body>
-        <div class="login-container">
-            <div class="login-card">
-                <div class="text-center mb-4">
-                    <i class="fas fa-user-plus fa-3x text-primary mb-3"></i>
-                    <h3>Login sebagai Tamu</h3>
-                    <p class="text-muted">Daftar atau masuk untuk memberikan feedback</p>
-                </div>
-                
-                <form id="guest-login-form" method="post" action="/auth/guest">
-                    <div class="mb-3">
-                        <label class="form-label">Nama Lengkap</label>
-                        <input type="text" name="name" class="form-control" placeholder="Masukkan nama lengkap" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" name="email" class="form-control" placeholder="email@example.com" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Organisasi/Institusi</label>
-                        <input type="text" name="organization" class="form-control" placeholder="Universitas, Perusahaan, dll" required>
-                    </div>
-                    <input type="hidden" name="next" value="{next}">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-user-check"></i> Daftar & Login
-                    </button>
-                </form>
-                
-                <div class="text-center mt-3">
-                    <a href="/login/brin?next={next}" class="text-muted">Login sebagai Sivitas BRIN</a>
-                </div>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    return HTMLResponse(content=login_html)
-
-# Authentication Routes
-@router.post("/auth/brin")
-async def authenticate_brin(
-    request: Request,
-    email: str = Form(...),
-    password: str = Form(...),
-    organization: str = Form(...),
-    next: str = Form("/"),
-    db: Session = Depends(get_db)
-):
-    """Authenticate BRIN internal user"""
-    try:
-        # Simple email validation for BRIN domain
-        if not email.endswith('@brin.go.id'):
-            return JSONResponse(
-                status_code=400,
-                content={"error": "Email harus menggunakan domain @brin.go.id"}
-            )
-        
-        # Check if user exists, if not create new user
-        user = db.query(User).filter(User.email == email).first()
-        if not user:
-            user = User(
-                email=email,
-                name=email.split('@')[0].replace('.', ' ').title(),
-                user_type='brin_internal',
-                organization=organization,
-                is_active=True
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-        
-        # Update last login
-        user.last_login = datetime.utcnow()
-        db.commit()
-        
-        # Set session
-        request.session['user_id'] = user.id
-        request.session['user_name'] = user.name
-        request.session['user_type'] = 'brin_internal'
-        
-        return RedirectResponse(url=next, status_code=302)
-        
-    except Exception as e:
-        logger.error(f"BRIN auth error: {str(e)}")
-        return JSONResponse(status_code=500, content={"error": "Authentication failed"})
-
 @router.post("/auth/guest")
 async def authenticate_guest(
     request: Request,
@@ -197,34 +59,23 @@ async def authenticate_guest(
     email: str = Form(...),
     organization: str = Form(...),
     next: str = Form("/"),
-    db: Session = Depends(get_db)
+    db: FirestoreDB = Depends(get_db)
 ):
-    """Authenticate external/guest user"""
+    """Authenticate as guest user"""
     try:
-        # Check if user exists, if not create new user
-        user = db.query(User).filter(User.email == email).first()
-        if not user:
-            user = User(
-                email=email,
-                name=name,
-                user_type='external',
-                organization=organization,
-                is_active=True
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-        else:
-            # Update existing user info
-            user.name = name
-            user.organization = organization
-            user.last_login = datetime.utcnow()
-            db.commit()
+        # Create guest user
+        guest_uid = f"guest_{int(time.time())}_{email.replace('@', '_').replace('.', '_')}"
+        user = create_guest_user(guest_uid, email)
+        user.display_name = name
+        
+        # Save to database
+        user = db.save_user(user)
         
         # Set session
-        request.session['user_id'] = user.id
-        request.session['user_name'] = user.name
-        request.session['user_type'] = 'external'
+        request.session['user_id'] = user.uid
+        request.session['user_name'] = user.display_name
+        request.session['user_role'] = user.role.value
+        request.session['organization'] = organization
         
         return RedirectResponse(url=next, status_code=302)
         
@@ -232,136 +83,88 @@ async def authenticate_guest(
         logger.error(f"Guest auth error: {str(e)}")
         return JSONResponse(status_code=500, content={"error": "Authentication failed"})
 
-# Prediction History
-@router.get("/history", response_class=HTMLResponse)
-async def prediction_history(request: Request, db: Session = Depends(get_db)):
-    """User prediction history page"""
-    user_id = request.session.get('user_id')
-    if not user_id:
-        return RedirectResponse(url="/login?next=/history", status_code=302)
-    
-    try:
-        # Get user data
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user:
-            request.session.clear()
-            return RedirectResponse(url="/login", status_code=302)
-        
-        # Get user's prediction history from PlanktonUpload table
-        from database import PlanktonUpload
-        predictions = db.query(PlanktonUpload)\
-                       .filter(PlanktonUpload.user_ip == request.client.host)\
-                       .order_by(PlanktonUpload.upload_date.desc())\
-                       .limit(50)\
-                       .all()
-        
-        return templates.TemplateResponse("history.html", {
-            "request": request,
-            "user": user,
-            "predictions": predictions
-        })
-        
-    except Exception as e:
-        print(f"History error: {e}")
-        return RedirectResponse(url="/", status_code=302)
-    
-# Feedback Routes
-@router.post("/submit-feedback")
-async def submit_feedback(
+@router.post("/auth/expert")
+async def authenticate_expert(
     request: Request,
-    result_id: int = Form(...),
-    status: str = Form(...),
-    message: str = Form(...),
-    rating: int = Form(None),
-    is_anonymous: bool = Form(False),
-    db: Session = Depends(get_db)
+    email: str = Form(...),
+    password: str = Form(...),
+    next: str = Form("/"),
+    db: FirestoreDB = Depends(get_db)
 ):
-    """Submit user feedback for analysis result"""
+    """Authenticate as expert user"""
     try:
-        # Check authentication
-        user_id = request.session.get('user_id')
-        if not user_id:
-            return JSONResponse(
-                status_code=401,
-                content={"success": False, "message": "Login required"}
-            )
-        
-        # Validate input
-        if status not in ['sesuai', 'belum_sesuai']:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "message": "Invalid status"}
-            )
-        
-        if len(message.strip()) < 10:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "message": "Message too short"}
-            )
-        
-        # Check if user already submitted feedback for this result
-        existing_feedback = db.query(Feedback).filter(
-            Feedback.result_id == result_id,
-            Feedback.user_id == user_id
-        ).first()
-        
-        if existing_feedback:
-            # Update existing feedback
-            existing_feedback.status = status
-            existing_feedback.message = message.strip()
-            existing_feedback.rating = rating if rating else None
-            existing_feedback.is_anonymous = is_anonymous
-            existing_feedback.updated_at = datetime.utcnow()
+        # Check if expert exists
+        user = db.get_user_by_email(email)
+        if not user:
+            # Create new expert user
+            expert_uid = f"expert_{int(time.time())}_{email.replace('@', '_').replace('.', '_')}"
+            user = create_expert_user(expert_uid, email)
+            user = db.save_user(user)
         else:
-            # Create new feedback
-            feedback = Feedback(
-                result_id=result_id,
-                user_id=user_id,
-                status=status,
-                message=message.strip(),
-                rating=rating if rating else None,
-                is_anonymous=is_anonymous
-            )
-            db.add(feedback)
+            # Update last login
+            db.update_user_last_login(user.uid)
         
-        db.commit()
+        # Verify role
+        if user.role != UserRole.EXPERT:
+            return JSONResponse(status_code=403, content={"error": "Not an expert user"})
         
-        return JSONResponse(content={
-            "success": True,
-            "message": "Feedback berhasil disimpan"
-        })
+        # Set session
+        request.session['user_id'] = user.uid
+        request.session['user_name'] = user.display_name
+        request.session['user_role'] = user.role.value
+        
+        return RedirectResponse(url=next, status_code=302)
         
     except Exception as e:
-        logger.error(f"Submit feedback error: {str(e)}")
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "message": "Gagal menyimpan feedback"}
-        )
+        logger.error(f"Expert auth error: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": "Authentication failed"})
+
+@router.post("/auth/admin")
+async def authenticate_admin(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    next: str = Form("/"),
+    db: FirestoreDB = Depends(get_db)
+):
+    """Authenticate as admin user"""
+    try:
+        # Check if admin exists
+        user = db.get_user_by_email(email)
+        if not user:
+            # Only allow specific admin emails
+            if email not in [os.getenv("ADMIN_EMAIL")]:  
+                return JSONResponse(status_code=403, content={"error": "Not authorized as admin"})
+            
+            # Create new admin user
+            admin_uid = f"admin_{int(time.time())}_{email.replace('@', '_').replace('.', '_')}"
+            user = create_admin_user(admin_uid, email)
+            user = db.save_user(user)
+        else:
+            # Update last login
+            db.update_user_last_login(user.uid)
+        
+        # Verify role
+        if user.role != UserRole.ADMIN:
+            return JSONResponse(status_code=403, content={"error": "Not an admin user"})
+        
+        # Set session
+        request.session['user_id'] = user.uid
+        request.session['user_name'] = user.display_name
+        request.session['user_role'] = user.role.value
+        
+        return RedirectResponse(url=next, status_code=302)
+        
+    except Exception as e:
+        logger.error(f"Admin auth error: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": "Authentication failed"})
 
 # Logout Route
 @router.post("/logout")
 async def logout(request: Request):
-    """Logout user and clear session"""
-    try:
-        # Clear session
-        request.session.clear()
-        
-        # Return success response
-        return JSONResponse(
-            status_code=200,
-            content={
-                "success": True,
-                "message": "Logged out successfully"
-            }
-        )
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={
-                "success": False,
-                "message": f"Logout failed: {str(e)}"
-            }
-        )
+    """Logout user"""
+    request.session.clear()
+    return RedirectResponse(url="/", status_code=302)
 
 # Location Routes
 @router.get("/api/reverse-geocode")
@@ -514,366 +317,56 @@ async def check_cookie(request: Request):
 
 @router.post("/upload")
 async def upload_image(file: UploadFile = File(...)):
-    if not file.filename:
-        return JSONResponse(status_code=400, content={"error": "No selected file"})
-
-    path = os.path.join("static/uploads/temp", file.filename)
-    with open(path, "wb") as f:
-        f.write(await file.read())
-
-    return JSONResponse(content={
-        "img_path": path
-    })
-
-@router.get("/admin/database-info")
-async def get_database_info(db: Session = Depends(get_db)):
-    """Get database information and table details"""
+    """Upload image file to server and return server path"""
     try:
-        from database import get_database_info
-        from sqlalchemy import inspect, text
+        if not file.filename:
+            return JSONResponse(status_code=400, content={"error": "No selected file"})
+
+        # Validate file type
+        if not file.content_type.startswith('image/'):
+            return JSONResponse(status_code=400, content={"error": "Invalid file type"})
         
-        # Get basic database info
-        db_info = get_database_info()
+        # Create uploads directory if not exists
+        upload_dir = "static/uploads/temp"
+        os.makedirs(upload_dir, exist_ok=True)
+
+        # Generate unique filename to avoid conflicts
+        timestamp = int(time.time())
+        file_extension = os.path.splitext(file.filename)[1]
+        filename = f"{timestamp}_{file.filename}"
+        file_path = os.path.join(upload_dir, filename)
         
-        # Get table information
-        inspector = inspect(db.bind)
-        tables = inspector.get_table_names()
+        # Save file to server
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
         
-        table_details = {}
-        for table in tables:
-            columns = inspector.get_columns(table)
-            table_details[table] = {
-                "columns": [{"name": col["name"], "type": str(col["type"])} for col in columns],
-                "column_count": len(columns)
-            }
+        # Verify file was saved
+        if not os.path.exists(file_path):
+            raise Exception("Failed to save file to server")
         
-        # Get record counts
-        record_counts = {}
-        for table in tables:
-            try:
-                result = db.execute(text(f"SELECT COUNT(*) FROM {table}"))
-                count = result.scalar()
-                record_counts[table] = count
-            except Exception as e:
-                record_counts[table] = f"Error: {str(e)}"
+        # Get file size for response
+        file_size = os.path.getsize(file_path)
         
+        logger.info(f"File uploaded successfully: {file_path} ({file_size} bytes)")
+        
+        # Return server path (not data URL)
         return JSONResponse(content={
-            "database_info": db_info,
-            "tables": table_details,
-            "record_counts": record_counts,
-            "total_tables": len(tables)
+            "success": True,
+            "img_path": file_path,  # This is the server file path
+            "filename": filename,
+            "original_filename": file.filename,
+            "file_size": file_size
         })
         
     except Exception as e:
-        logger.error(f"Error getting database info: {str(e)}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.error(f"Upload error: {str(e)}")
+        return JSONResponse(
+            status_code=500, 
+            content={"error": f"Upload failed: {str(e)}"}
+        )
 
-@router.get("/admin/database-test")
-async def test_database_connection(db: Session = Depends(get_db)):
-    """Test database connection and basic operations"""
-    try:
-        from database import PlanktonUpload
-        from sqlalchemy import text
-        
-        test_results = {
-            "connection": "Success",
-            "table_exists": False,
-            "sample_data": None,
-            "total_records": 0,
-            "recent_uploads": []
-        }
-        
-        # Test basic connection
-        db.execute(text("SELECT 1"))
-        
-        # Check if table exists and get sample data
-        try:
-            total_count = db.query(PlanktonUpload).count()
-            test_results["table_exists"] = True
-            test_results["total_records"] = total_count
-            
-            # Get recent uploads (last 5)
-            recent = db.query(PlanktonUpload)\
-                      .order_by(PlanktonUpload.upload_date.desc())\
-                      .limit(5)\
-                      .all()
-            
-            test_results["recent_uploads"] = [
-                {
-                    "id": upload.id,
-                    "filename": upload.stored_filename,
-                    "class": upload.top_class,
-                    "probability": f"{upload.top_probability:.2%}",
-                    "location": upload.location,
-                    "date": upload.upload_date.isoformat() if upload.upload_date else None
-                }
-                for upload in recent
-            ]
-            
-        except Exception as table_error:
-            test_results["table_error"] = str(table_error)
-        
-        return JSONResponse(content={
-            "status": "success",
-            "test_results": test_results,
-            "timestamp": time.time()
-        })
-        
-    except Exception as e:
-        logger.error(f"Database test failed: {str(e)}")
-        return JSONResponse(status_code=500, content={
-            "status": "error",
-            "error": str(e),
-            "timestamp": time.time()
-        })
-
-@router.get("/admin/database-stats")
-async def get_detailed_database_stats(db: Session = Depends(get_db)):
-    """Get detailed database statistics"""
-    try:
-        from database import PlanktonUpload
-        from sqlalchemy import func, text
-        
-        stats = {}
-        
-        # Basic counts
-        total_uploads = db.query(PlanktonUpload).count()
-        stats["total_uploads"] = total_uploads
-        
-        if total_uploads > 0:
-            # Classification statistics
-            classification_stats = db.query(
-                PlanktonUpload.top_class,
-                func.count(PlanktonUpload.top_class).label('count'),
-                func.avg(PlanktonUpload.top_probability).label('avg_confidence')
-            ).group_by(PlanktonUpload.top_class)\
-             .order_by(func.count(PlanktonUpload.top_class).desc())\
-             .all()
-            
-            stats["classifications"] = [
-                {
-                    "class": item[0],
-                    "count": item[1],
-                    "percentage": round((item[1] / total_uploads) * 100, 1),
-                    "avg_confidence": round(item[2], 3) if item[2] else 0
-                }
-                for item in classification_stats
-            ]
-            
-            # Location statistics
-            location_stats = db.query(
-                PlanktonUpload.location,
-                func.count(PlanktonUpload.location).label('count')
-            ).group_by(PlanktonUpload.location)\
-             .order_by(func.count(PlanktonUpload.location).desc())\
-             .all()
-            
-            stats["locations"] = [
-                {
-                    "location": item[0],
-                    "count": item[1],
-                    "percentage": round((item[1] / total_uploads) * 100, 1)
-                }
-                for item in location_stats
-            ]
-            
-            # Model usage statistics
-            model_stats = db.query(
-                PlanktonUpload.model_used,
-                func.count(PlanktonUpload.model_used).label('count')
-            ).group_by(PlanktonUpload.model_used)\
-             .order_by(func.count(PlanktonUpload.model_used).desc())\
-             .all()
-            
-            stats["models"] = [
-                {
-                    "model": item[0],
-                    "count": item[1],
-                    "percentage": round((item[1] / total_uploads) * 100, 1)
-                }
-                for item in model_stats
-            ]
-            
-            # Performance statistics
-            performance_stats = db.query(
-                func.avg(PlanktonUpload.processing_time).label('avg_processing_time'),
-                func.min(PlanktonUpload.processing_time).label('min_processing_time'),
-                func.max(PlanktonUpload.processing_time).label('max_processing_time'),
-                func.avg(PlanktonUpload.file_size).label('avg_file_size')
-            ).first()
-            
-            stats["performance"] = {
-                "avg_processing_time": round(performance_stats[0], 3) if performance_stats[0] else 0,
-                "min_processing_time": round(performance_stats[1], 3) if performance_stats[1] else 0,
-                "max_processing_time": round(performance_stats[2], 3) if performance_stats[2] else 0,
-                "avg_file_size_kb": round(performance_stats[3] / 1024, 1) if performance_stats[3] else 0
-            }
-            
-            # Recent activity (last 24 hours)
-            from datetime import datetime, timedelta
-            yesterday = datetime.now() - timedelta(days=1)
-            
-            recent_count = db.query(PlanktonUpload)\
-                           .filter(PlanktonUpload.upload_date >= yesterday)\
-                           .count()
-            
-            stats["recent_activity"] = {
-                "uploads_last_24h": recent_count,
-                "percentage_of_total": round((recent_count / total_uploads) * 100, 1) if total_uploads > 0 else 0
-            }
-            
-        else:
-            stats["message"] = "No uploads found in database"
-        
-        return JSONResponse(content={
-            "status": "success",
-            "statistics": stats,
-            "timestamp": time.time()
-        })
-        
-    except Exception as e:
-        logger.error(f"Error getting database stats: {str(e)}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-@router.get("/admin", response_class=HTMLResponse)
-async def admin_dashboard(request: Request):
-    """Admin dashboard to view database information"""
-    admin_html = """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>PlanktoScan - Database Admin</title>
-        <style>
-            body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-            .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-            .header { background: #2c3e50; color: white; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
-            .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
-            .btn { background: #3498db; color: white; padding: 10px 15px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; text-decoration: none; display: inline-block; }
-            .btn:hover { background: #2980b9; }
-            .btn-success { background: #27ae60; } .btn-success:hover { background: #229954; }
-            .btn-warning { background: #f39c12; } .btn-warning:hover { background: #e67e22; }
-            .btn-danger { background: #e74c3c; } .btn-danger:hover { background: #c0392b; }
-            .result { background: #ecf0f1; padding: 15px; border-radius: 5px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; }
-            .loading { color: #3498db; font-style: italic; }
-            table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background: #34495e; color: white; }
-            .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 20px 0; }
-            .stat-card { background: #3498db; color: white; padding: 20px; border-radius: 8px; text-align: center; }
-            .stat-number { font-size: 2em; font-weight: bold; }
-            .stat-label { font-size: 0.9em; opacity: 0.9; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>PlanktoScan Database Admin</h1>
-                <p>Database monitoring and management interface</p>
-            </div>
-            
-            <div class="section">
-                <h3>Quick Actions</h3>
-                <a href="#" class="btn btn-success" onclick="testConnection()">Test Database Connection</a>
-                <a href="#" class="btn" onclick="getDatabaseInfo()">Get Database Info</a>
-                <a href="#" class="btn" onclick="getUploads()">View Recent Uploads</a>
-                <a href="#" class="btn" onclick="getStats()">Get Statistics</a>
-                <a href="#" class="btn btn-warning" onclick="getDetailedStats()">Detailed Statistics</a>
-                <a href="/" class="btn btn-danger">← Back to Dashboard</a>
-            </div>
-            
-            <div class="section">
-                <h3>Quick Stats</h3>
-                <div class="stats" id="quickStats">
-                    <div class="stat-card">
-                        <div class="stat-number" id="totalUploads">-</div>
-                        <div class="stat-label">Total Uploads</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="totalClasses">-</div>
-                        <div class="stat-label">Unique Classes</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="totalLocations">-</div>
-                        <div class="stat-label">Unique Locations</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="section">
-                <h3>Results</h3>
-                <div id="results" class="result">Click any button above to start...</div>
-            </div>
-        </div>
-        
-        <script>
-            function showLoading() {
-                document.getElementById('results').innerHTML = '<div class="loading">Loading...</div>';
-            }
-            
-            function showResult(data) {
-                document.getElementById('results').innerHTML = JSON.stringify(data, null, 2);
-            }
-            
-            function testConnection() {
-                showLoading();
-                fetch('/admin/database-test')
-                    .then(response => response.json())
-                    .then(data => showResult(data))
-                    .catch(error => showResult({error: error.message}));
-            }
-            
-            function getDatabaseInfo() {
-                showLoading();
-                fetch('/admin/database-info')
-                    .then(response => response.json())
-                    .then(data => showResult(data))
-                    .catch(error => showResult({error: error.message}));
-            }
-            
-            function getUploads() {
-                showLoading();
-                fetch('/admin/uploads?limit=10')
-                    .then(response => response.json())
-                    .then(data => showResult(data))
-                    .catch(error => showResult({error: error.message}));
-            }
-            
-            function getStats() {
-                showLoading();
-                fetch('/admin/stats')
-                    .then(response => response.json())
-                    .then(data => {
-                        showResult(data);
-                        updateQuickStats(data);
-                    })
-                    .catch(error => showResult({error: error.message}));
-            }
-            
-            function getDetailedStats() {
-                showLoading();
-                fetch('/admin/database-stats')
-                    .then(response => response.json())
-                    .then(data => showResult(data))
-                    .catch(error => showResult({error: error.message}));
-            }
-            
-            function updateQuickStats(data) {
-                document.getElementById('totalUploads').textContent = data.total_uploads || 0;
-                document.getElementById('totalClasses').textContent = data.common_classifications ? data.common_classifications.length : 0;
-                document.getElementById('totalLocations').textContent = data.common_locations ? data.common_locations.length : 0;
-            }
-            
-            // Load quick stats on page load
-            window.onload = function() {
-                getStats();
-            };
-        </script>
-    </body>
-    </html>
-    """
-    
-    return HTMLResponse(content=admin_html)
-
+# Classification prediction endopoint
 @router.post("/predict")
 async def predict(
     request: Request,
@@ -882,16 +375,32 @@ async def predict(
     file: Optional[UploadFile] = File(None),
     img_path: Optional[str] = Form(None),
     has_captured_file: Optional[bool] = Form(False),
-    db: Session = Depends(get_db)
+    db: FirestoreDB = Depends(get_db)
 ):
     start_time = time.time()
 
     try:
         logger.info(f"Prediction request: model={model_option}, has_file={file is not None}, has_captured={has_captured_file}")
+        logger.info(f"img_path received: {img_path}")
+        
+        # Validate image path
+        if img_path and img_path.startswith('data:'):
+            raise ValueError("Data URL received instead of file path. File upload may have failed.")
+        
+        # Get current user or create guest
+        current_user = get_current_user(request, db)
+        if not current_user:
+            # Create temporary guest user
+            guest_uid = f"temp_guest_{int(time.time())}"
+            current_user = create_guest_user(guest_uid)
+            current_user = db.save_user(current_user)
+            
+            # Set session
+            request.session['user_id'] = current_user.uid
+            request.session['user_role'] = current_user.role.value
         
         # Get user IP
         user_ip = request.client.host if request.client else "unknown"
-
         original_filename = None
 
         # Handle different image sources
@@ -921,16 +430,15 @@ async def predict(
             
         elif img_path:
             # Handle existing image path
+            if not os.path.exists(img_path):
+                raise FileNotFoundError(f"Image file not found: {img_path}")
+            
             original_filename = os.path.basename(img_path)
             file_extension = os.path.splitext(original_filename)[1].lower()
             file_path_for_prediction = img_path
             
         else:
             raise ValueError("No image source provided")
-        
-        # Verify image file exists before prediction
-        if not os.path.exists(file_path_for_prediction):
-            raise FileNotFoundError(f"Image file not found: {file_path_for_prediction}")
 
         # Run prediction
         logger.info(f"Starting prediction with model: {model_option}")
@@ -938,6 +446,9 @@ async def predict(
         
         processing_time = time.time() - start_time
 
+        # Generate unique ID for this classification
+        classification_id = str(int(time.time() * 1000)) 
+        
         # Generate filename for storage
         top_classification = actual_class[0] if actual_class else "unknown"
         stored_filename = generate_stored_filename(
@@ -948,6 +459,9 @@ async def predict(
         
         # Move file to final location
         final_file_path = f"static/uploads/results/{stored_filename}"
+
+        # Create results directory if not exists
+        os.makedirs(os.path.dirname(final_file_path), exist_ok=True)
         
         if file or has_captured_file:
             # Move/rename file to final location
@@ -959,53 +473,53 @@ async def predict(
             import shutil
             shutil.copy2(file_path_for_prediction, final_file_path)
         
-        # Save upload record to database
-        try:
-            upload_record = save_upload_to_database(
-                db,
-                original_filename,
-                stored_filename,
-                final_file_path,
-                location,
-                model_option,
-                (actual_class, probability_class, response),
-                user_ip,
-                processing_time
-            )
+        # Get image metadata
+        metadata = get_image_metadata(final_file_path)
+        
+        # Create ClassificationEntry object
+        classification_entry = ClassificationEntry(
+            id=classification_id,
+            user_id=current_user.uid,
+            user_role=current_user.role.value,
+            image_path=final_file_path,
+            classification_result=actual_class[0] if len(actual_class) > 0 else "Unknown",
+            confidence=convert_numpy_types(probability_class[0]) if len(probability_class) > 0 else 0.0,
+            model_used=model_option,
+            timestamp=datetime.utcnow(),
             
-            # Use database ID as result_id
-            result_id = upload_record.id
-            logger.info(f"Upload saved to database with ID: {result_id}")
-            
-        except Exception as db_error:
-            logger.error(f"Database save failed: {str(db_error)}")
-            raise Exception(f"Database save failed: {str(db_error)}")
+            # Web app specific fields
+            location=location,
+            second_class=actual_class[1] if len(actual_class) > 1 else None,
+            second_probability=convert_numpy_types(probability_class[1]) if len(probability_class) > 1 else None,
+            third_class=actual_class[2] if len(actual_class) > 2 else None,
+            third_probability=convert_numpy_types(probability_class[2]) if len(probability_class) > 2 else None,
+        )
+        
+        # Save to Firestore using Android-compatible method
+        result_id = db.save_classification_to_database(classification_entry)
+        
+        logger.info(f"Classification saved to Firestore with ID: {result_id}")
 
-        # Store in cache using database ID
+        # Store in cache
         result_cache[str(result_id)] = {
             "img_path": f"/static/uploads/results/{stored_filename}",
             "class1": actual_class[0],
-            "class2": actual_class[1],
-            "class3": actual_class[2],
+            "class2": actual_class[1] if len(actual_class) > 1 else "Unknown",
+            "class3": actual_class[2] if len(actual_class) > 2 else "Unknown",
             "probability1": f"{probability_class[0]:.1%}",
-            "probability2": f"{probability_class[1]:.1%}",
-            "probability3": f"{probability_class[2]:.1%}",
+            "probability2": f"{probability_class[1]:.1%}" if len(probability_class) > 1 else "0.0%",
+            "probability3": f"{probability_class[2]:.1%}" if len(probability_class) > 2 else "0.0%",
             "response": response,
             "location": location,
             "model_used": model_option,
-            "stored_filename": stored_filename,
-            "processing_time": f"{processing_time:.2f}s",
             "timestamp": time.time()
         }
         
         logger.info(f"Prediction successful. Result ID: {result_id}")
-        logger.info(f"Final file: {stored_filename}")
-        logger.info(f"Redirect URL: /result/{result_id}")
 
         return JSONResponse(content={
             "success": True,
             "result_id": result_id,  
-            "stored_filename": stored_filename,
             "redirect_url": f"/result/{result_id}"
         })
         
@@ -1018,105 +532,43 @@ async def predict(
 
 @router.get("/result/{result_id}", response_class=HTMLResponse)
 async def get_result(
-    result_id: int, 
+    result_id: str, 
     request: Request, 
     edit_feedback: bool = False,
-    db: Session = Depends(get_db)
+    db: FirestoreDB = Depends(get_db)
 ):
-    """Get analysis result with feedback functionality"""
+    """Get analysis result """
     try:
-        from database import PlanktonUpload
-
-        # Get the analysis result
-        upload_record = db.query(PlanktonUpload).filter(PlanktonUpload.id == result_id).first()
+        # Get the classification result from Firestore
+        classification = db.get_classification_by_id(result_id)
         
-        if not upload_record:
+        if not classification:
             raise HTTPException(status_code=404, detail="Result not found")
+    
+        # Get current user
+        current_user = get_current_user(request, db)
         
-        logger.info(f"Found upload record: {upload_record.stored_filename}")
-        logger.info(f"File path in DB: {upload_record.file_path}")
-
-        # Check authentication
-        user_id = request.session.get('user_id') if hasattr(request, 'session') else None
-        current_user = None
-        user_feedback = None
-        
-        if user_id:
-            current_user = db.query(User).filter(User.id == user_id).first()
-            user_feedback = db.query(Feedback).filter(
-                Feedback.result_id == result_id,
-                Feedback.user_id == user_id
-            ).first()
-            
-            # If edit_feedback is requested, clear user_feedback to show form
-            if edit_feedback:
-                user_feedback = None
-        
-        # Get public feedback (not anonymous or user opted to show)
-        public_feedback_query = db.query(
-            Feedback,
-            User.name.label('user_name'),
-            User.user_type,
-            User.organization
-        ).join(User, Feedback.user_id == User.id).filter(
-            Feedback.result_id == result_id
-        ).order_by(Feedback.created_at.desc())
-        
-        public_feedback = []
-        for feedback, user_name, user_type, organization in public_feedback_query.all():
-            public_feedback.append({
-                'status': feedback.status,
-                'message': feedback.message,
-                'rating': feedback.rating,
-                'is_anonymous': feedback.is_anonymous,
-                'user_name': user_name if not feedback.is_anonymous else 'Anonim',
-                'user_type': user_type,
-                'organization': organization if not feedback.is_anonymous else None,
-                'created_at': feedback.created_at
-            })
-        
-        # Get feedback summary
-        feedback_stats = db.query(
-            func.count(Feedback.id).label('total'),
-            func.avg(Feedback.rating).label('average_rating'),
-            func.count(case((Feedback.status == 'sesuai', 1))).label('sesuai_count'),
-            func.count(case((Feedback.status == 'belum_sesuai', 1))).label('belum_sesuai_count')
-        ).filter(Feedback.result_id == result_id).first()
-        
-        feedback_summary = None
-        if feedback_stats and feedback_stats.total > 0:
-            feedback_summary = {
-                'total': feedback_stats.total,
-                'average_rating': round(feedback_stats.average_rating, 1) if feedback_stats.average_rating else None,
-                'sesuai_count': feedback_stats.sesuai_count,
-                'belum_sesuai_count': feedback_stats.belum_sesuai_count
-            }
-
         # Generate image URL for result
-        image_url = f"/static/uploads/results/{upload_record.stored_filename}"
-        logger.info(f"Generated image URL: {image_url}")
-        
+        filename = os.path.basename(classification.image_path)
+        image_url = f"/static/uploads/results/{filename}"
+
         # Prepare context for rendering
         context = {
             "request": request,
             "result_id": result_id,
-            "upload_record": upload_record,
-            "user_authenticated": current_user is not None,
+            "classification": classification,
             "current_user": current_user,
-            "user_feedback": user_feedback,
-            "public_feedback": public_feedback,
-            "feedback_summary": feedback_summary,
-            "csrf_token": "dummy_token",
+            "can_edit": current_user and current_user.role in [UserRole.EXPERT, UserRole.ADMIN],
             
-            # Template variables
+            # Template variables for compatibility
             "img_path": image_url,
-            "class1": upload_record.top_class,
-            "class2": upload_record.second_class or "Unknown",
-            "class3": upload_record.third_class or "Unknown", 
-            "probability1": f"{upload_record.top_probability:.1%}" if upload_record.top_probability else "0.0%",
-            "probability2": f"{upload_record.second_probability:.1%}" if upload_record.second_probability else "0.0%",
-            "probability3": f"{upload_record.third_probability:.1%}" if upload_record.third_probability else "0.0%",
-            "response": f"Analisis menunjukkan {upload_record.top_class} dengan tingkat keyakinan {upload_record.top_probability:.1%}. Model yang digunakan: {upload_record.model_used}." if upload_record.top_probability else "Analisis selesai."
+            "class1": classification.classification_result,
+            "class2": classification.second_class or "Unknown",
+            "class3": classification.third_class or "Unknown", 
+            "probability1": f"{classification.confidence:.1%}",
+            "probability2": f"{classification.second_probability:.1%}" if classification.second_probability else "0.0%",
+            "probability3": f"{classification.third_probability:.1%}" if classification.third_probability else "0.0%",
+            "response": f"Analisis menunjukkan {classification.classification_result} dengan tingkat keyakinan {classification.confidence:.1%}. Model yang digunakan: {classification.model_used}."
         }
         
         return templates.TemplateResponse("result.html", context)
@@ -1125,76 +577,114 @@ async def get_result(
         logger.error(f"Error loading result {result_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Error loading result")
 
-@router.get("/admin/uploads")
-async def get_uploads(
-    skip: int = 0, 
-    limit: int = 50, 
-    db: Session = Depends(get_db)
+# Expert feedback
+@router.post("/feedback/{result_id}")
+async def submit_expert_feedback(
+    result_id: str,
+    request: Request,
+    user_feedback: str = Form(...),
+    is_correct: bool = Form(...),
+    correct_class: str = Form(None),
+    db: FirestoreDB = Depends(get_db)
 ):
-    """Get list of uploads"""
+    """Submit expert feedback for classification result"""
     try:
-        from database import PlanktonUpload
+        # Get current user
+        current_user = get_current_user(request, db)
+        if not current_user or current_user.role not in [UserRole.EXPERT, UserRole.ADMIN]:
+            raise HTTPException(status_code=403, detail="Only experts and admins can provide feedback")
         
-        uploads = db.query(PlanktonUpload)\
-                   .order_by(PlanktonUpload.upload_date.desc())\
-                   .offset(skip)\
-                   .limit(limit)\
-                   .all()
+        # Get classification
+        classification = db.get_classification_by_id(result_id)
+        if not classification:
+            raise HTTPException(status_code=404, detail="Classification not found")
         
-        upload_list = []
-        for upload in uploads:
-            upload_list.append({
-                "id": upload.id,
-                "stored_filename": upload.stored_filename,
-                "original_filename": upload.original_filename,
-                "upload_date": upload.upload_date.isoformat(),
-                "location": upload.location,
-                "model_used": upload.model_used,
-                "top_class": upload.top_class,
-                "top_probability": upload.top_probability,
-                "processing_time": upload.processing_time,
-                "file_size": upload.file_size
+        # Update classification with feedback
+        classification.user_feedback = user_feedback
+        classification.is_correct = is_correct
+        classification.correct_class = correct_class if not is_correct else None
+        
+        # Update in database using Android-compatible method
+        success = db.update_classification_in_database(classification, current_user.uid)
+        
+        if success:
+            return JSONResponse(content={
+                "success": True,
+                "message": "Feedback submitted successfully"
             })
+        else:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "message": "Failed to save feedback"}
+            )
         
-        return JSONResponse(content={
-            "uploads": upload_list,
-            "total": len(upload_list)
+    except Exception as e:
+        logger.error(f"Submit feedback error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": str(e)}
+        )
+    
+# History and admin routes
+@router.get("/history", response_class=HTMLResponse)
+async def user_history(request: Request, db: FirestoreDB = Depends(get_db)):
+    """User prediction history"""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse(url="/login?next=/history", status_code=302)
+    
+    try:
+        # Get user's classifications
+        if current_user.role == UserRole.ADMIN:
+            # Admin can see all
+            classifications_data = db.get_all_classifications_from_database(current_user.role)
+            classifications = [ClassificationEntry.from_dict(data) for data in classifications_data]
+        else:
+            # Users see only their own
+            classifications_data = db.get_classifications_by_user_id(current_user.uid)
+            classifications = [ClassificationEntry.from_dict(data) for data in classifications_data]
+        
+        return templates.TemplateResponse("history.html", {
+            "request": request,
+            "user": current_user,
+            "classifications": classifications
         })
         
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.error(f"History error: {e}")
+        return RedirectResponse(url="/", status_code=302)
+
+@router.get("/admin/export")
+async def export_classifications(request: Request, db: FirestoreDB = Depends(get_db)):
+    """Export all classifications to CSV (admin only)"""
+    current_user = get_current_user(request, db)
+    if not current_user or current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    try:
+        csv_content = db.export_all_classifications_to_csv(current_user.role)
+        
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=classifications_export.csv"}
+        )
+        
+    except Exception as e:
+        logger.error(f"Export error: {e}")
+        raise HTTPException(status_code=500, detail="Export failed")
 
 @router.get("/admin/stats")
-async def get_upload_stats(db: Session = Depends(get_db)):
-    """Get upload statistics"""
+async def get_admin_stats(request: Request, db: FirestoreDB = Depends(get_db)):
+    """Get admin statistics"""
+    current_user = get_current_user(request, db)
+    if not current_user or current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
     try:
-        from database import PlanktonUpload
-        from sqlalchemy import func
-        
-        # Total uploads
-        total_uploads = db.query(PlanktonUpload).count()
-        
-        # Most common classifications
-        common_classes = db.query(
-            PlanktonUpload.top_class,
-            func.count(PlanktonUpload.top_class).label('count')
-        ).group_by(PlanktonUpload.top_class)\
-         .order_by(func.count(PlanktonUpload.top_class).desc())\
-         .limit(10).all()
-        
-        # Most common locations
-        common_locations = db.query(
-            PlanktonUpload.location,
-            func.count(PlanktonUpload.location).label('count')
-        ).group_by(PlanktonUpload.location)\
-         .order_by(func.count(PlanktonUpload.location).desc())\
-         .limit(10).all()
-        
-        return JSONResponse(content={
-            "total_uploads": total_uploads,
-            "common_classifications": [{"class": c[0], "count": c[1]} for c in common_classes],
-            "common_locations": [{"location": l[0], "count": l[1]} for l in common_locations]
-        })
+        stats = db.get_classification_stats()
+        return JSONResponse(content=stats)
         
     except Exception as e:
+        logger.error(f"Stats error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
