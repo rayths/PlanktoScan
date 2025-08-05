@@ -1,10 +1,6 @@
-/**
- * File upload handling module for PlanktoScan
- */
+// FILE UPLOAD MANAGEMENT
 
-/**
- * Setup file upload event handlers
- */
+// Setup file upload event handlers
 function setupFileUploadHandlers() {
     const $uploadZone = $('#upload-zone');
     const $fileInput = $('#file-image-upload');
@@ -19,6 +15,11 @@ function setupFileUploadHandlers() {
     $uploadZone.on('click.fileupload', function(e) {
         e.preventDefault();
         e.stopPropagation();
+
+        // Check if user can upload
+        if (!canUserUpload()) {
+            return;
+        }
         
         // Jika sudah ada image preview, jangan trigger file input lagi
         if ($(this).hasClass('success') || $(this).find('.image-preview-container').length > 0) {
@@ -35,6 +36,9 @@ function setupFileUploadHandlers() {
 
     // File input change handler
     $fileInput.on('change.fileupload', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
         console.log('File input changed, processing file');
         const file = e.target.files[0];
         if (file) {
@@ -57,9 +61,37 @@ function setupFileUploadHandlers() {
     console.log('File upload event handlers setup complete');
 }
 
-/**
- * Handle file selection - Updated to match script.js functionality
- */
+// Check if user can upload files based on authentication and role
+function canUserUpload() {
+    const isAuthenticated = window.USER_AUTHENTICATED || false;
+    const userRole = window.USER_ROLE || null;
+    
+    if (!isAuthenticated) {
+        console.log('User not authenticated, showing login popup');
+        if (typeof showLoginRequiredPopup === 'function') {
+            showLoginRequiredPopup('not_logged_in');
+        } else {
+            // Fallback: redirect to login
+            window.location.href = '/login';
+        }
+        return false;
+    }
+    
+    if (userRole === 'guest') {
+        console.log('Guest user cannot upload, showing role popup');
+        if (typeof showLoginRequiredPopup === 'function') {
+            showLoginRequiredPopup('guest_role');
+        } else {
+            // Fallback: show alert
+            alert('Guests can only view the application. Please login with a BASIC account or higher to upload images.');
+        }
+        return false;
+    }
+    
+    return true;
+}
+
+// Handle file selection and validation
 function handleFileSelection(file) {
     console.log('File selected:', file.name, formatFileSize(file.size));
 
@@ -86,6 +118,12 @@ function handleFileSelection(file) {
     // Show image preview immediately
     showImagePreview(file);
 
+    // Upload file to server
+    uploadFileToServer(file);
+}
+
+// Upload file to server
+function uploadFileToServer(file) {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -113,27 +151,38 @@ function handleFileSelection(file) {
             PlanktoScanApp.uploadedImagePath = data.img_path;
             $imageUploadInput.val(PlanktoScanApp.uploadedImagePath);
             $fileName.text(file.name);
-            $predictButton.prop('disabled', false);
-            $uploadZone.removeClass('uploading');
-            $uploadZone.addClass('success');
+            $uploadZone.removeClass('uploading').addClass('success');
             
+            // Update predict button state
+            updatePredictButtonState();
+
             console.log('File upload completed successfully');
         },
         error: () => {
             resetFileUpload();
             $uploadZone.removeClass('uploading');
+
+            let errorMessage = "Failed to upload image. Please try again.";
+            if (xhr.status === 401) {
+                errorMessage = "Please login to upload images.";
+                // Redirect to login
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+            } else if (xhr.status === 403) {
+                errorMessage = "You don't have permission to upload images.";
+            }
+            
             swal({
                 title: "Upload Error",
-                text: "Failed to upload image. Please try again.",
+                text: errorMessage,
                 icon: "error",
             });
         }
     });
 }
 
-/**
- * Show image preview in upload zone - Dari script.js
- */
+// Show image preview in upload zone
 function showImagePreview(file) {
     const $uploadZone = $('.upload-zone');
     const reader = new FileReader();
@@ -173,9 +222,9 @@ function showImagePreview(file) {
             $uploadZone.addClass('with-image');
             
             // Add hover effect
-            $uploadZone.off('mouseenter mouseleave').on('mouseenter', '.image-preview-container', function() {
+            $uploadZone.off('mouseenter.preview mouseleave.preview').on('mouseenter.preview', '.image-preview-container', function() {
                 $(this).find('.upload-overlay').css('opacity', '1');
-            }).on('mouseleave', '.image-preview-container', function() {
+            }).on('mouseleave.preview', '.image-preview-container', function() {
                 $(this).find('.upload-overlay').css('opacity', '0');
             });
             
@@ -196,11 +245,7 @@ function showImagePreview(file) {
     reader.readAsDataURL(file);
 }
 
-/**
- * Handle successful upload - Simplified version
- * @param {Object} response - Server response
- * @param {string} fileName - Original file name
- */
+// Handle successful upload
 function handleUploadSuccess(response, fileName) {
     console.log('Upload successful:', response);
 
@@ -219,9 +264,7 @@ function handleUploadSuccess(response, fileName) {
     console.log('File upload completed successfully');
 }
 
-/**
- * Update upload zone with success indicators - Dari script.js
- */
+// Update upload zone with success indicators
 function updateUploadZoneSuccess() {
     const $uploadZone = $('.upload-zone');
     
@@ -233,9 +276,7 @@ function updateUploadZoneSuccess() {
     $uploadZone.find('.upload-subtext').text('Click to change image');
 }
 
-/**
- * Cancel current upload - Updated dari script.js
- */
+// Cancel current upload
 function cancelUpload() {
     const currentMode = getCurrentMode();
     
@@ -286,9 +327,7 @@ function cancelUpload() {
     }
 }
 
-/**
- * Reset file upload UI to initial state - Updated dari script.js
- */
+// Reset file upload UI to initial state
 function resetFileUpload() {
     const $fileInput = $('#file-image-upload');
     const $imageUploadInput = $('#image-upload');
@@ -317,12 +356,11 @@ function resetFileUpload() {
     // Update UI elements
     $fileInfo.hide();
     $fileName.text('No file selected');
-    $uploadZone.removeClass('success with-image');
+    $uploadZone.removeClass('success with-image uploading dragover');
     $predictButton.prop('disabled', true);
     
-    // Reset upload zone content and styling - FORCE COMPLETE RESET
+    // Reset upload zone content and styling
     $uploadZone.removeAttr('style');
-    $uploadZone.removeClass('success with-image uploading dragover');
     $uploadZone.html(`
         <div class="upload-content">
             <div class="upload-icon">
@@ -342,47 +380,27 @@ function resetFileUpload() {
         'pointer-events': 'auto'
     });
 
-    // Remove any existing event handlers and re-attach
-    $uploadZone.off('click.upload');
-    $uploadZone.on('click.upload', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        console.log('Upload zone clicked after reset, triggering file input');
-        $fileInput.trigger('click');
-    });
-
     console.log('File upload state reset completely');
 }
 
-/**
- * Handle drag over event
- * @param {Event} e - Drag event
- */
+// Handle drag over event
 function handleDragOver(e) {
     e.preventDefault();
     e.stopPropagation();
     
-    if (getCurrentMode() === 'file') {
+    if (getCurrentMode() === 'file' && canUserUpload()) {
         $(e.currentTarget).addClass('dragover');
     }
 }
 
-/**
- * Handle drag leave event
- * @param {Event} e - Drag event
- */
+// Handle drag leave event
 function handleDragLeave(e) {
     e.preventDefault();
     e.stopPropagation();
-    
     $(e.currentTarget).removeClass('dragover');
 }
 
-/**
- * Handle drop event
- * @param {Event} e - Drop event
- */
+// Handle drop event
 function handleDrop(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -390,7 +408,7 @@ function handleDrop(e) {
     const $target = $(e.currentTarget);
     $target.removeClass('dragover');
     
-    if (getCurrentMode() !== 'file') {
+    if (getCurrentMode() !== 'file' || !canUserUpload()) {
         return;
     }
     
@@ -401,9 +419,7 @@ function handleDrop(e) {
     }
 }
 
-/**
- * Switch to file mode
- */
+// Switch to file mode
 function switchToFileMode() {
     console.log('Switching to file mode...');
 
@@ -459,14 +475,14 @@ function switchToFileMode() {
 // Export to global scope
 if (typeof window !== 'undefined') {
     window.setupFileUploadHandlers = setupFileUploadHandlers;
+    window.canUserUpload = canUserUpload;
     window.handleFileSelection = handleFileSelection;
+    window.uploadFileToServer = uploadFileToServer;
     window.showImagePreview = showImagePreview;
-    window.handleUploadSuccess = handleUploadSuccess;
-    window.updateUploadZoneSuccess = updateUploadZoneSuccess;
     window.cancelUpload = cancelUpload;
     window.resetFileUpload = resetFileUpload;
-    window.switchToFileMode = switchToFileMode;
     window.handleDragOver = handleDragOver;
     window.handleDragLeave = handleDragLeave;
     window.handleDrop = handleDrop;
+    window.switchToFileMode = switchToFileMode;
 }
