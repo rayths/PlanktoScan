@@ -1,12 +1,11 @@
+__pycache__
 dataset
 model
+routers/__pycache__
 static/lib/bootstrap
 static/lib/fontawesome
 static/uploads
 static/script.js
 static/style.css
-__pycache__
-routers/__pycache__
-planktoscan.db
-firebase-service-account.json
 .env
+firebase-service-account.json
