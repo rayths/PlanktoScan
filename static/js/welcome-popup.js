@@ -1,10 +1,6 @@
-/**
- * Welcome popup management module for PlanktoScan
- */
+// WELCOME POPUP MANAGEMENT
 
-/**
- * Show welcome popup
- */
+// Show welcome popup
 function showWelcomePopup() {
     const welcomePopup = document.getElementById('welcomePopup');
     if (welcomePopup) {
@@ -13,64 +9,65 @@ function showWelcomePopup() {
     }
 }
 
-/**
- * Close welcome popup and set cookie
- */
+// Close welcome popup and set cookie
 function closeWelcomePopup() {
     const welcomePopup = document.getElementById('welcomePopup');
     if (welcomePopup) {
         welcomePopup.style.display = 'none';
         
-        console.log('Closing welcome popup and setting cookie...');
+        console.log('Closing welcome popup ...');
         
-        // Set cookie to prevent popup from showing again
-        $.ajax({
-            url: '/set-welcome-seen',
-            type: 'POST',
-            success: function(response) {
-                console.log('Welcome popup marked as seen:', response);
-            },
-            error: function(xhr, status, error) {
-                console.error('Error setting welcome seen cookie:', error);
-                console.error('Response:', xhr.responseText);
-                console.error('Status:', status);
-            }
-        });
+        // Set cookie to prevent popup from showing again for this session
+        document.cookie = "welcome_seen=true; max-age=3600; path=/"; // 1 hour
         
-        // Also set cookie manually as backup
-        document.cookie = "welcome_seen=true; max-age=86400; path=/";
-        console.log('Cookie set manually as backup');
+        // Redirect to login page
+        window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
     }
 }
 
-/**
- * Handle welcome popup based on server-side variable
- */
-function handleWelcomePopupFromServer(showWelcome) {
-    if (showWelcome) {
-        showWelcomePopup();
-    } else {
-        const welcomePopup = document.getElementById('welcomePopup');
-        if (welcomePopup) {
-            welcomePopup.style.display = 'none';
+// Redirect to login without popup
+function redirectToLogin() {
+    console.log('Redirecting to login page...');
+    window.location.href = '/login?next=' + encodeURIComponent(window.location.pathname);
+}
+
+// Check authentication status and show appropriate popup
+function checkAuthenticationStatus() {
+    // Check if user is logged in from server-side data
+    const isLoggedIn = window.USER_AUTHENTICATED || false;
+    const userRole = window.USER_ROLE || null;
+    
+    console.log('=== Authentication Check ===');
+    console.log('Is logged in:', isLoggedIn);
+    console.log('User role:', userRole);
+    
+    if (!isLoggedIn) {
+        // Show welcome popup for non-authenticated users
+        const welcomeSeen = getCookie('welcome_seen');
+        if (!welcomeSeen) {
+            setTimeout(() => {
+                showWelcomePopup();
+            }, 1000);
+        } else {
+            // If welcome was seen but user still not logged in, redirect
+            setTimeout(() => {
+                redirectToLogin();
+            }, 2000);
         }
     }
 }
 
-/**
- * Initialize welcome popup with server data
- * This function should be called from template with server data
- */
-function initializeWelcomePopupWithServerData() {
-    // This will be set by the template
-    const showWelcome = window.SHOW_WELCOME_POPUP || false;
-    handleWelcomePopupFromServer(showWelcome);
-}
-
-/**
- * Setup welcome popup event handlers
- */
+// Setup welcome popup event handlers
 function setupWelcomePopupHandlers() {
+    // Handle welcome popup close button
+    const closeBtn = document.querySelector('#welcomePopup .close-btn, #welcomePopup .btn-close');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            closeWelcomePopup();
+        });
+    }
+    
     // Handle welcome popup click outside to close
     const welcomePopup = document.getElementById('welcomePopup');
     if (welcomePopup) {
@@ -79,34 +76,32 @@ function setupWelcomePopupHandlers() {
                 closeWelcomePopup();
             }
         });
-        console.log('Welcome popup event handlers setup complete');
     }
+    
+    // Handle login button in welcome popup
+    const loginBtn = document.querySelector('#welcomePopup .btn-login, #welcomePopup .login-btn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            closeWelcomePopup();
+        });
+    }
+    
+    console.log('Welcome popup event handlers setup complete');
 }
 
-/**
- * Check if welcome popup should be shown
- */
-function checkWelcomePopupStatus() {
-    const welcomeSeen = getCookie('welcome_seen');
-    
-    console.log('=== Welcome Popup Status ===');
-    console.log('Document cookies:', document.cookie);
-    console.log('Welcome seen cookie:', welcomeSeen);
-    
-    if (!welcomeSeen || welcomeSeen !== 'true') {
-        // Show welcome popup after a short delay
-        setTimeout(() => {
-            showWelcomePopup();
-        }, 1000);
-    }
+// Initialize welcome popup based on authentication
+function initializeWelcomePopup() {
+    setupWelcomePopupHandlers();
+    checkAuthenticationStatus();
 }
 
 // Export to global scope
 if (typeof window !== 'undefined') {
     window.showWelcomePopup = showWelcomePopup;
     window.closeWelcomePopup = closeWelcomePopup;
-    window.handleWelcomePopupFromServer = handleWelcomePopupFromServer;
-    window.initializeWelcomePopupWithServerData = initializeWelcomePopupWithServerData;
+    window.redirectToLogin = redirectToLogin;
+    window.checkAuthenticationStatus = checkAuthenticationStatus;
     window.setupWelcomePopupHandlers = setupWelcomePopupHandlers;
-    window.checkWelcomePopupStatus = checkWelcomePopupStatus;
+    window.initializeWelcomePopup = initializeWelcomePopup;
 }
