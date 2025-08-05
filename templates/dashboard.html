@@ -21,7 +21,7 @@
             <h1 class="popup-title">Welcome to</h1>
             <img src="{{ url_for('static', path='assets/judul.png') }}" alt="PlanktoScan" class="popup-logo">
             <p class="popup-subtitle">Plankton Detection & Classification System</p>
-            <button class="btn-start-popup" onclick="closeWelcomePopup()">
+            <button class="btn-start-popup" onclick="startAnalysis()">
                 <span>Start Analysis</span>
                 <i class="fas fa-arrow-right"></i>
             </button>
@@ -95,7 +95,7 @@
             <div class="container">
                 <div class="row justify-content-center">
                     <div class="col-lg-8">
-                        <div class="upload-card">
+                        <div class="main-card">
                             <div class="text-center mb-4">
                                 <img src="{{ url_for('static', path='assets/judul.png') }}" alt="PlanktoScan" class="card-title-logo">
                                 <p class="text-muted">Upload your plankton image and select analysis models</p>
@@ -283,9 +283,15 @@
     <script>
         // Set server data for JavaScript modules
         window.SHOW_WELCOME_POPUP = {% if show_welcome %}true{% else %}false{% endif %};
+        window.USER_AUTHENTICATED = {% if request.session.get('user_id') %}true{% else %}false{% endif %};
+        window.USER_ROLE = "{{ request.session.get('user_role', '') }}";
 
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('USER_AUTHENTICATED:', window.USER_AUTHENTICATED);
+            console.log('USER_ROLE:', window.USER_ROLE);
+            console.log('SHOW_WELCOME_POPUP:', window.SHOW_WELCOME_POPUP);
+            
             // Initialize welcome popup with server data
             if (typeof handleWelcomePopupFromServer === 'function') {
                 handleWelcomePopupFromServer(window.SHOW_WELCOME_POPUP);

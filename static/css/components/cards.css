@@ -1,6 +1,6 @@
 /* CARD COMPONENTS */
 
-.upload-card {
+.main-card {
     background: var(--bg-card);
     border-radius: var(--radius-xxl);
     padding: 3rem 2.5rem;
@@ -20,7 +20,7 @@
     margin-right: auto;
 }
 
-.upload-card:hover {
+.main-card:hover {
     transform: translateY(-3px);
     box-shadow: 
         0 35px 100px rgba(52, 152, 219, 0.2),
@@ -88,7 +88,7 @@
 }
 
 /* Card Animations */
-.upload-card:hover .card-title-logo {
+.main-card:hover .card-title-logo {
     animation: gentle-bounce 2s ease-in-out infinite;
 }
 

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - PlanktoScan</title>
+    <link href="{{ url_for('static', path='lib/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', path='lib/fontawesome/css/all.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', path='css/login.css') }}" rel="stylesheet">
+    <style>
+        .role-selection {
+            margin: 2rem 0;
+        }
+        .role-card {
+            border: 2px solid #dee2e6;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .role-card:hover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        .role-card.selected {
+            border-color: #007bff;
+            background-color: #e3f2fd;
+        }
+        .role-card input[type="radio"] {
+            display: none;
+        }
+        .role-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-expert {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+        }
+        .badge-basic {
+            background: linear-gradient(135deg, #007bff, #17a2b8);
+            color: white;
+        }
+        .conditional-fields {
+            margin-top: 1rem;
+            padding: 1rem;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <!-- Background -->
+    <div class="login-background"></div>
+    <div class="login-overlay"></div>
+
+    <!-- Register Container -->
+    <div class="login-container">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="main-card">
+                        <!-- Header -->
+                        <div class="login-header text-center">
+                            <img src="{{ url_for('static', path='assets/judul.png') }}" alt="PlanktoScan" class="login-logo">
+                            <h2 class="login-title">Create New Account</h2>
+                            <p class="login-subtitle">Join PlanktoScan community</p>
+                        </div>
+
+                        <!-- Register Form -->
+                        <div class="login-form-container">
+                            <form id="registerForm" class="login-form">
+                                <!-- Role Selection -->
+                                <div class="role-selection">
+                                    <h5 class="mb-3">Choose Your Role</h5>
+                                    
+                                    <!-- Expert Role -->
+                                    <div class="role-card" data-role="expert">
+                                        <input type="radio" name="role" value="expert" id="roleExpert">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h6 class="mb-1">
+                                                    <i class="fas fa-user-graduate text-success"></i>
+                                                    Expert Access
+                                                </h6>
+                                                <small class="text-muted">For BRIN staff - Full access + provide expert feedback</small>
+                                            </div>
+                                            <span class="role-badge badge-expert">EXPERT</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Basic Role -->
+                                    <div class="role-card" data-role="basic">
+                                        <input type="radio" name="role" value="basic" id="roleBasic">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h6 class="mb-1">
+                                                    <i class="fas fa-user text-primary"></i>
+                                                    Basic Access
+                                                </h6>
+                                                <small class="text-muted">For researchers and students - Full classification features</small>
+                                            </div>
+                                            <span class="role-badge badge-basic">BASIC</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Basic Information -->
+                                <div class="form-group">
+                                    <label for="fullName" class="form-label">Full Name</label>
+                                    <input type="text" class="form-control" id="fullName" name="name" 
+                                           placeholder="Enter your full name" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input type="email" class="form-control" id="email" name="email" 
+                                           placeholder="Enter your email" required>
+                                    <div class="invalid-feedback" id="emailFeedback"></div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="password" class="form-label">Password</label>
+                                    <input type="password" class="form-control" id="password" name="password" 
+                                           placeholder="Create a password" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="confirmPassword" class="form-label">Confirm Password</label>
+                                    <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" 
+                                           placeholder="Confirm your password" required>
+                                </div>
+
+                                <!-- Conditional Fields -->
+                                <div id="conditionalFields" class="conditional-fields" style="display: none;">
+                                    <div class="form-group">
+                                        <label for="organization" class="form-label">Organization</label>
+                                        <input type="text" class="form-control" id="organization" name="organization" 
+                                               placeholder="University, Research Institute, etc.">
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary-modern btn-modern w-100 mb-3">
+                                    <i class="fas fa-user-plus"></i>
+                                    Create Account
+                                </button>
+                            </form>
+                            
+                            <!-- Back to Login -->
+                            <div class="text-center">
+                                <p class="mb-2">Already have an account?</p>
+                                <a href="/login" class="btn btn-outline-primary btn-modern">
+                                    <i class="fas fa-sign-in-alt"></i>
+                                    Sign In
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="login-footer text-center">
+                            <a href="/" class="btn btn-link">
+                                <i class="fas fa-arrow-left"></i>
+                                Back to Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 mb-0">Creating account...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
+    <script src="{{ url_for('static', path='lib/bootstrap/js/bootstrap.js') }}"></script>
+    <script src="{{ url_for('static', path='lib/swal.js') }}"></script>
+    <script src="{{ url_for('static', path='js/register.js') }}"></script>
+</body>
+</html>

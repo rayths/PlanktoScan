@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from database import (
     get_db, FirestoreDB, AppUser, ClassificationEntry, UserRole,
-    create_guest_user, create_expert_user, create_admin_user,
+    create_guest_user, create_basic_user, create_expert_user, create_admin_user,
     convert_numpy_types
 )
 
@@ -52,36 +52,63 @@ async def login_page(request: Request, next: str = "/"):
         "next": next
     })
 
-@router.post("/auth/guest")
-async def authenticate_guest(
-    request: Request,
-    name: str = Form(...),
-    email: str = Form(...),
-    organization: str = Form(...),
-    next: str = Form("/"),
-    db: FirestoreDB = Depends(get_db)
-):
-    """Authenticate as guest user"""
+@router.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request):
+    """User registration page"""
+    return templates.TemplateResponse("register.html", {
+        "request": request
+    })
+
+@router.get("/login/guest")
+async def guest_login_direct(request: Request, next: str = "/"):
+    """Direct guest login without form"""
     try:
-        # Create guest user
-        guest_uid = f"guest_{int(time.time())}_{email.replace('@', '_').replace('.', '_')}"
-        user = create_guest_user(guest_uid, email)
-        user.display_name = name
-        
-        # Save to database
-        user = db.save_user(user)
+        # Create temporary guest user
+        guest_uid = f"guest_{int(time.time() * 1000)}"
+        user = create_guest_user(guest_uid)
         
         # Set session
         request.session['user_id'] = user.uid
-        request.session['user_name'] = user.display_name
+        request.session['user_name'] = "Guest User"
         request.session['user_role'] = user.role.value
-        request.session['organization'] = organization
         
-        return RedirectResponse(url=next, status_code=302)
+        logger.info(f"Guest user created: {guest_uid}")
+        
+        # Create redirect response with welcome_seen cookie
+        response = RedirectResponse(url=next, status_code=302)
+        response.set_cookie("welcome_seen", "true", max_age=24*60*60)  # 1 day
+        return response
         
     except Exception as e:
-        logger.error(f"Guest auth error: {str(e)}")
-        return JSONResponse(status_code=500, content={"error": "Authentication failed"})
+        logger.error(f"Guest login error: {str(e)}")
+        return RedirectResponse(url="/login?error=guest_failed", status_code=302)
+
+@router.post("/login/guest")
+async def guest_login_api(request: Request):
+    """Guest login API endpoint"""
+    try:
+        # Create temporary guest user
+        guest_uid = f"guest_{int(time.time() * 1000)}"
+        user = create_guest_user(guest_uid)
+        
+        # Set session
+        request.session['user_id'] = user.uid
+        request.session['user_name'] = "Guest User"
+        request.session['user_role'] = user.role.value
+        
+        logger.info(f"Guest user created: {guest_uid}")
+        
+        # Create response with welcome_seen cookie
+        response = JSONResponse(content={"success": True, "role": "guest", "message": "Guest access granted"})
+        response.set_cookie("welcome_seen", "true", max_age=24*60*60)  # 1 day
+        return response
+        
+    except Exception as e:
+        logger.error(f"Guest login error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": "Guest access failed"}
+        )
 
 @router.post("/auth/expert")
 async def authenticate_expert(
@@ -91,33 +118,121 @@ async def authenticate_expert(
     next: str = Form("/"),
     db: FirestoreDB = Depends(get_db)
 ):
-    """Authenticate as expert user"""
+    """Authenticate expert user - requires @brin.go.id email"""
     try:
+        # Validate BRIN email
+        if not email.lower().endswith('@brin.go.id'):
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "message": "Expert access requires @brin.go.id email address"}
+            )
+        
         # Check if expert exists
         user = db.get_user_by_email(email)
         if not user:
-            # Create new expert user
-            expert_uid = f"expert_{int(time.time())}_{email.replace('@', '_').replace('.', '_')}"
-            user = create_expert_user(expert_uid, email)
-            user = db.save_user(user)
-        else:
-            # Update last login
-            db.update_user_last_login(user.uid)
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "message": "User not found. Please register first."}
+            )
+        
+        # Verify password (in production, use proper password hashing)
+        if user.password_hash and user.password_hash != password:
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "message": "Invalid password"}
+            )
         
         # Verify role
         if user.role != UserRole.EXPERT:
-            return JSONResponse(status_code=403, content={"error": "Not an expert user"})
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "message": "Not authorized as expert"}
+            )
+        
+        # Update last login
+        db.update_user_last_login(user.uid)
         
         # Set session
         request.session['user_id'] = user.uid
-        request.session['user_name'] = user.display_name
+        request.session['user_name'] = user.display_name or email.split('@')[0]
         request.session['user_role'] = user.role.value
         
-        return RedirectResponse(url=next, status_code=302)
+        logger.info(f"Expert login successful: {user.uid}")
         
+        # Create response with welcome_seen cookie
+        response = JSONResponse(content={"success": True, "role": "expert", "message": "Login successful"})
+        response.set_cookie("welcome_seen", "true", max_age=24*60*60)  # 1 day
+        return response
+        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Expert auth error: {str(e)}")
-        return JSONResponse(status_code=500, content={"error": "Authentication failed"})
+        raise HTTPException(status_code=500, detail="Authentication failed")
+
+@router.post("/auth/basic")
+async def authenticate_basic(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(None),
+    name: str = Form(None),
+    organization: str = Form(None),
+    next: str = Form("/"),
+    db: FirestoreDB = Depends(get_db)
+):
+    """Authenticate basic user - supports both login and legacy registration"""
+    try:
+        # Check if user exists
+        user = db.get_user_by_email(email)
+        
+        if user:
+            # Existing user - check password if they have one
+            if user.password_hash and not password:
+                return JSONResponse(
+                    status_code=401,
+                    content={"success": False, "message": "Password required for existing user"}
+                )
+            
+            if user.password_hash and user.password_hash != password:
+                return JSONResponse(
+                    status_code=401,
+                    content={"success": False, "message": "Invalid password"}
+                )
+            
+            # Update last login
+            db.update_user_last_login(user.uid)
+            
+        else:
+            # New user - legacy registration (without password)
+            if not name or not organization:
+                return JSONResponse(
+                    status_code=400,
+                    content={"success": False, "message": "Name and organization required for new users"}
+                )
+            
+            # Create new basic user
+            basic_uid = f"basic_{int(time.time() * 1000)}_{email.replace('@', '_').replace('.', '_')}"
+            user = create_basic_user(basic_uid, email, name, password, organization)
+            user = db.save_user(user)
+            logger.info(f"New basic user created: {basic_uid}")
+        
+        # Set session
+        request.session['user_id'] = user.uid
+        request.session['user_name'] = user.display_name or name or email.split('@')[0]
+        request.session['user_role'] = user.role.value
+        if organization:
+            request.session['organization'] = organization
+        
+        logger.info(f"Basic user login successful: {user.uid}")
+        
+        # Create response with welcome_seen cookie
+        response = JSONResponse(content={"success": True, "role": "basic", "message": "Login successful"})
+        response.set_cookie("welcome_seen", "true", max_age=24*60*60)  # 1 day
+        return response
+        
+    except Exception as e:
+        logger.error(f"Basic auth error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Authentication failed")
 
 @router.post("/auth/admin")
 async def authenticate_admin(
@@ -127,44 +242,161 @@ async def authenticate_admin(
     next: str = Form("/"),
     db: FirestoreDB = Depends(get_db)
 ):
-    """Authenticate as admin user"""
+    """Admin authentication - only for pre-configured admin emails"""
     try:
+        # Check if admin email is allowed
+        allowed_admin_emails = [
+            os.getenv("ADMIN_EMAIL", "admin@brin.go.id"),
+            "admin@planktoscan.id",  # Add other admin emails here
+        ]
+        
+        if email not in allowed_admin_emails:
+            raise HTTPException(status_code=403, detail="Not authorized as admin")
+        
+        # Simple password check (in production, use proper hashing)
+        admin_password = os.getenv("ADMIN_PASSWORD", "admin123")
+        if password != admin_password:
+            raise HTTPException(status_code=401, detail="Invalid admin credentials")
+        
         # Check if admin exists
         user = db.get_user_by_email(email)
         if not user:
-            # Only allow specific admin emails
-            if email not in [os.getenv("ADMIN_EMAIL")]:  
-                return JSONResponse(status_code=403, content={"error": "Not authorized as admin"})
-            
-            # Create new admin user
-            admin_uid = f"admin_{int(time.time())}_{email.replace('@', '_').replace('.', '_')}"
+            # Create admin user
+            admin_uid = f"admin_{int(time.time() * 1000)}_{email.replace('@', '_').replace('.', '_')}"
             user = create_admin_user(admin_uid, email)
             user = db.save_user(user)
+            logger.info(f"Admin user created: {admin_uid}")
         else:
             # Update last login
             db.update_user_last_login(user.uid)
         
-        # Verify role
-        if user.role != UserRole.ADMIN:
-            return JSONResponse(status_code=403, content={"error": "Not an admin user"})
-        
         # Set session
         request.session['user_id'] = user.uid
-        request.session['user_name'] = user.display_name
+        request.session['user_name'] = user.display_name or "Admin"
         request.session['user_role'] = user.role.value
         
+        logger.info(f"Admin login successful: {user.uid}")
         return RedirectResponse(url=next, status_code=302)
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Admin auth error: {str(e)}")
-        return JSONResponse(status_code=500, content={"error": "Authentication failed"})
+        raise HTTPException(status_code=500, detail="Authentication failed")
 
 # Logout Route
 @router.post("/logout")
 async def logout(request: Request):
     """Logout user"""
     request.session.clear()
-    return RedirectResponse(url="/", status_code=302)
+    
+    # Create response and clear welcome_seen cookie
+    response = RedirectResponse(url="/", status_code=302)
+    response.delete_cookie("welcome_seen")
+    return response
+
+# Registration Routes
+@router.post("/auth/expert/register")
+async def register_expert(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    name: str = Form(...),
+    db: FirestoreDB = Depends(get_db)
+):
+    """Expert user registration - requires @brin.go.id email"""
+    try:
+        # Validate BRIN email
+        if not email.endswith('@brin.go.id'):
+            return JSONResponse(
+                status_code=400, 
+                content={"success": False, "message": "Expert registration requires @brin.go.id email address"}
+            )
+        
+        # Check if user already exists
+        existing_user = db.get_user_by_email(email)
+        if existing_user:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "message": "User already exists with this email"}
+            )
+        
+        # Validate password
+        if len(password) < 6:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "message": "Password must be at least 6 characters long"}
+            )
+        
+        # Create expert user
+        expert_uid = f"expert_{int(time.time() * 1000)}_{email.replace('@', '_').replace('.', '_')}"
+        user = create_expert_user(expert_uid, email, name, password)
+        user = db.save_user(user)
+        
+        logger.info(f"New expert user registered: {expert_uid}")
+        return JSONResponse(content={"success": True, "message": "Expert account created successfully"})
+        
+    except Exception as e:
+        logger.error(f"Expert registration error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": "Registration failed. Please try again."}
+        )
+
+@router.post("/auth/basic/register")
+async def register_basic(
+    request: Request,
+    name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    organization: str = Form(...),
+    db: FirestoreDB = Depends(get_db)
+):
+    """Basic user registration"""
+    try:
+        # Validate email format
+        if '@' not in email or '.' not in email:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "message": "Please enter a valid email address"}
+            )
+        
+        # Check if user already exists
+        existing_user = db.get_user_by_email(email)
+        if existing_user:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "message": "User already exists with this email"}
+            )
+        
+        # Validate password
+        if len(password) < 6:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "message": "Password must be at least 6 characters long"}
+            )
+        
+        # Validate organization
+        if not organization.strip():
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "message": "Organization is required"}
+            )
+        
+        # Create basic user
+        basic_uid = f"basic_{int(time.time() * 1000)}_{email.replace('@', '_').replace('.', '_')}"
+        user = create_basic_user(basic_uid, email, name, password, organization)
+        user = db.save_user(user)
+        
+        logger.info(f"New basic user registered: {basic_uid}")
+        return JSONResponse(content={"success": True, "message": "Basic account created successfully"})
+        
+    except Exception as e:
+        logger.error(f"Basic registration error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": "Registration failed. Please try again."}
+        )
 
 # Location Routes
 @router.get("/api/reverse-geocode")
@@ -271,7 +503,7 @@ async def get_preload_status():
         })
 
 @router.get("/", response_class=HTMLResponse)
-async def index(request: Request):
+async def index(request: Request, db: FirestoreDB = Depends(get_db)):
     """Main dashboard route with welcome popup on first visit"""
     try:
         # Clean up previous uploads
@@ -280,11 +512,22 @@ async def index(request: Request):
     except Exception as e:
         logger.warning(f"Error cleaning up uploads: {str(e)}")
     
+    # Check if user is logged in
+    current_user = get_current_user(request, db)
+    user_logged_in = current_user is not None
+    
     # Check if user has seen welcome popup before
     welcome_seen = request.cookies.get("welcome_seen")
-    show_welcome = not bool(welcome_seen)
     
-    logger.info(f"Welcome popup check - Cookie: {welcome_seen}, Show welcome: {show_welcome}")
+    # Get session info for debugging
+    session_info = dict(request.session)
+    
+    # Don't show welcome popup if user is logged in OR if they've seen it before
+    show_welcome = not user_logged_in and not bool(welcome_seen)
+    
+    logger.info(f"Welcome popup check - User logged in: {user_logged_in}, Cookie: {welcome_seen}, Session: {session_info}, Show welcome: {show_welcome}")
+    if current_user:
+        logger.info(f"Current user: {current_user.uid} ({current_user.role.value})")
     
     return templates.TemplateResponse("dashboard.html", {
         "request": request, 
@@ -297,6 +540,14 @@ async def set_welcome_seen(response: Response):
     logger.info("Setting welcome_seen cookie")
     response.set_cookie("welcome_seen", "true", max_age=24*60*60)  # 1 day
     return JSONResponse(content={"message": "Welcome popup marked as seen"})
+
+@router.post("/api/set-welcome-seen")
+async def api_set_welcome_seen():
+    """API endpoint to set welcome_seen cookie after login"""
+    logger.info("Setting welcome_seen cookie via API")
+    response = JSONResponse(content={"success": True, "message": "Welcome cookie set"})
+    response.set_cookie("welcome_seen", "true", max_age=24*60*60)  # 1 day
+    return response
 
 @router.get("/reset-welcome")
 async def reset_welcome(response: Response):

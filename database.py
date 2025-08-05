@@ -80,6 +80,7 @@ class UserRole(Enum):
     
 # Data models
 @dataclass
+@dataclass
 class AppUser:
     """Model for application users"""
     uid: str
@@ -89,6 +90,8 @@ class AppUser:
     created_at: Optional[datetime] = None
     last_login_at: Optional[datetime] = None
     is_email_verified: bool = False
+    password_hash: Optional[str] = None
+    organization: Optional[str] = None
     
     def __post_init__(self):
         if self.created_at is None:
@@ -105,7 +108,9 @@ class AppUser:
             "role": self.role.value,
             "createdAt": self.created_at,
             "lastLoginAt": self.last_login_at,
-            "isEmailVerified": self.is_email_verified
+            "isEmailVerified": self.is_email_verified,
+            "passwordHash": self.password_hash,
+            "organization": self.organization
         }
     
     @classmethod
@@ -119,7 +124,9 @@ class AppUser:
                 role=UserRole.from_string(data.get("role", "guest")),
                 created_at=data.get("createdAt"),
                 last_login_at=data.get("lastLoginAt"),
-                is_email_verified=data.get("isEmailVerified", False)
+                is_email_verified=data.get("isEmailVerified", False),
+                password_hash=data.get("passwordHash"),
+                organization=data.get("organization")
             )
         except Exception as e:
             logger.error(f"Error creating AppUser from dict: {e}")
@@ -497,35 +504,54 @@ def init_database():
         return False
 
 # Helper functions for creating users
-def create_guest_user(user_id: str = None, email: str = None) -> AppUser:
+def create_guest_user(uid: str = None, email: str = None) -> AppUser:
     """Create a guest user"""
-    if not user_id:
-        user_id = f"guest_{int(datetime.utcnow().timestamp())}"
-    
     return AppUser(
-        uid=user_id,
-        email=email,
+        uid=uid,
+        email=email or f"guest_{uid}@temp.local",
         display_name="Guest User",
-        role=UserRole.GUEST
+        role=UserRole.GUEST,
+        created_at=datetime.utcnow(),
+        last_login_at=datetime.utcnow(),
+        is_email_verified=False
     )
 
-def create_expert_user(uid: str, email: str, display_name: str = None) -> AppUser:
+def create_basic_user(uid: str, email: str, display_name: str = None, password_hash: str = None, organization: str = None) -> AppUser:
+    """Create a basic user"""
+    return AppUser(
+        uid=uid,
+        email=email,
+        display_name=display_name or email.split('@')[0],
+        role=UserRole.BASIC,
+        created_at=datetime.utcnow(),
+        last_login_at=datetime.utcnow(),
+        is_email_verified=True,
+        password_hash=password_hash,
+        organization=organization
+    )
+
+def create_expert_user(uid: str, email: str, display_name: str = None, password_hash: str = None) -> AppUser:
     """Create an expert user"""
     return AppUser(
         uid=uid,
         email=email,
         display_name=display_name or email.split('@')[0],
         role=UserRole.EXPERT,
-        is_email_verified=True
+        created_at=datetime.utcnow(),
+        last_login_at=datetime.utcnow(),
+        is_email_verified=True,
+        password_hash=password_hash
     )
 
-def create_admin_user(uid: str, email: str, display_name: str = None) -> AppUser:
+def create_admin_user(uid: str, email: str) -> AppUser:
     """Create an admin user"""
     return AppUser(
         uid=uid,
         email=email,
-        display_name=display_name or email.split('@')[0],
+        display_name="Administrator",
         role=UserRole.ADMIN,
+        created_at=datetime.utcnow(),
+        last_login_at=datetime.utcnow(),
         is_email_verified=True
     )
 
