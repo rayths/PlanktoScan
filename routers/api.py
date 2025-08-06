@@ -4,7 +4,7 @@ import uuid
 import requests
 from datetime import datetime
 from typing import Optional
-from utils import predict_img, get_cache_info, get_detailed_cache_info, get_model_mapping, MODEL_CACHE, generate_stored_filename, save_upload_to_database, get_image_metadata
+from utils import predict_img, get_cache_info, get_detailed_cache_info, get_model_mapping, MODEL_CACHE, generate_stored_filename, get_image_metadata
 
 from fastapi import APIRouter, UploadFile, File, Form, Request, Response, Depends, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse

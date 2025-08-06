@@ -9,7 +9,6 @@ import string
 import secrets
 from datetime import datetime
 from PIL import Image
-import os
 
 from tensorflow import image as tfi
 from tf_keras.preprocessing.image import load_img, img_to_array
@@ -61,16 +60,6 @@ PREPROCESS_FUNCTIONS = {
 # UTILITY FUNCTIONS
 # ============================================================================
 
-def clean_text(text):
-    """Clean and normalize text by removing special characters"""
-    text = text.replace("*", "")
-    text = text.replace("#", "")
-    text = text.replace("```", "")
-    text = text.replace("_", "")
-    text = text.rstrip()
-    text = " ".join(text.split())
-    return text
-
 def convert_numpy_types(obj):
     """Convert numpy types to Python native types for Firestore compatibility"""
     if isinstance(obj, np.integer):
@@ -87,34 +76,6 @@ def convert_numpy_types(obj):
         return tuple(convert_numpy_types(item) for item in obj)
     else:
         return obj
-
-# ============================================================================
-# MODEL CONFIGURATION
-# ============================================================================
-
-def load_and_preprocess_image(img_input, target_size=(224, 224), preprocessing_fn=None):
-    """Load and preprocess image for model prediction"""
-    try:
-        if isinstance(img_input, np.ndarray):
-            # If input is already an array, just resize
-            img = cv2.resize(img_input, target_size)
-            img_array = np.expand_dims(img, axis=0)
-        else:
-            # If input is a file path
-            if not os.path.exists(img_input):
-                raise FileNotFoundError(f"Image file not found: {img_input}")
-            
-            img = load_img(img_input, target_size=target_size)
-            img_array = img_to_array(img)
-            img_array = np.expand_dims(img_array, axis=0)
-        
-        if preprocessing_fn:
-            img_array = preprocessing_fn(img_array)
-        
-        return img_array
-    except Exception as e:
-        logger.error(f"Error in load_and_preprocess_image: {str(e)}")
-        raise e
 
 # ============================================================================
 # CACHE MANAGEMENT
@@ -134,26 +95,28 @@ def get_cache_info():
         "labels_cached": LABELS_CACHE is not None
     }
 
-# ============================================================================
-# MODEL LOADING AND MANAGEMENT
-# ============================================================================
+def get_detailed_cache_info():
+    """Get detailed information about cached models"""
+    cache_info = get_cache_info()
+    
+    detailed_info = {
+        "cache_size": cache_info["cache_size"],
+        "cached_models": [],
+        "total_memory_estimated": "N/A"
+    }
+    
+    for model_name in cache_info["cached_models"]:
+        model_info = {
+            "name": model_name,
+            "status": "Loaded in memory"
+        }
+        detailed_info["cached_models"].append(model_info)
+    
+    return detailed_info
 
-def get_input_size(model_name):
-    """Mengembalikan ukuran input yang sesuai untuk setiap model"""
-    if "efficientnet" in model_name.lower():
-        return (224, 224)  # EfficientNetV2B0
-    elif "inception" in model_name.lower():
-        return (299, 299)  # InceptionV3
-    elif "mobilenet" in model_name.lower():
-        return (224, 224)  # MobileNet series
-    elif "resnet" in model_name.lower():
-        return (224, 224)  # ResNet series
-    elif "densenet" in model_name.lower():
-        return (224, 224)  # DenseNet
-    elif "convnext" in model_name.lower():
-        return (224, 224)  # ConvNeXt
-    else:
-        return (224, 224)  # Default size
+# ============================================================================
+# MODEL CONFIGURATION AND MANAGEMENT
+# ============================================================================
 
 def get_model_mapping():
     """Get consistent model mapping used across the application"""
@@ -187,12 +150,78 @@ def get_model_mapping():
         "resnet101v2": ('model/classification/ResNet101V2500DataReplicated.keras', "ResNet101V2"),
     }
 
+def get_input_size(model_name):
+    """Get input size for a given model based on its architecture"""
+    if "efficientnet" in model_name.lower():
+        return (224, 224)  # EfficientNetV2B0
+    elif "inception" in model_name.lower():
+        return (299, 299)  # InceptionV3
+    elif "mobilenet" in model_name.lower():
+        return (224, 224)  # MobileNet series
+    elif "resnet" in model_name.lower():
+        return (224, 224)  # ResNet series
+    elif "densenet" in model_name.lower():
+        return (224, 224)  # DenseNet
+    elif "convnext" in model_name.lower():
+        return (224, 224)  # ConvNeXt
+    else:
+        return (224, 224)  # Default size
+    
 # ============================================================================
-# IMAGE PROCESSING FUNCTIONS
+# INTERNAL HELPER FUNCTIONS
 # ============================================================================
-
-def load_model_safe(model_path):
-    """Load model dengan caching"""
+    
+def _load_and_preprocess_image(img_input, target_size=(224, 224), preprocessing_fn=None):
+    """Load and preprocess image for model prediction"""
+    try:
+        if isinstance(img_input, np.ndarray):
+            # If input is already an array, just resize
+            img = cv2.resize(img_input, target_size)
+            img_array = np.expand_dims(img, axis=0)
+        else:
+            # If input is a file path
+            if not os.path.exists(img_input):
+                raise FileNotFoundError(f"Image file not found: {img_input}")
+            
+            img = load_img(img_input, target_size=target_size)
+            img_array = img_to_array(img)
+            img_array = np.expand_dims(img_array, axis=0)
+        
+        if preprocessing_fn:
+            img_array = preprocessing_fn(img_array)
+        
+        return img_array
+    except Exception as e:
+        logger.error(f"Error in load_and_preprocess_image: {str(e)}")
+        raise e
+    
+def _validate_image_path(img_path):
+    """Validate that image path exists and is accessible"""
+    try:
+        if not img_path:
+            raise ValueError("Image path is empty")
+        
+        if img_path.startswith('data:'):
+            raise ValueError("Data URL detected - file not uploaded to server")
+        
+        if not os.path.exists(img_path):
+            raise FileNotFoundError(f"Image file not found: {img_path}")
+        
+        if not os.path.isfile(img_path):
+            raise ValueError(f"Path is not a file: {img_path}")
+        
+        # Check if file is readable
+        with open(img_path, 'rb') as f:
+            f.read(1)  # Try to read first byte
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Image path validation failed: {str(e)}")
+        raise e
+    
+def _load_model_safe(model_path):
+    """Load model with caching"""
     # Check cache first
     if model_path in MODEL_CACHE:
         logger.info(f"Loading model from cache: {model_path}")
@@ -209,14 +238,14 @@ def load_model_safe(model_path):
     except Exception as e:
         logger.error(f"Error loading model {model_path}: {str(e)}")
         try:
-            # Coba load dengan compile=False sebagai fallback
+            # Try loading with compile=False
             model = tf.keras.models.load_model(model_path, compile=False)
             MODEL_CACHE[model_path] = model
             logger.info(f"Model loaded with compile=False and cached: {model_path}")
             return model
         except Exception as e2:
             logger.error(f"Second attempt failed: {str(e2)}")
-            # Jika model adalah SavedModel format, gunakan tf.saved_model.load
+            # If model is in SavedModel format, use tf.saved_model.load
             if "File format not supported" in str(e2):
                 logger.info(f"Trying to load as SavedModel: {model_path}")
                 try:
@@ -229,14 +258,85 @@ def load_model_safe(model_path):
                     raise e3
             raise e2
 
-def load_labels():
-    """Load labels dengan caching"""
+def _load_labels():
+    """Load labels with caching"""
     global LABELS_CACHE
     if LABELS_CACHE is None:
         with open('model/labels.json', 'r') as label_file:
             LABELS_CACHE = json.load(label_file)
         print("Labels loaded and cached")
     return LABELS_CACHE
+
+def _run_model_prediction(model, processed_img):
+    """Run prediction with different model formats"""
+    try:
+        # Check if model is a SavedModel or Keras model
+        if hasattr(model, 'signatures'):
+            logger.info("Detected SavedModel format, using signature-based prediction")
+            return _predict_with_savedmodel(model, processed_img)
+        else:
+            logger.info("Detected Keras model format, using standard prediction")
+            return _predict_with_keras_model(model, processed_img)
+            
+    except Exception as e:
+        logger.error(f"Error during model prediction: {str(e)}")
+        raise e
+    
+def _predict_with_savedmodel(model, processed_img):
+    """ Predict using SavedModel format """
+    serving_default = model.signatures['serving_default']
+    input_tensor = tf.convert_to_tensor(processed_img, dtype=tf.float32)
+    
+    # Try common input names
+    input_names_to_try = ['input_1', 'inputs', 'x']
+    
+    for input_name in input_names_to_try:
+        try:
+            logger.debug(f"Trying input name: {input_name}")
+            predictions = serving_default(**{input_name: input_tensor})
+            
+            # Get first output if multiple outputs
+            if isinstance(predictions, dict):
+                predictions = list(predictions.values())[0]
+
+            # Convert to numpy array
+            return predictions.numpy()
+            
+        except Exception as e:
+            logger.debug(f"Failed with input name {input_name}: {str(e)}")
+            continue
+    
+    # If all standard input names fail, use signature inspection
+    try:
+        logger.debug("Trying with signature inspection")
+        input_signature = serving_default.structured_input_signature[1]
+        input_key = list(input_signature.keys())[0]
+        logger.debug(f"Using detected input key: {input_key}")
+        
+        predictions = serving_default(**{input_key: input_tensor})
+        if isinstance(predictions, dict):
+            predictions = list(predictions.values())[0]
+        
+        return predictions.numpy()
+        
+    except Exception as e:
+        logger.error(f"All SavedModel prediction attempts failed: {str(e)}")
+        raise RuntimeError(f"Failed to run prediction with SavedModel: {str(e)}")
+
+def _predict_with_keras_model(model, processed_img):
+    """ Predict using Keras model format """
+    try:
+        # verbose=0 to reduce console output
+        predictions = model.predict(processed_img, verbose=0)
+        return predictions
+        
+    except Exception as e:
+        logger.error(f"Keras model prediction failed: {str(e)}")
+        raise RuntimeError(f"Failed to run prediction with Keras model: {str(e)}")
+
+# ============================================================================
+# PUBLIC API FUNCTIONS
+# ============================================================================
 
 def preload_models():
     """Preload commonly used models for better performance"""
@@ -261,14 +361,14 @@ def preload_models():
                 model_path, display_name = model_mapping[model_name]
                 logger.info(f"Preloading {display_name} ({model_name})...")
                 
-                # Cek apakah file model ada
+                # Check if model file exists
                 if not os.path.exists(model_path):
                     logger.error(f"Model file not found: {model_path}")
                     failed_models.append(f"{model_name} (file not found)")
                     continue
 
-                # Gunakan path yang benar
-                model = load_model_safe(model_path)
+                # Use the correct path
+                model = _load_model_safe(model_path)
                 if model is not None:
                     preloaded_count += 1
                     logger.info(f"{display_name} preloaded successfully")
@@ -294,71 +394,6 @@ def preload_models():
     
     return preloaded_count
 
-def get_model_file_size(model_name):
-    """Get model file size for monitoring"""
-    try:
-        # Get the correct model path from mapping
-        model_mapping = get_model_mapping()
-        
-        # Find the model in mapping
-        for key, (model_path, display_name) in model_mapping.items():
-            if display_name.lower() == model_name.lower() or key == model_name:
-                if os.path.exists(model_path):
-                    size_bytes = os.path.getsize(model_path)
-                    size_mb = size_bytes / (1024 * 1024)
-                    return f"{size_mb:.1f} MB"
-                else:
-                    return "File not found"
-        
-        return "Model not in mapping"
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-def get_detailed_cache_info():
-    """Get detailed information about cached models"""
-    cache_info = get_cache_info()
-    
-    detailed_info = {
-        "cache_size": cache_info["cache_size"],
-        "cached_models": [],
-        "total_memory_estimated": "N/A"
-    }
-    
-    for model_name in cache_info["cached_models"]:
-        model_info = {
-            "name": model_name,
-            "file_size": get_model_file_size(model_name),
-            "status": "Loaded in memory"
-        }
-        detailed_info["cached_models"].append(model_info)
-    
-    return detailed_info
-
-def validate_image_path(img_path):
-    """Validate that image path exists and is accessible"""
-    try:
-        if not img_path:
-            raise ValueError("Image path is empty")
-        
-        if img_path.startswith('data:'):
-            raise ValueError("Data URL detected - file not uploaded to server")
-        
-        if not os.path.exists(img_path):
-            raise FileNotFoundError(f"Image file not found: {img_path}")
-        
-        if not os.path.isfile(img_path):
-            raise ValueError(f"Path is not a file: {img_path}")
-        
-        # Check if file is readable
-        with open(img_path, 'rb') as f:
-            f.read(1)  # Try to read first byte
-        
-        return True
-        
-    except Exception as e:
-        logger.error(f"Image path validation failed: {str(e)}")
-        raise e
-
 def predict_img(model_option, img_path):
     """ Predict image using selected model """
     try:
@@ -366,9 +401,9 @@ def predict_img(model_option, img_path):
         logger.info(f"Image path: {img_path}")
         
         # Validate image path
-        validate_image_path(img_path)
+        _validate_image_path(img_path)
 
-        # Load model berdasarkan pilihan dengan mapping yang benar
+        # Load model mapping
         model_mapping = get_model_mapping()
         
         if model_option not in model_mapping:
@@ -383,36 +418,36 @@ def predict_img(model_option, img_path):
         else:
             logger.info(f"Model NOT in cache, will load from disk: {model_path}")
 
-        # Load model dengan caching untuk performa lebih baik
+        # Load model with caching
         logger.info(f"Loading model: {model_option} -> {model_path}")
-        model = load_model_safe(model_path)
+        model = _load_model_safe(model_path)
         if model is None:
-            raise RuntimeError(f"Gagal memuat model: {model_path}")
-                
-        # Load labels dengan caching
-        class_names = load_labels()
+            raise RuntimeError(f"Failed to load model: {model_path}")
+
+        # Load labels with caching
+        class_names = _load_labels()
         if not class_names:
-            raise RuntimeError("Gagal memuat labels untuk klasifikasi")
-                
-        # Tentukan ukuran input dan preprocessing function
+            raise RuntimeError("Failed to load labels for classification")
+
+        # Determine input size and preprocessing function
         input_size = get_input_size(model_name)
         preprocessing_fn = PREPROCESS_FUNCTIONS.get(model_name, None)
         
         logger.info(f"Processing image: {img_path} with input size: {input_size}")
         logger.info(f"Using preprocessing function: {preprocessing_fn.__name__ if preprocessing_fn else 'None'}")
         
-        # Preprocessing menggunakan fungsi dari notebook
-        processed_img = load_and_preprocess_image(img_path, target_size=input_size, preprocessing_fn=preprocessing_fn)
+        # Preprocessing
+        processed_img = _load_and_preprocess_image(img_path, target_size=input_size, preprocessing_fn=preprocessing_fn)
 
         logger.info(f"Running prediction with model: {model_name}")
         
-        # Handle prediksi untuk berbagai format model
+        # Handle prediction for various model formats
         predictions = _run_model_prediction(model, processed_img)
         
         if predictions is None or len(predictions) == 0:
             raise RuntimeError("Model tidak menghasilkan prediksi yang valid")
         
-        # Ambil top 3 prediksi
+        # Get top 3 predictions
         top_3_indices = np.argsort(predictions[0])[-3:][::-1]
         actual_class = [class_names[str(i)] for i in top_3_indices]
         probability_class = [predictions[0][i] for i in top_3_indices]
@@ -421,9 +456,9 @@ def predict_img(model_option, img_path):
         actual_class = [str(class_names[str(i)]) for i in top_3_indices]
         probability_class = [float(predictions[0][i]) for i in top_3_indices]
 
-        # Generate response message untuk UI
-        response = f"Hasil prediksi: {actual_class[0]} ({probability_class[0]:.2%})"
-        
+        # Generate response message for UI
+        response = f"Prediction result: {actual_class[0]} ({probability_class[0]:.2%})"
+
         logger.info(f"Prediction completed successfully: {actual_class[0]} ({probability_class[0]:.2%})")
         
         # Ensure all returns are Python native types
@@ -434,237 +469,51 @@ def predict_img(model_option, img_path):
         )
 
     except FileNotFoundError as e:
-        error_msg = f"File gambar tidak ditemukan: {str(e)}"
+        error_msg = f"Image file not found: {str(e)}"
         logger.error(error_msg)
         raise FileNotFoundError(error_msg)
     
     except ValueError as e:
-        error_msg = f"Parameter tidak valid: {str(e)}"
+        error_msg = f"Invalid parameter: {str(e)}"
         logger.error(error_msg)
         raise ValueError(error_msg)
     
     except RuntimeError as e:
-        error_msg = f"Error runtime: {str(e)}"
+        error_msg = f"Runtime error: {str(e)}"
         logger.error(error_msg)
         raise RuntimeError(error_msg)
     
     except Exception as e:
-        error_msg = f"Error tidak terduga dalam predict_img: {str(e)}"
+        error_msg = f"Unexpected error in predict_img: {str(e)}"
         logger.error(error_msg)
         raise Exception(error_msg)
-
-# ============================================================================
-# HELPER FUNCTIONS FOR PREDICTION
-# ============================================================================
-
-def _run_model_prediction(model, processed_img):
-    """
-    Helper function untuk menjalankan prediksi dengan berbagai format model
-    """
-    try:
-        # Cek apakah ini SavedModel atau Keras model
-        if hasattr(model, 'signatures'):
-            logger.info("Detected SavedModel format, using signature-based prediction")
-            return _predict_with_savedmodel(model, processed_img)
-        else:
-            logger.info("Detected Keras model format, using standard prediction")
-            return _predict_with_keras_model(model, processed_img)
-            
-    except Exception as e:
-        logger.error(f"Error during model prediction: {str(e)}")
-        raise e
-
-
-def _predict_with_savedmodel(model, processed_img):
-    """
-    Prediksi menggunakan SavedModel format
-    """
-    serving_default = model.signatures['serving_default']
-    input_tensor = tf.convert_to_tensor(processed_img, dtype=tf.float32)
-    
-    # Coba berbagai nama input yang umum
-    input_names_to_try = ['input_1', 'inputs', 'x']
-    
-    for input_name in input_names_to_try:
-        try:
-            logger.debug(f"Trying input name: {input_name}")
-            predictions = serving_default(**{input_name: input_tensor})
-            
-            # Ambil output pertama jika ada beberapa output
-            if isinstance(predictions, dict):
-                predictions = list(predictions.values())[0]
-            
-            # Konversi ke numpy array
-            return predictions.numpy()
-            
-        except Exception as e:
-            logger.debug(f"Failed with input name {input_name}: {str(e)}")
-            continue
-    
-    # Jika semua nama input standar gagal, gunakan signature
-    try:
-        logger.debug("Trying with signature inspection")
-        input_signature = serving_default.structured_input_signature[1]
-        input_key = list(input_signature.keys())[0]
-        logger.debug(f"Using detected input key: {input_key}")
-        
-        predictions = serving_default(**{input_key: input_tensor})
-        if isinstance(predictions, dict):
-            predictions = list(predictions.values())[0]
-        
-        return predictions.numpy()
-        
-    except Exception as e:
-        logger.error(f"All SavedModel prediction attempts failed: {str(e)}")
-        raise RuntimeError(f"Gagal menjalankan prediksi dengan SavedModel: {str(e)}")
-
-
-def _predict_with_keras_model(model, processed_img):
-    """
-    Prediksi menggunakan Keras model standar
-    """
-    try:
-        # verbose=0 untuk mengurangi output console
-        predictions = model.predict(processed_img, verbose=0)
-        return predictions
-        
-    except Exception as e:
-        logger.error(f"Keras model prediction failed: {str(e)}")
-        raise RuntimeError(f"Gagal menjalankan prediksi dengan Keras model: {str(e)}")
-    
-# ============================================================================
-# DATABASE UTILITY FUNCTIONS
-# ============================================================================
-
-def save_classification_to_database(
-    firestore_db,
-    classification_id,
-    user_id,
-    user_role,
-    original_filename,
-    stored_filename,
-    file_path,
-    location,
-    model_used,
-    classification_results,
-    user_ip=None,
-    processing_time=None
-):
-    """
-    Save classification data to Firestore using Android-compatible structure
-    
-    Args:
-        firestore_db: Firestore database instance
-        classification_id (str): Unique classification ID
-        user_id (str): User ID
-        user_role (str): User role (guest, expert, admin)
-        original_filename (str): Original filename from user
-        stored_filename (str): Generated filename for storage
-        file_path (str): Full path to stored file
-        location (str): Location/sampling site
-        model_used (str): Model used for classification
-        classification_results (tuple): (actual_class, probability_class, response)
-        user_ip (str): User IP address
-        processing_time (float): Processing time in seconds
-    
-    Returns:
-        ClassificationEntry: Saved record
-    """
-    try:
-        from database import ClassificationEntry
-        from datetime import datetime
-        
-        actual_class, probability_class, response = classification_results
-        
-        # Get image metadata
-        metadata = get_image_metadata(file_path)
-        
-        # Create ClassificationEntry object matching Android structure
-        classification_entry = ClassificationEntry(
-            id=classification_id,
-            user_id=user_id,
-            user_role=user_role,
-            image_path=file_path,
-            classification_result=actual_class[0] if len(actual_class) > 0 else "Unknown",
-            confidence=probability_class[0] if len(probability_class) > 0 else 0.0,
-            model_used=model_used,
-            timestamp=datetime.utcnow(),
-            
-            # Web app specific fields
-            original_filename=original_filename,
-            stored_filename=stored_filename,
-            location=location,
-            second_class=actual_class[1] if len(actual_class) > 1 else None,
-            second_probability=probability_class[1] if len(probability_class) > 1 else None,
-            third_class=actual_class[2] if len(actual_class) > 2 else None,
-            third_probability=probability_class[2] if len(probability_class) > 2 else None,
-            file_size=metadata["file_size"],
-            image_width=metadata["width"],
-            image_height=metadata["height"],
-            user_ip=user_ip,
-            processing_time=processing_time
-        )
-        
-        # Save to Firestore using Android-compatible method
-        result_id = firestore_db.save_classification_to_database(classification_entry)
-        
-        logger.info(f"Classification saved to Firestore: ID={result_id}, filename={stored_filename}")
-        return classification_entry
-        
-    except Exception as e:
-        logger.error(f"Error saving to Firestore: {str(e)}")
-        raise e
-    
-def generate_stored_filename(location=None, classification_result=None, original_extension=".jpg"):
-    """
-    Generate filename dengan format: {tanggal}_{lokasi}_{hasil_klasifikasi}_{random}.{ext}
-    
-    Args:
-        location (str): Lokasi sampling (default: "unknown")
-        classification_result (str): Hasil klasifikasi top 1
-        original_extension (str): Ekstensi file asli
-    
-    Returns:
-        str: Generated filename
-    """
-    # Format tanggal: YYYYMMDD_HHMMSS
-    date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    # Clean location (hapus karakter yang tidak valid untuk filename)
-    if not location:
-        location = "unknown"
-    clean_location = "".join(c for c in location if c.isalnum() or c in ('-', '_')).rstrip()
-    clean_location = clean_location[:20]  # Batasi panjang
-    
-    # Clean classification result
-    if not classification_result:
-        classification_result = "unclassified"
-    clean_classification = "".join(c for c in classification_result if c.isalnum() or c in ('-', '_')).rstrip()
-    clean_classification = clean_classification[:30]  # Batasi panjang
-    
-    # Generate random string untuk uniqueness
-    random_suffix = ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(6))
-    
-    # Combine all parts
-    filename = f"{date_str}_{clean_location}_{clean_classification}_{random_suffix}{original_extension}"
-    
-    return filename
 
 def get_image_metadata(file_path):
     """Get image metadata (dimensions, size)"""
     try:
+        # Validate file exists
+        if not os.path.exists(file_path):
+            logger.error(f"Image file not found: {file_path}")
+            return {
+                "file_size": 0,
+                "width": 0,
+                "height": 0,
+                "format": "Unknown"
+            }
+        
         # File size
         file_size = os.path.getsize(file_path)
         
         # Image dimensions
         with Image.open(file_path) as img:
             width, height = img.size
+            format_type = str(img.format) if hasattr(img, 'format') else "Unknown"
         
         return {
             "file_size": int(file_size),  
             "width": int(width),          
             "height": int(height),        
-            "format": str(img.format) if hasattr(img, 'format') else "Unknown"
+            "format": format_type
         }
     
     except Exception as e:
@@ -675,76 +524,62 @@ def get_image_metadata(file_path):
             "height": 0,
             "format": "Unknown"
         }
+    
+def generate_stored_filename(location=None, classification_result=None, original_extension=".jpg"):
+    """ Generate filename with format: {date}_{location}_{classification_result}_{random_suffix}.{ext} """
+    # Date format: YYYYMMDD_HHMMSS
+    date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Clean location
+    if not location:
+        location = "unknown"
+    clean_location = "".join(c for c in location if c.isalnum() or c in ('-', '_')).rstrip()
+    clean_location = clean_location[:20]  # Limit length
 
-def save_upload_to_database(
-    db_session,
-    original_filename,
-    stored_filename,
-    file_path,
-    location,
-    model_used,
-    classification_results,
-    user_ip=None,
-    processing_time=None
-):
-    """
-    Save upload data to database
+    # Clean classification result
+    if not classification_result:
+        classification_result = "unclassified"
+    clean_classification = "".join(c for c in classification_result if c.isalnum() or c in ('-', '_')).rstrip()
+    clean_classification = clean_classification[:30]  # Limit length
+
+    # Generate random string for uniqueness
+    random_suffix = ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(6))
     
-    Args:
-        db_session: Database session
-        original_filename (str): Original filename from user
-        stored_filename (str): Generated filename for storage
-        file_path (str): Full path to stored file
-        location (str): Location/sampling site
-        model_used (str): Model used for classification
-        classification_results (tuple): (actual_class, probability_class, response)
-        user_ip (str): User IP address
-        processing_time (float): Processing time in seconds
+    # Combine all parts
+    filename = f"{date_str}_{clean_location}_{clean_classification}_{random_suffix}{original_extension}"
     
-    Returns:
-        PlanktonUpload: Saved record
-    """
+    return filename
+
+def save_classification_to_database(firestore_db, classification_id, user_id, user_role, stored_filename, file_path, location, model_used, classification_results):
+    """ Save classification data to Firestore using Android-compatible structure """
     try:
-        from database import PlanktonUpload
+        from database import ClassificationEntry
+
+        actual_class, probability_class = classification_results
         
-        actual_class, probability_class, response = classification_results
-        
-        # Get image metadata
-        metadata = get_image_metadata(file_path)
-        
-        # Create database record
-        upload_record = PlanktonUpload(
-            original_filename=original_filename,
-            stored_filename=stored_filename,
-            file_path=file_path,
-            location=location,
+        # Create ClassificationEntry object
+        classification_entry = ClassificationEntry(
+            id=classification_id,
+            user_id=user_id,
+            user_role=user_role,
+            image_path=file_path,
+            classification_result=actual_class[0] if len(actual_class) > 0 else "Unknown",
+            confidence=probability_class[0] if len(probability_class) > 0 else 0.0,
             model_used=model_used,
-            
-            # Top 3 classification results
-            top_class=actual_class[0] if len(actual_class) > 0 else "Unknown",
-            top_probability=probability_class[0] if len(probability_class) > 0 else 0.0,
+            timestamp=datetime.utcnow(),
+            location=location,
             second_class=actual_class[1] if len(actual_class) > 1 else None,
             second_probability=probability_class[1] if len(probability_class) > 1 else None,
             third_class=actual_class[2] if len(actual_class) > 2 else None,
-            third_probability=probability_class[2] if len(probability_class) > 2 else None,
-            
-            # Metadata
-            file_size=metadata["file_size"],
-            image_width=metadata["width"],
-            image_height=metadata["height"],
-            user_ip=user_ip,
-            processing_time=processing_time
+            third_probability=probability_class[2] if len(probability_class) > 2 else None
         )
         
-        # Save to database
-        db_session.add(upload_record)
-        db_session.commit()
-        db_session.refresh(upload_record)
+        # Save to Firestore using Android-compatible method
+        result_id = firestore_db.save_classification_to_database(classification_entry)
         
-        logger.info(f"Upload saved to database: ID={upload_record.id}, filename={stored_filename}")
-        return upload_record
+        logger.info(f"Classification saved to Firestore: ID={result_id}, filename={stored_filename}")
+        return classification_entry
         
     except Exception as e:
-        db_session.rollback()
-        logger.error(f"Error saving to database: {str(e)}")
+        logger.error(f"Error saving to Firestore: {str(e)}")
         raise e
