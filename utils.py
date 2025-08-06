@@ -172,9 +172,9 @@ def get_input_size(model_name):
     # ConvNeXt family
     elif model_name_lower in ["convnext_small", "convnext_tiny"]:
         return (224, 224)
-    # Transformer-based models
+    # Backward models
     elif model_name_lower in ["vit", "bit", "swin", "conv", "regnet"]:
-        return (192, 288) # Default size for backward models
+        return (224, 224) # Default size for backward models
     # Default size for unknown models
     else:
         return (224, 224)
