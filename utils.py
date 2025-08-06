@@ -152,20 +152,32 @@ def get_model_mapping():
 
 def get_input_size(model_name):
     """Get input size for a given model based on its architecture"""
-    if "efficientnet" in model_name.lower():
-        return (224, 224)  # EfficientNetV2B0
-    elif "inception" in model_name.lower():
-        return (299, 299)  # InceptionV3
-    elif "mobilenet" in model_name.lower():
-        return (224, 224)  # MobileNet series
-    elif "resnet" in model_name.lower():
-        return (224, 224)  # ResNet series
-    elif "densenet" in model_name.lower():
-        return (224, 224)  # DenseNet
-    elif "convnext" in model_name.lower():
-        return (224, 224)  # ConvNeXt
+    model_name_lower = model_name.lower()
+    
+    # InceptionV3
+    if model_name_lower == "inceptionv3":
+        return (299, 299)
+    # EfficientNet family
+    elif model_name_lower in ["efficientnetv2b0", "efficientnetv1"]:
+        return (224, 224)
+    # MobileNet family
+    elif model_name_lower in ["mobilenet", "mobilenetv2", "mobilenetv3_large", "mobilenetv3_small"]:
+        return (224, 224)
+    # ResNet family
+    elif model_name_lower in ["resnet50", "resnet101", "resnet50v2", "resnet101v2"]:
+        return (224, 224)
+    # DenseNet family
+    elif model_name_lower == "densenet121":
+        return (224, 224)
+    # ConvNeXt family
+    elif model_name_lower in ["convnext_small", "convnext_tiny"]:
+        return (224, 224)
+    # Transformer-based models
+    elif model_name_lower in ["vit", "bit", "swin", "conv", "regnet"]:
+        return (192, 288) # Default size for backward models
+    # Default size for unknown models
     else:
-        return (224, 224)  # Default size
+        return (224, 224)
     
 # ============================================================================
 # INTERNAL HELPER FUNCTIONS
