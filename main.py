@@ -9,6 +9,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from dotenv import load_dotenv
+
 
 from routers import api
 from utils import preload_models, get_cache_info, clear_model_cache
@@ -25,6 +27,8 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # BACKGROUND TASKS
 # ============================================================================
+
+load_dotenv()
 
 async def background_model_preload():
     """Preload models in background"""

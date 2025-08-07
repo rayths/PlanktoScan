@@ -10,14 +10,6 @@ pandas==2.2.2
 opencv-python==4.10.0.84
 Pillow==10.4.0
 
-# Database
-sqlalchemy==2.0.36
-python-multipart==0.0.12
-
-# Database Drivers
-psycopg2-binary==2.9.10  # PostgreSQL driver
-PyMySQL==1.1.1           # MySQL driver
-
 # File Handling & Validation
 aiofiles==24.1.0
 
@@ -37,3 +29,8 @@ typing-extensions==4.12.2
 
 # Logging & Monitoring
 colorlog==6.9.0
+
+# Firebase and Authentication
+firebase-admin==6.2.0
+pyrebase4==4.7.1
+pyjwt[crypto]==2.8.0

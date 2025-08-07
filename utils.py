@@ -2,6 +2,7 @@ import json
 import os
 import logging
 import cv2
+import uuid
 import numpy as np
 import tensorflow as tf
 import tf_keras
@@ -76,6 +77,13 @@ def convert_numpy_types(obj):
         return tuple(convert_numpy_types(item) for item in obj)
     else:
         return obj
+    
+def generate_uuid_28():
+    """Generate UUID dengan maksimal 28 karakter"""
+    # Generate UUID dan hapus tanda minus
+    full_uuid = str(uuid.uuid4()).replace('-', '')
+    # Ambil 28 karakter pertama (dari 32 karakter)
+    return full_uuid[:28]
 
 # ============================================================================
 # CACHE MANAGEMENT
@@ -567,7 +575,7 @@ def save_classification_to_database(firestore_db, classification_id, user_id, us
     try:
         from database import ClassificationEntry
 
-        actual_class, probability_class = classification_results
+        actual_class, probability_class, response = classification_results
         
         # Create ClassificationEntry object
         classification_entry = ClassificationEntry(
@@ -581,12 +589,12 @@ def save_classification_to_database(firestore_db, classification_id, user_id, us
             timestamp=datetime.utcnow(),
             location=location,
             second_class=actual_class[1] if len(actual_class) > 1 else None,
-            second_probability=probability_class[1] if len(probability_class) > 1 else None,
+            second_confidence=probability_class[1] if len(probability_class) > 1 else None,
             third_class=actual_class[2] if len(actual_class) > 2 else None,
-            third_probability=probability_class[2] if len(probability_class) > 2 else None
+            third_confidence=probability_class[2] if len(probability_class) > 2 else None
         )
         
-        # Save to Firestore using Android-compatible method
+        # Save to Firestore
         result_id = firestore_db.save_classification_to_database(classification_entry)
         
         logger.info(f"Classification saved to Firestore: ID={result_id}, filename={stored_filename}")

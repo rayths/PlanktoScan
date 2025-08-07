@@ -4,7 +4,7 @@ import uuid
 import requests
 from datetime import datetime
 from typing import Optional
-from utils import predict_img, get_cache_info, get_detailed_cache_info, get_model_mapping, MODEL_CACHE, generate_stored_filename, get_image_metadata
+from utils import predict_img, get_cache_info, get_detailed_cache_info, get_model_mapping, MODEL_CACHE, generate_stored_filename, get_image_metadata, generate_uuid_28
 
 from fastapi import APIRouter, UploadFile, File, Form, Request, Response, Depends, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
@@ -54,10 +54,85 @@ async def login_page(request: Request, next: str = "/"):
 
 @router.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
-    """User registration page"""
+    """Registration page"""
+    # Firebase config for frontend (public config only)
+    firebase_config = {
+        "api_key": os.getenv("FIREBASE_API_KEY"),
+        "auth_domain": os.getenv("FIREBASE_AUTH_DOMAIN"),
+        "project_id": os.getenv("FIREBASE_PROJECT_ID"),
+        "storage_bucket": os.getenv("FIREBASE_STORAGE_BUCKET"),
+        "messaging_sender_id": os.getenv("FIREBASE_MESSAGING_SENDER_ID"),
+        "app_id": os.getenv("FIREBASE_APP_ID")
+    }
+    
     return templates.TemplateResponse("register.html", {
-        "request": request
+        "request": request,
+        "firebase_config": firebase_config
     })
+
+@router.post("/auth/expert/register")
+async def expert_register(
+    request: Request,
+    id_token: str = Form(...),
+    organization: str = Form(None),
+    db: FirestoreDB = Depends(get_db)
+):
+    """Expert registration endpoint"""
+    try:        
+        # Verify Firebase token
+        firebase_user_info = db.verify_firebase_token(id_token)
+        
+        if not firebase_user_info:
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "message": "Invalid authentication token"}
+            )
+        
+        # Validate expert email domain
+        email = firebase_user_info.get('email')
+        if not email or not email.endswith('@brin.go.id'):
+            return JSONResponse(
+                status_code=403,
+                content={"success": False, "message": "Expert role requires @brin.go.id email address"}
+            )
+        
+        # Create or update user with expert role
+        user = db.authenticate_with_firebase(id_token)
+        if not user:
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "message": "User authentication failed"}
+            )
+        
+        # Update to expert role
+        from database import UserRole
+        user.role = UserRole.EXPERT
+        user.organization = organization or 'BRIN (Badan Riset dan Inovasi Nasional)'
+        
+        # Save user
+        db.save_user(user)
+        
+        # Set session
+        request.session['user_id'] = user.uid
+        request.session['user_name'] = user.display_name
+        request.session['user_role'] = user.role.value
+        request.session['user_email'] = user.email
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": "Expert registration successful",
+                "redirect": "/dashboard"
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Expert registration error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": "Registration failed"}
+        )
 
 @router.get("/login/guest")
 async def guest_login_direct(request: Request, next: str = "/"):
@@ -110,294 +185,219 @@ async def guest_login_api(request: Request):
             content={"success": False, "message": "Guest access failed"}
         )
 
-@router.post("/auth/expert")
-async def authenticate_expert(
+@router.post("/auth/firebase")
+async def authenticate_with_firebase(
     request: Request,
-    email: str = Form(...),
-    password: str = Form(...),
-    next: str = Form("/"),
-    db: FirestoreDB = Depends(get_db)
-):
-    """Authenticate expert user - requires @brin.go.id email"""
-    try:
-        # Validate BRIN email
-        if not email.lower().endswith('@brin.go.id'):
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "message": "Expert access requires @brin.go.id email address"}
-            )
-        
-        # Check if expert exists
-        user = db.get_user_by_email(email)
-        if not user:
-            return JSONResponse(
-                status_code=401,
-                content={"success": False, "message": "User not found. Please register first."}
-            )
-        
-        # Verify password (in production, use proper password hashing)
-        if user.password_hash and user.password_hash != password:
-            return JSONResponse(
-                status_code=401,
-                content={"success": False, "message": "Invalid password"}
-            )
-        
-        # Verify role
-        if user.role != UserRole.EXPERT:
-            return JSONResponse(
-                status_code=403,
-                content={"success": False, "message": "Not authorized as expert"}
-            )
-        
-        # Update last login
-        db.update_user_last_login(user.uid)
-        
-        # Set session
-        request.session['user_id'] = user.uid
-        request.session['user_name'] = user.display_name or email.split('@')[0]
-        request.session['user_role'] = user.role.value
-        
-        logger.info(f"Expert login successful: {user.uid}")
-        
-        # Create response with welcome_seen cookie
-        response = JSONResponse(content={"success": True, "role": "expert", "message": "Login successful"})
-        response.set_cookie("welcome_seen", "true", max_age=24*60*60)  # 1 day
-        return response
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Expert auth error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Authentication failed")
-
-@router.post("/auth/basic")
-async def authenticate_basic(
-    request: Request,
-    email: str = Form(...),
-    password: str = Form(None),
-    name: str = Form(None),
+    id_token: str = Form(...),
+    next_url: str = Form("/"),
+    role: str = Form(None),
     organization: str = Form(None),
-    next: str = Form("/"),
     db: FirestoreDB = Depends(get_db)
 ):
-    """Authenticate basic user - supports both login and legacy registration"""
+    """Authenticate user using Firebase ID token"""
     try:
-        # Check if user exists
-        user = db.get_user_by_email(email)
+        logger.info(f"Firebase auth attempt - Role: {role}")
+        logger.info(f"ID token length: {len(id_token) if id_token else 0}")
         
-        if user:
-            # Existing user - check password if they have one
-            if user.password_hash and not password:
-                return JSONResponse(
-                    status_code=401,
-                    content={"success": False, "message": "Password required for existing user"}
-                )
-            
-            if user.password_hash and user.password_hash != password:
-                return JSONResponse(
-                    status_code=401,
-                    content={"success": False, "message": "Invalid password"}
-                )
-            
-            # Update last login
-            db.update_user_last_login(user.uid)
-            
-        else:
-            # New user - legacy registration (without password)
-            if not name or not organization:
-                return JSONResponse(
-                    status_code=400,
-                    content={"success": False, "message": "Name and organization required for new users"}
-                )
-            
-            # Create new basic user
-            basic_uid = f"basic_{int(time.time() * 1000)}_{email.replace('@', '_').replace('.', '_')}"
-            user = create_basic_user(basic_uid, email, name, password, organization)
-            user = db.save_user(user)
-            logger.info(f"New basic user created: {basic_uid}")
+        # Verify Firebase token first
+        firebase_user_info = db.verify_firebase_token(id_token)
         
-        # Set session
-        request.session['user_id'] = user.uid
-        request.session['user_name'] = user.display_name or name or email.split('@')[0]
-        request.session['user_role'] = user.role.value
-        if organization:
-            request.session['organization'] = organization
+        if not firebase_user_info:
+            logger.error("Firebase token verification failed")
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "message": "Invalid authentication token"}
+            )
         
-        logger.info(f"Basic user login successful: {user.uid}")
+        logger.info(f"Firebase token verified for: {firebase_user_info['uid']}")
         
-        # Create response with welcome_seen cookie
-        response = JSONResponse(content={"success": True, "role": "basic", "message": "Login successful"})
-        response.set_cookie("welcome_seen", "true", max_age=24*60*60)  # 1 day
-        return response
+        # Authenticate with Firebase
+        user = db.authenticate_with_firebase(id_token)
         
-    except Exception as e:
-        logger.error(f"Basic auth error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Authentication failed")
-
-@router.post("/auth/admin")
-async def authenticate_admin(
-    request: Request,
-    email: str = Form(...),
-    password: str = Form(...),
-    next: str = Form("/"),
-    db: FirestoreDB = Depends(get_db)
-):
-    """Admin authentication - only for pre-configured admin emails"""
-    try:
-        # Check if admin email is allowed
-        allowed_admin_emails = [
-            os.getenv("ADMIN_EMAIL", "admin@brin.go.id"),
-            "admin@planktoscan.id",  # Add other admin emails here
-        ]
-        
-        if email not in allowed_admin_emails:
-            raise HTTPException(status_code=403, detail="Not authorized as admin")
-        
-        # Simple password check (in production, use proper hashing)
-        admin_password = os.getenv("ADMIN_PASSWORD", "admin123")
-        if password != admin_password:
-            raise HTTPException(status_code=401, detail="Invalid admin credentials")
-        
-        # Check if admin exists
-        user = db.get_user_by_email(email)
         if not user:
-            # Create admin user
-            admin_uid = f"admin_{int(time.time() * 1000)}_{email.replace('@', '_').replace('.', '_')}"
-            user = create_admin_user(admin_uid, email)
-            user = db.save_user(user)
-            logger.info(f"Admin user created: {admin_uid}")
-        else:
-            # Update last login
-            db.update_user_last_login(user.uid)
+            logger.error("Firebase authentication failed - user creation failed")
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "message": "User authentication failed"}
+            )
         
+        logger.info(f"Firebase user authenticated: {user.uid}")
+        
+        # For new registrations, update additional info if provided
+        if role and role.lower() != user.role.value.lower():
+            # Validate role based on email for security
+            if role.lower() == 'expert' and not user.email.endswith('@brin.go.id'):
+                return JSONResponse(
+                    status_code=403,
+                    content={"success": False, "message": "Expert role requires @brin.go.id email"}
+                )
+            
+            # Update user role and organization
+            from database import UserRole  # Import here to avoid circular import
+            
+            if role.lower() == 'expert':
+                user.role = UserRole.EXPERT
+                user.organization = 'BRIN (Badan Riset dan Inovasi Nasional)'
+            elif role.lower() == 'basic':
+                user.role = UserRole.BASIC
+                user.organization = organization or 'External User'
+            
+            # Save updated user info
+            db.save_user(user)
+            logger.info(f"User role updated to: {user.role.value}")
+
         # Set session
         request.session['user_id'] = user.uid
-        request.session['user_name'] = user.display_name or "Admin"
+        request.session['user_name'] = user.display_name
         request.session['user_role'] = user.role.value
+        request.session['user_email'] = user.email
         
-        logger.info(f"Admin login successful: {user.uid}")
-        return RedirectResponse(url=next, status_code=302)
+        logger.info(f"Firebase authentication successful: {user.uid}")
         
-    except HTTPException:
-        raise
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "message": "Authentication successful",
+                "user": {
+                    "uid": user.uid,
+                    "email": user.email,
+                    "name": user.display_name,
+                    "role": user.role.value,
+                    "organization": user.organization
+                },
+                "redirect_url": next_url
+            }
+        )
+        
     except Exception as e:
-        logger.error(f"Admin auth error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Authentication failed")
+        logger.error(f"Firebase authentication error: {str(e)}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": f"Authentication failed: {str(e)}"}
+        )
 
-# Logout Route
+@router.post("/auth/verify-token")
+async def verify_firebase_token(
+    request: Request,
+    id_token: str = Form(...),
+    db: FirestoreDB = Depends(get_db)
+):
+    """Verify Firebase ID token and return user info"""
+    try:
+        firebase_user_info = db.verify_firebase_token(id_token)
+        
+        if not firebase_user_info:
+            return JSONResponse(
+                status_code=401,
+                content={"success": False, "message": "Invalid token"}
+            )
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "success": True,
+                "user": firebase_user_info
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Token verification error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": "Token verification failed"}
+        )
+
 @router.post("/logout")
 async def logout(request: Request):
-    """Logout user"""
-    request.session.clear()
+    """Logout user (clear session)"""
+    try:
+        # Clear session
+        request.session.clear()
+        
+        return JSONResponse(
+            status_code=200,
+            content={"success": True, "message": "Logged out successfully"}
+        )
+        
+    except Exception as e:
+        logger.error(f"Logout error: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": "Logout failed"}
+        )
     
-    # Create response and clear welcome_seen cookie
-    response = RedirectResponse(url="/", status_code=302)
-    response.delete_cookie("welcome_seen")
-    return response
-
-# Registration Routes
-@router.post("/auth/expert/register")
-async def register_expert(
+@router.post("/change-password")
+async def change_password(
     request: Request,
-    email: str = Form(...),
-    password: str = Form(...),
-    name: str = Form(...),
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
     db: FirestoreDB = Depends(get_db)
 ):
-    """Expert user registration - requires @brin.go.id email"""
+    """Change user password"""
     try:
-        # Validate BRIN email
-        if not email.endswith('@brin.go.id'):
+        # Check if user logged in
+        user_id = request.session.get("user_id")
+        if not user_id:
             return JSONResponse(
-                status_code=400, 
-                content={"success": False, "message": "Expert registration requires @brin.go.id email address"}
+                status_code=401,
+                content={"success": False, "error": "Not authenticated"}
             )
         
-        # Check if user already exists
-        existing_user = db.get_user_by_email(email)
-        if existing_user:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "message": "User already exists with this email"}
-            )
-        
-        # Validate password
-        if len(password) < 6:
+        # Validate new password
+        if new_password != confirm_password:
             return JSONResponse(
                 status_code=400,
-                content={"success": False, "message": "Password must be at least 6 characters long"}
+                content={"success": False, "error": "Passwords do not match"}
             )
         
-        # Create expert user
-        expert_uid = f"expert_{int(time.time() * 1000)}_{email.replace('@', '_').replace('.', '_')}"
-        user = create_expert_user(expert_uid, email, name, password)
-        user = db.save_user(user)
+        if len(new_password) < 6:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Password must be at least 6 characters"}
+            )
         
-        logger.info(f"New expert user registered: {expert_uid}")
-        return JSONResponse(content={"success": True, "message": "Expert account created successfully"})
+        # Get user
+        user = db.get_user_by_uid(user_id)
+        if not user or not user.email:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "User not found"}
+            )
         
+        # Verify current password
+        user_data = db.authenticate_user(user.email, current_password)
+        if not user_data:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Current password is incorrect"}
+            )
+        
+        # Update password
+        success = db.update_user_password(user_id, new_password)
+        
+        if success:
+            return JSONResponse(
+                status_code=200,
+                content={"success": True, "message": "Password updated successfully"}
+            )
+        else:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": "Failed to update password"}
+            )
+            
     except Exception as e:
-        logger.error(f"Expert registration error: {str(e)}")
+        logger.error(f"Change password error: {str(e)}")
         return JSONResponse(
             status_code=500,
-            content={"success": False, "message": "Registration failed. Please try again."}
+            content={"success": False, "error": "Failed to change password"}
         )
-
-@router.post("/auth/basic/register")
-async def register_basic(
-    request: Request,
-    name: str = Form(...),
-    email: str = Form(...),
-    password: str = Form(...),
-    organization: str = Form(...),
-    db: FirestoreDB = Depends(get_db)
-):
-    """Basic user registration"""
-    try:
-        # Validate email format
-        if '@' not in email or '.' not in email:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "message": "Please enter a valid email address"}
-            )
-        
-        # Check if user already exists
-        existing_user = db.get_user_by_email(email)
-        if existing_user:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "message": "User already exists with this email"}
-            )
-        
-        # Validate password
-        if len(password) < 6:
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "message": "Password must be at least 6 characters long"}
-            )
-        
-        # Validate organization
-        if not organization.strip():
-            return JSONResponse(
-                status_code=400,
-                content={"success": False, "message": "Organization is required"}
-            )
-        
-        # Create basic user
-        basic_uid = f"basic_{int(time.time() * 1000)}_{email.replace('@', '_').replace('.', '_')}"
-        user = create_basic_user(basic_uid, email, name, password, organization)
-        user = db.save_user(user)
-        
-        logger.info(f"New basic user registered: {basic_uid}")
-        return JSONResponse(content={"success": True, "message": "Basic account created successfully"})
-        
-    except Exception as e:
-        logger.error(f"Basic registration error: {str(e)}")
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "message": "Registration failed. Please try again."}
-        )
-
+    
 # Location Routes
 @router.get("/api/reverse-geocode")
 async def reverse_geocode(lat: float, lon: float):
@@ -617,6 +617,13 @@ async def upload_image(file: UploadFile = File(...)):
             content={"error": f"Upload failed: {str(e)}"}
         )
 
+def require_auth(request: Request):
+    """Middleware function to require authentication"""
+    user_id = request.session.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return user_id
+
 # Classification prediction endopoint
 @router.post("/predict")
 async def predict(
@@ -737,13 +744,11 @@ async def predict(
             confidence=convert_numpy_types(probability_class[0]) if len(probability_class) > 0 else 0.0,
             model_used=model_option,
             timestamp=datetime.utcnow(),
-            
-            # Web app specific fields
             location=location,
             second_class=actual_class[1] if len(actual_class) > 1 else None,
-            second_probability=convert_numpy_types(probability_class[1]) if len(probability_class) > 1 else None,
+            second_confidence=convert_numpy_types(probability_class[1]) if len(probability_class) > 1 else None,
             third_class=actual_class[2] if len(actual_class) > 2 else None,
-            third_probability=convert_numpy_types(probability_class[2]) if len(probability_class) > 2 else None,
+            third_confidence=convert_numpy_types(probability_class[2]) if len(probability_class) > 2 else None,
         )
         
         # Save to Firestore using Android-compatible method
@@ -817,8 +822,8 @@ async def get_result(
             "class2": classification.second_class or "Unknown",
             "class3": classification.third_class or "Unknown", 
             "probability1": f"{classification.confidence:.1%}",
-            "probability2": f"{classification.second_probability:.1%}" if classification.second_probability else "0.0%",
-            "probability3": f"{classification.third_probability:.1%}" if classification.third_probability else "0.0%",
+            "probability2": f"{classification.second_confidence:.1%}" if classification.second_confidence else "0.0%",
+            "probability3": f"{classification.third_confidence:.1%}" if classification.third_confidence else "0.0%",
             "response": f"Analisis menunjukkan {classification.classification_result} dengan tingkat keyakinan {classification.confidence:.1%}. Model yang digunakan: {classification.model_used}."
         }
         

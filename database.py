@@ -1,55 +1,42 @@
 import os
-import json
 import logging
-import numpy as np
 from datetime import datetime
-from typing import Optional, List, Dict, Any, Union
-from dataclasses import dataclass, asdict
-from firebase_admin import credentials, firestore, initialize_app
+from typing import Optional, List, Dict, Any
+from dataclasses import dataclass
+from firebase_admin import credentials, firestore, initialize_app, auth
+from google.cloud.firestore_v1.base_query import FieldFilter
 import firebase_admin
 from enum import Enum
+
+from utils import convert_numpy_types, generate_uuid_28
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Firebase configuration
-FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH", "firebase-service-account.json")
+FIREBASE_CREDENTIALS_PATH = os.getenv("FIREBASE_CREDENTIALS_PATH")
 FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")
-
-# Convert numpy types to Python native types
-def convert_numpy_types(obj):
-    """Convert numpy types to Python native types for Firestore compatibility"""
-    if isinstance(obj, np.integer):
-        return int(obj)
-    elif isinstance(obj, np.floating):
-        return float(obj)
-    elif isinstance(obj, np.ndarray):
-        return obj.tolist()
-    elif isinstance(obj, dict):
-        return {key: convert_numpy_types(value) for key, value in obj.items()}
-    elif isinstance(obj, list):
-        return [convert_numpy_types(item) for item in obj]
-    elif isinstance(obj, tuple):
-        return tuple(convert_numpy_types(item) for item in obj)
-    else:
-        return obj
     
 # Initialize Firebase Admin SDK
 def initialize_firebase():
     """Initialize Firebase Admin SDK"""
     try:
         if not firebase_admin._apps:
-            if os.path.exists(FIREBASE_CREDENTIALS_PATH):
-                cred = credentials.Certificate(FIREBASE_CREDENTIALS_PATH)
-                initialize_app(cred, {
-                    'projectId': FIREBASE_PROJECT_ID,
-                })
-                logger.info("Firebase initialized with service account file")
-            else:
-                # For production deployment
-                initialize_app()
-                logger.info("Firebase initialized with default credentials")
+            # Get credentials path from environment  
+            cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "firebase-service-account.json")
+            
+            if not os.path.exists(cred_path):
+                raise FileNotFoundError(f"Firebase credentials file not found: {cred_path}")
+                
+            # Initialize with service account
+            cred = credentials.Certificate(cred_path)
+            initialize_app(cred, {
+                'projectId': FIREBASE_PROJECT_ID,
+            })
+            logger.info("Firebase Admin SDK initialized successfully")
+        else:
+            logger.info("Firebase Admin SDK already initialized")
         
         return firestore.client()
     except Exception as e:
@@ -62,24 +49,23 @@ db = initialize_firebase()
 # Enums for user roles
 class UserRole(Enum):
     """User roles"""
-    GUEST = "guest"
-    BASIC = "basic"
-    EXPERT = "expert"
-    ADMIN = "admin"
-    
+    GUEST = "Guest"
+    BASIC = "Basic"
+    EXPERT = "Expert"
+    ADMIN = "Admin"
+
     @classmethod
     def from_string(cls, role_str: str) -> 'UserRole':
         """Convert string to UserRole enum"""
         role_map = {
-            "guest": cls.GUEST,
-            "basic": cls.BASIC,
-            "expert": cls.EXPERT,
-            "admin": cls.ADMIN
+            "Guest": cls.GUEST,
+            "Basic": cls.BASIC,
+            "Expert": cls.EXPERT,
+            "Admin": cls.ADMIN
         }
-        return role_map.get(role_str.lower(), cls.GUEST)
-    
+        return role_map.get(role_str, cls.GUEST)
+
 # Data models
-@dataclass
 @dataclass
 class AppUser:
     """Model for application users"""
@@ -90,9 +76,8 @@ class AppUser:
     created_at: Optional[datetime] = None
     last_login_at: Optional[datetime] = None
     is_email_verified: bool = False
-    password_hash: Optional[str] = None
     organization: Optional[str] = None
-    
+
     def __post_init__(self):
         if self.created_at is None:
             self.created_at = datetime.utcnow()
@@ -109,7 +94,6 @@ class AppUser:
             "createdAt": self.created_at,
             "lastLoginAt": self.last_login_at,
             "isEmailVerified": self.is_email_verified,
-            "passwordHash": self.password_hash,
             "organization": self.organization
         }
     
@@ -121,20 +105,15 @@ class AppUser:
                 uid=data.get("uid"),
                 email=data.get("email"),
                 display_name=data.get("displayName"),
-                role=UserRole.from_string(data.get("role", "guest")),
+                role=UserRole.from_string(data.get("role", "Guest")),
                 created_at=data.get("createdAt"),
                 last_login_at=data.get("lastLoginAt"),
                 is_email_verified=data.get("isEmailVerified", False),
-                password_hash=data.get("passwordHash"),
                 organization=data.get("organization")
             )
         except Exception as e:
             logger.error(f"Error creating AppUser from dict: {e}")
             return None
-    
-    def get_user_role(self) -> UserRole:
-        """Get the user's role"""
-        return self.role
 
 @dataclass
 class ClassificationEntry:
@@ -154,14 +133,12 @@ class ClassificationEntry:
     updated_by: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    
-    # Additional fields for web app compatibility
     location: Optional[str] = None
     second_class: Optional[str] = None
-    second_probability: Optional[float] = None
+    second_confidence: Optional[float] = None
     third_class: Optional[str] = None
-    third_probability: Optional[float] = None
-    
+    third_confidence: Optional[float] = None
+
     def __post_init__(self):
         if self.created_at is None:
             self.created_at = datetime.utcnow()
@@ -170,9 +147,11 @@ class ClassificationEntry:
 
         # Convert numpy types to Python native types
         self.confidence = convert_numpy_types(self.confidence)
-        self.second_probability = convert_numpy_types(self.second_probability) if self.second_probability is not None else None
-        self.third_probability = convert_numpy_types(self.third_probability) if self.third_probability is not None else None
-    
+        if self.second_confidence is not None:
+            self.second_confidence = convert_numpy_types(self.second_confidence)
+        if self.third_confidence is not None:
+            self.third_confidence = convert_numpy_types(self.third_confidence)
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for Firestore"""
         data = {
@@ -191,13 +170,11 @@ class ClassificationEntry:
             "updatedBy": self.updated_by,
             "createdAt": self.created_at,
             "updatedAt": self.updated_at,
-            
-            # Web app specific fields
             "location": self.location,
             "secondClass": self.second_class,
-            "secondProbability": convert_numpy_types(self.second_probability) if self.second_probability is not None else None,
+            "secondConfidence": convert_numpy_types(self.second_confidence) if self.second_confidence is not None else None,
             "thirdClass": self.third_class,
-            "thirdProbability": convert_numpy_types(self.third_probability) if self.third_probability is not None else None,
+            "thirdConfidence": convert_numpy_types(self.third_confidence) if self.third_confidence is not None else None,
         }
             
         # Convert entire dict to ensure no numpy types remain
@@ -223,13 +200,11 @@ class ClassificationEntry:
                 updated_by=data.get("updatedBy"),
                 created_at=data.get("createdAt"),
                 updated_at=data.get("updatedAt"),
-                
-                # Web app specific fields
                 location=data.get("location"),
                 second_class=data.get("secondClass"),
-                second_probability=float(data.get("secondProbability")),
+                second_confidence=float(data.get("secondConfidence")) if data.get("secondConfidence") is not None else None,
                 third_class=data.get("thirdClass"),
-                third_probability=float(data.get("thirdProbability")),
+                third_confidence=float(data.get("thirdConfidence")) if data.get("thirdConfidence") is not None else None,
             )
         except Exception as e:
             logger.error(f"Error creating ClassificationEntry from dict: {e}")
@@ -238,27 +213,178 @@ class ClassificationEntry:
 # Database operations
 class FirestoreDB:
     """Firestore database operations"""
-
     def __init__(self):
-        self.db = db
-        self.classifications_collection = self.db.collection("classifications")
-        self.users_collection = self.db.collection("users")
-    
-    # User operations
-    def save_user(self, user: AppUser) -> AppUser:
-        """Save or update user"""
+        """Initialize Firestore client"""
         try:
-            # Use UID as document ID to match Android app
-            doc_ref = self.users_collection.document(user.uid)
-            doc_ref.set(user.to_dict(), merge=True)
-            logger.info(f"User saved: {user.uid}")
-            return user
+            # Initialize Firebase using the dedicated function
+            self.db = initialize_firebase()
+            
+            # Collections
+            self.users_collection = self.db.collection('users')
+            self.classifications_collection = self.db.collection('classifications')
+            
+            logger.info("Firestore database connection established")
+            
         except Exception as e:
-            logger.error(f"Error saving user: {e}")
-            raise e
+            logger.error(f"Failed to initialize Firestore: {str(e)}")
+            raise
+
+    def verify_firebase_token(self, id_token: str) -> Optional[Dict[str, Any]]:
+        """Verify Firebase ID token and return user claims"""
+        try:
+            # Decode dan verify token menggunakan Firebase Admin
+            decoded_token = auth.verify_id_token(id_token)
+            
+            # Get user info from Firebase Auth to get latest profile data
+            firebase_user = auth.get_user(decoded_token['uid'])
+            
+            user_info = {
+                'uid': decoded_token['uid'],
+                'email': decoded_token.get('email'),
+                'email_verified': decoded_token.get('email_verified', False),
+                'name': decoded_token.get('name') or firebase_user.display_name,
+                'display_name': firebase_user.display_name,
+                'picture': decoded_token.get('picture') or firebase_user.photo_url,
+                'provider': decoded_token.get('firebase', {}).get('sign_in_provider')
+            }
+            
+            logger.info(f"Firebase token verified for user: {user_info['uid']}")
+            logger.info(f"Display name from token: {decoded_token.get('name')}")
+            logger.info(f"Display name from user record: {firebase_user.display_name}")
+            return user_info
+            
+        except auth.InvalidIdTokenError:
+            logger.error("Invalid Firebase ID token")
+            return None
+        except auth.ExpiredIdTokenError:
+            logger.error("Expired Firebase ID token")
+            return None
+        except Exception as e:
+            logger.error(f"Error verifying Firebase token: {str(e)}")
+            return None
     
-    def get_user_by_uid(self, uid: str) -> Optional[AppUser]:
-        """Get user by UID"""
+    def authenticate_with_firebase(self, id_token: str) -> Optional['AppUser']:
+        """Authenticate user using Firebase ID token"""
+        try:
+            logger.info("Starting Firebase authentication...")
+            firebase_user_info = self.verify_firebase_token(id_token)
+            
+            if not firebase_user_info:
+                logger.error("Firebase token verification failed")
+                return None
+            
+            logger.info(f"Token verified successfully for UID: {firebase_user_info['uid']}")
+            user = self._get_or_create_user_from_firebase(firebase_user_info)
+            
+            if user:
+                logger.info(f"Firebase authentication successful for user: {firebase_user_info.get('uid')}")
+            else:
+                logger.error(f"Failed to get or create user for UID: {firebase_user_info['uid']}")
+            
+            return user
+            
+        except Exception as e:
+            logger.error(f"Firebase authentication error: {str(e)}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            return None
+        
+    def _get_or_create_user_from_firebase(self, firebase_user_info: Dict[str, Any]) -> Optional['AppUser']:
+        """Get existing user or create new user from Firebase auth info
+        Note: user.uid stores the Firebase UID directly"""
+        try:
+            firebase_uid = firebase_user_info['uid']
+            email = firebase_user_info['email']
+            
+            logger.info(f"Looking for existing user with UID: {firebase_uid}")
+            
+            # Try to find user by Firebase UID (stored in uid field)
+            user = self.get_user_by_uid(firebase_uid)
+            
+            if not user and email:
+                logger.info(f"User not found by UID, searching by email: {email}")
+                # Try to find by email (for existing users)
+                user = self._get_user_by_email(email)
+                
+                if user:
+                    logger.info(f"Found existing user by email, updating Firebase UID")
+                    # Update existing user with Firebase UID
+                    user_ref = self.users_collection.document(user.uid)
+                    user_ref.update({
+                        'lastLoginAt': datetime.utcnow()
+                    })
+                    # Note: UID already contains Firebase UID, no need to update
+            
+            if not user:
+                logger.info(f"Creating new user for Firebase UID: {firebase_uid}")
+                # Create new user from Firebase auth
+                user = self._create_user_from_firebase(firebase_user_info)
+            else:
+                logger.info(f"Updating last login for existing user: {user.uid}")
+                # Update last login
+                self._update_user_last_login(user.uid)
+            
+            return user
+            
+        except Exception as e:
+            logger.error(f"Error getting/creating user from Firebase: {str(e)}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            return None
+    
+    def _create_user_from_firebase(self, firebase_user_info: Dict[str, Any]) -> Optional['AppUser']:
+        """Create new user from Firebase authentication info
+        Note: user.uid will store the Firebase UID directly"""
+        try:
+            firebase_uid = firebase_user_info['uid']
+            email = firebase_user_info['email']
+            
+            # Get display name from Firebase token data
+            # Firebase token can have 'name' field containing display name
+            display_name = (firebase_user_info.get('name') or 
+                          firebase_user_info.get('display_name') or 
+                          (email.split('@')[0] if email else 'Unknown'))
+            
+            logger.info(f"Creating user - UID: {firebase_uid}, email: {email}, display_name: {display_name}")
+            logger.info(f"Firebase user info keys: {list(firebase_user_info.keys())}")
+            
+            # Default role is Basic
+            role = UserRole.BASIC
+            organization = 'External User'
+            
+            # Check if email is BRIN staff
+            if email and email.endswith('@brin.go.id'):
+                role = UserRole.EXPERT
+                organization = 'BRIN (Badan Riset dan Inovasi Nasional)'
+                logger.info(f"User has BRIN email, setting Expert role")
+            
+            # Create AppUser object - uid akan menjadi Firebase UID
+            user = AppUser(
+                uid=firebase_uid,
+                email=email,
+                display_name=display_name,
+                role=role,
+                organization=organization,
+                created_at=datetime.utcnow(),
+                last_login_at=datetime.utcnow()
+            )
+            
+            logger.info(f"Saving user to Firestore...")
+            # Save to Firestore
+            saved_user = self.save_user(user)
+            logger.info(f"Created new user from Firebase: {firebase_uid}")
+            
+            return saved_user
+            
+        except Exception as e:
+            logger.error(f"Error creating user from Firebase: {str(e)}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            return None
+    
+    # User Management Methods
+    def get_user_by_uid(self, uid: str) -> Optional['AppUser']:
+        """Get user by UID """
         try:
             doc = self.users_collection.document(uid).get()
             if doc.exists:
@@ -267,33 +393,51 @@ class FirestoreDB:
         except Exception as e:
             logger.error(f"Error getting user {uid}: {e}")
             return None
-    
-    def get_user_by_email(self, email: str) -> Optional[AppUser]:
-        """Get user by email"""
+        
+    def _get_user_by_email(self, email: str) -> Optional['AppUser']:
+        """Get user by email address"""
         try:
-            docs = self.users_collection.where('email', '==', email).limit(1).stream()
+            users_query = self.users_collection.where('email', '==', email).limit(1)
+            docs = users_query.stream()
+            
             for doc in docs:
-                return AppUser.from_dict(doc.to_dict())
+                user_data = doc.to_dict()
+                user_data['uid'] = doc.id
+                return AppUser.from_dict(user_data)
+            
             return None
+            
         except Exception as e:
-            logger.error(f"Error getting user by email: {e}")
+            logger.error(f"Error getting user by email: {str(e)}")
             return None
-    
-    def update_user_last_login(self, uid: str) -> bool:
+
+    def _update_user_last_login(self, user_uid: str):
         """Update user's last login timestamp"""
         try:
-            doc_ref = self.users_collection.document(uid)
-            doc_ref.update({"lastLoginAt": datetime.utcnow()})
-            return True
+            user_ref = self.users_collection.document(user_uid)
+            user_ref.update({
+                'lastLoginAt': datetime.utcnow()
+            })
+            logger.info(f"Updated last login for user: {user_uid}")
+            
         except Exception as e:
-            logger.error(f"Error updating last login for {uid}: {e}")
-            return False
-    
-    # Classification operations matching Android DatabaseService
-    def save_classification_to_database(self, entry: ClassificationEntry) -> str:
-        """ Save classification result to database """
+            logger.error(f"Error updating last login: {str(e)}")
+
+    def save_user(self, user: AppUser) -> AppUser:
+        """Save or update user"""
         try:
-            # Use entry ID as document ID to match Android app
+            doc_ref = self.users_collection.document(user.uid)
+            doc_ref.set(user.to_dict(), merge=True)
+            logger.info(f"User saved: {user.uid}")
+            return user
+        except Exception as e:
+            logger.error(f"Error saving user: {e}")
+            raise e
+        
+    # Classification Management Methods
+    def save_classification_to_database(self, entry: ClassificationEntry) -> str:
+        """Save classification result to database"""
+        try:
             doc_ref = self.classifications_collection.document(entry.id)
             doc_ref.set(entry.to_dict())
             
@@ -302,9 +446,20 @@ class FirestoreDB:
         except Exception as e:
             logger.error(f"Failed to save classification to database: {e}")
             raise e
-    
+
+    def get_classification_by_id(self, classification_id: str) -> Optional[ClassificationEntry]:
+        """Get single classification by ID"""
+        try:
+            doc = self.classifications_collection.document(classification_id).get()
+            if doc.exists:
+                return ClassificationEntry.from_dict(doc.to_dict(), doc.id)
+            return None
+        except Exception as e:
+            logger.error(f"Error getting classification {classification_id}: {e}")
+            return None
+
     def update_classification_in_database(self, entry: ClassificationEntry, updated_by: str) -> bool:
-        """ Update classification result in database (for expert feedback) """
+        """Update classification result in database (for expert feedback)"""
         try:
             update_data = {
                 "userFeedback": entry.user_feedback,
@@ -323,9 +478,10 @@ class FirestoreDB:
         except Exception as e:
             logger.error(f"Failed to update classification in database: {e}")
             return False
-    
+
+    # Data Retrieval Methods for Admin/History
     def get_all_classifications_from_database(self, user_role: UserRole = None) -> List[Dict[str, Any]]:
-        """ Get all classification logs from database (only for admin) """
+        """Get all classification logs from database (only for admin)"""
         try:
             # Security check - only admin can access all classifications
             if user_role and user_role != UserRole.ADMIN:
@@ -344,9 +500,9 @@ class FirestoreDB:
         except Exception as e:
             logger.error(f"Failed to get all classifications from database: {e}")
             return []
-    
+
     def get_classifications_by_user_id(self, user_id: str) -> List[Dict[str, Any]]:
-        """ Get classification logs by user ID """
+        """Get classification logs by user ID"""
         try:
             docs = self.classifications_collection\
                       .where("userId", "==", user_id)\
@@ -364,20 +520,10 @@ class FirestoreDB:
         except Exception as e:
             logger.error(f"Failed to get classifications for user: {user_id}: {e}")
             return []
-    
-    def get_classification_by_id(self, classification_id: str) -> Optional[ClassificationEntry]:
-        """Get single classification by ID"""
-        try:
-            doc = self.classifications_collection.document(classification_id).get()
-            if doc.exists:
-                return ClassificationEntry.from_dict(doc.to_dict(), doc.id)
-            return None
-        except Exception as e:
-            logger.error(f"Error getting classification {classification_id}: {e}")
-            return None
-    
+
+    # Admin Export Methods
     def export_all_classifications_to_csv(self, user_role: UserRole = None) -> str:
-        """ Export all classification data to CSV format (for admin) """
+        """Export all classification data to CSV format (for admin)"""
         try:
             classifications = self.get_all_classifications_from_database(user_role)
             
@@ -395,48 +541,19 @@ class FirestoreDB:
         except Exception as e:
             logger.error(f"Failed to export classifications to CSV: {e}")
             raise e
-    
-    # Additional methods for web app compatibility
-    def get_recent_classifications(self, limit: int = 10) -> List[ClassificationEntry]:
-        """Get recent classifications"""
-        try:
-            docs = self.classifications_collection\
-                      .order_by("createdAt", direction=firestore.Query.DESCENDING)\
-                      .limit(limit)\
-                      .stream()
-            
-            return [ClassificationEntry.from_dict(doc.to_dict(), doc.id) for doc in docs if ClassificationEntry.from_dict(doc.to_dict(), doc.id)]
-        except Exception as e:
-            logger.error(f"Error getting recent classifications: {e}")
-            return []
-    
-    def get_classifications_by_ip(self, user_ip: str, limit: int = 50) -> List[ClassificationEntry]:
-        """Get classifications by user IP (for web app)"""
-        try:
-            docs = self.classifications_collection\
-                      .where("userIp", "==", user_ip)\
-                      .order_by("createdAt", direction=firestore.Query.DESCENDING)\
-                      .limit(limit)\
-                      .stream()
-            
-            return [ClassificationEntry.from_dict(doc.to_dict(), doc.id) for doc in docs if ClassificationEntry.from_dict(doc.to_dict(), doc.id)]
-        except Exception as e:
-            logger.error(f"Error getting classifications by IP: {e}")
-            return []
-    
-    def count_classifications(self) -> int:
-        """Count total classifications"""
-        try:
-            docs = list(self.classifications_collection.stream())
-            return len(docs)
-        except Exception as e:
-            logger.error(f"Error counting classifications: {e}")
-            return 0
-    
+
     def get_classification_stats(self) -> Dict[str, Any]:
         """Get classification statistics"""
         try:
-            classifications = self.get_recent_classifications(1000)  # Get last 1000 for stats
+            # Get recent classifications for stats
+            docs = self.classifications_collection\
+                      .order_by("createdAt", direction=firestore.Query.DESCENDING)\
+                      .limit(1000)\
+                      .stream()
+            
+            classifications = [ClassificationEntry.from_dict(doc.to_dict(), doc.id) 
+                             for doc in docs 
+                             if ClassificationEntry.from_dict(doc.to_dict(), doc.id)]
             
             class_counts = {}
             user_role_counts = {}
@@ -465,6 +582,56 @@ class FirestoreDB:
             logger.error(f"Error getting classification stats: {e}")
             return {}
 
+# Helper functions for creating users
+def create_guest_user(uid: str = None, email: str = None) -> AppUser:
+    """Create a guest user"""
+    return AppUser(
+        uid=uid or f"guest_{int(datetime.utcnow().timestamp())}",
+        email=email or f"guest_{uid}@temp.local",
+        display_name="Guest User",
+        role=UserRole.GUEST,
+        created_at=datetime.utcnow(),
+        last_login_at=datetime.utcnow(),
+        is_email_verified=False
+    )
+
+def create_basic_user(uid: str, email: str, display_name: str = None, password_hash: str = None, organization: str = None) -> AppUser:
+    """Create a basic user (for compatibility)"""
+    return AppUser(
+        uid=uid,
+        email=email,
+        display_name=display_name or email.split('@')[0],
+        role=UserRole.BASIC,
+        created_at=datetime.utcnow(),
+        last_login_at=datetime.utcnow(),
+        is_email_verified=True,
+        organization=organization
+    )
+
+def create_expert_user(uid: str, email: str, display_name: str = None, password_hash: str = None) -> AppUser:
+    """Create an expert user (for compatibility)"""
+    return AppUser(
+        uid=uid,
+        email=email,
+        display_name=display_name or email.split('@')[0],
+        role=UserRole.EXPERT,
+        created_at=datetime.utcnow(),
+        last_login_at=datetime.utcnow(),
+        is_email_verified=True
+    )
+
+def create_admin_user(uid: str, email: str, display_name: str = None) -> AppUser:
+    """Create an admin user (for compatibility)"""
+    return AppUser(
+        uid=uid,
+        email=email,
+        display_name=display_name or "Administrator",
+        role=UserRole.ADMIN,
+        created_at=datetime.utcnow(),
+        last_login_at=datetime.utcnow(),
+        is_email_verified=True
+    )
+
 # Initialize database instance
 firestore_db = FirestoreDB()
 
@@ -491,7 +658,7 @@ def get_database_info():
         }
 
 def init_database():
-    """Initialize Firestore (no setup needed)"""
+    """Initialize Firestore (connection test)"""
     try:
         # Test connection
         test_ref = db.collection('test').document('connection_test')
@@ -502,60 +669,7 @@ def init_database():
     except Exception as e:
         logger.error(f"Firestore connection test failed: {e}")
         return False
-
-# Helper functions for creating users
-def create_guest_user(uid: str = None, email: str = None) -> AppUser:
-    """Create a guest user"""
-    return AppUser(
-        uid=uid,
-        email=email or f"guest_{uid}@temp.local",
-        display_name="Guest User",
-        role=UserRole.GUEST,
-        created_at=datetime.utcnow(),
-        last_login_at=datetime.utcnow(),
-        is_email_verified=False
-    )
-
-def create_basic_user(uid: str, email: str, display_name: str = None, password_hash: str = None, organization: str = None) -> AppUser:
-    """Create a basic user"""
-    return AppUser(
-        uid=uid,
-        email=email,
-        display_name=display_name or email.split('@')[0],
-        role=UserRole.BASIC,
-        created_at=datetime.utcnow(),
-        last_login_at=datetime.utcnow(),
-        is_email_verified=True,
-        password_hash=password_hash,
-        organization=organization
-    )
-
-def create_expert_user(uid: str, email: str, display_name: str = None, password_hash: str = None) -> AppUser:
-    """Create an expert user"""
-    return AppUser(
-        uid=uid,
-        email=email,
-        display_name=display_name or email.split('@')[0],
-        role=UserRole.EXPERT,
-        created_at=datetime.utcnow(),
-        last_login_at=datetime.utcnow(),
-        is_email_verified=True,
-        password_hash=password_hash
-    )
-
-def create_admin_user(uid: str, email: str) -> AppUser:
-    """Create an admin user"""
-    return AppUser(
-        uid=uid,
-        email=email,
-        display_name="Administrator",
-        role=UserRole.ADMIN,
-        created_at=datetime.utcnow(),
-        last_login_at=datetime.utcnow(),
-        is_email_verified=True
-    )
-
-# Security exception class
+    
 class SecurityError(Exception):
     """Custom exception for security-related errors"""
     pass

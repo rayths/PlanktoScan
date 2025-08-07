@@ -51,28 +51,56 @@ function handleLogin(e) {
     showButtonLoading($submitBtn);
     showLoadingModal();
     
-    // Determine role based on email
-    const role = determineLoginRole(email);
-    
-    // Prepare form data
-    const formData = new FormData();
-    formData.append('email', email);
-    formData.append('password', password);
-    
-    // Make API request based on role
-    const endpoint = getLoginEndpoint(role);
-    
-    fetch(endpoint, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => {
+    // Use Firebase authentication instead of direct API calls
+    loginWithFirebase(email, password, $submitBtn);
+}
+
+/**
+ * Login with Firebase Authentication
+ */
+async function loginWithFirebase(email, password, $submitBtn) {
+    try {
+        console.log('Attempting Firebase login...');
+        
+        // Sign in with Firebase
+        const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+        
+        console.log('Firebase login successful:', user.uid);
+        
+        // Show warning if email is not verified, but allow login to continue
+        if (!user.emailVerified) {
+            console.warn('Email not verified, but login allowed to continue');
+            // Optional: Show a non-blocking notification
+            showEmailVerificationWarning();
+        }
+        
+        // Get ID token for backend authentication
+        const idToken = await user.getIdToken();
+        console.log('ID token retrieved for backend authentication');
+        
+        // Determine role based on email
+        const role = determineLoginRole(email);
+        
+        // Send to backend for session creation
+        const response = await fetch('/auth/firebase', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                id_token: idToken,
+                next_url: getNextUrl(),
+                role: role
+            })
+        });
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        return response.json();
-    })
-    .then(data => {
+        
+        const data = await response.json();
+        
         hideLoadingModal();
         hideButtonLoading($submitBtn);
         
@@ -80,7 +108,7 @@ function handleLogin(e) {
             console.log('Login successful, setting cookie and redirecting...');
             
             // Set welcome_seen cookie manually with longer expiry
-            setCookie('welcome_seen', 'true', 1); // 7 days
+            setCookie('welcome_seen', 'true', 7); // 7 days
             
             // Also call API to set cookie as fallback
             fetch('/api/set-welcome-seen', { method: 'POST' })
@@ -88,24 +116,52 @@ function handleLogin(e) {
                 .then(cookieResult => console.log('Cookie API result:', cookieResult))
                 .catch(err => console.log('Cookie API call failed:', err));
             
-            showLoginSuccess(data.role);
+            showLoginSuccess(data.user.role);
             
             // Redirect after short delay
             setTimeout(() => {
-                const nextUrl = getNextUrl();
+                const nextUrl = data.redirect_url || getNextUrl();
                 console.log('Redirecting to:', nextUrl);
                 window.location.href = nextUrl;
             }, 1500); // Increased delay to ensure cookie is set
         } else {
-            showLoginError(data.message || 'Login failed');
+            throw new Error(data.message || 'Authentication failed');
         }
-    })
-    .catch(error => {
+        
+    } catch (error) {
         hideLoadingModal();
         hideButtonLoading($submitBtn);
+        
         console.error('Login error:', error);
-        showLoginError('An error occurred during login. Please try again.');
-    });
+        
+        let errorMessage = 'Login failed. Please try again.';
+        
+        if (error.code) {
+            switch (error.code) {
+                case 'auth/user-not-found':
+                    errorMessage = 'No account found with this email address.';
+                    break;
+                case 'auth/wrong-password':
+                    errorMessage = 'Incorrect password.';
+                    break;
+                case 'auth/invalid-email':
+                    errorMessage = 'Invalid email address.';
+                    break;
+                case 'auth/user-disabled':
+                    errorMessage = 'This account has been disabled.';
+                    break;
+                case 'auth/too-many-requests':
+                    errorMessage = 'Too many failed login attempts. Please try again later.';
+                    break;
+                default:
+                    errorMessage = error.message || errorMessage;
+            }
+        } else if (error.message) {
+            errorMessage = error.message;
+        }
+        
+        showLoginError(errorMessage);
+    }
 }
 
 /**
@@ -163,16 +219,6 @@ function determineLoginRole(email) {
         return 'expert';
     }
     return 'basic';
-}
-
-/**
- * Get login endpoint based on role
- */
-function getLoginEndpoint(role) {
-    if (role === 'expert') {
-        return '/auth/expert';
-    }
-    return '/auth/basic';
 }
 
 /**
@@ -283,4 +329,26 @@ function getCookie(name) {
     const parts = value.split(`; ${name}=`);
     if (parts.length === 2) return parts.pop().split(';').shift();
     return null;
+}
+
+/**
+ * Show email verification warning (non-blocking)
+ */
+function showEmailVerificationWarning() {
+    // Show a toast-style notification that doesn't block login
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            title: 'Email Not Verified',
+            text: 'Your email address is not verified yet. Please check your inbox and verify your email for full account security.',
+            icon: 'warning',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 5000,
+            timerProgressBar: true
+        });
+    } else {
+        // Fallback for systems without SweetAlert
+        console.warn('Email verification warning: Please verify your email address for full account security');
+    }
 }

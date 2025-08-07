@@ -101,6 +101,32 @@
     <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
     <script src="{{ url_for('static', path='lib/bootstrap/js/bootstrap.js') }}"></script>
     <script src="{{ url_for('static', path='lib/swal.js') }}"></script>
+    
+    <!-- Firebase Libraries -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+
+    <!-- Firebase Configuration -->
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBwY2rp39tjUeZXsbYiWbu6eD4VzqaWuj4",
+            authDomain: "planktoscan.firebaseapp.com",
+            projectId: "planktoscan",
+            storageBucket: "planktoscan.firebasestorage.app",
+            messagingSenderId: "657895774674",
+            appId: "1:657895774674:web:d858190e42f3a49e16500b"
+        };
+
+        // Initialize Firebase
+        try {
+            firebase.initializeApp(firebaseConfig);
+            console.log('Firebase initialized successfully');
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
+        }
+    </script>
+    
     <script src="{{ url_for('static', path='js/login.js') }}"></script>
 </body>
 </html>

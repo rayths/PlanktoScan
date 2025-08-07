@@ -6,7 +6,7 @@
     <title>Register - PlanktoScan</title>
     <link href="{{ url_for('static', path='lib/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', path='lib/fontawesome/css/all.min.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', path='css/login.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', path='css/app.css') }}" rel="stylesheet">
     <style>
         .role-selection {
             margin: 2rem 0;
@@ -51,6 +51,23 @@
             background-color: #f8f9fa;
             border-radius: 8px;
             border-left: 4px solid #007bff;
+        }
+        .email-hint {
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            display: none;
+        }
+        .expert-hint {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .basic-hint {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
         }
     </style>
 </head>
@@ -122,12 +139,23 @@
                                     <input type="email" class="form-control" id="email" name="email" 
                                            placeholder="Enter your email" required>
                                     <div class="invalid-feedback" id="emailFeedback"></div>
+                                    
+                                    <!-- Email hints based on role -->
+                                    <div id="expertHint" class="email-hint expert-hint">
+                                        <i class="fas fa-info-circle"></i>
+                                        Expert accounts require @brin.go.id email address
+                                    </div>
+                                    <div id="basicHint" class="email-hint basic-hint">
+                                        <i class="fas fa-info-circle"></i>
+                                        You can use any valid email address for basic account
+                                    </div>
                                 </div>
 
                                 <div class="form-group">
                                     <label for="password" class="form-label">Password</label>
                                     <input type="password" class="form-control" id="password" name="password" 
-                                           placeholder="Create a password" required>
+                                           placeholder="Create a password (min. 6 characters)" required minlength="6">
+                                    <small class="form-text text-muted">Password must be at least 6 characters long</small>
                                 </div>
 
                                 <div class="form-group">
@@ -136,18 +164,29 @@
                                            placeholder="Confirm your password" required>
                                 </div>
 
-                                <!-- Conditional Fields -->
+                                <!-- Conditional Fields for Basic Users -->
                                 <div id="conditionalFields" class="conditional-fields" style="display: none;">
                                     <div class="form-group">
                                         <label for="organization" class="form-label">Organization</label>
                                         <input type="text" class="form-control" id="organization" name="organization" 
-                                               placeholder="University, Research Institute, etc.">
+                                               placeholder="University, Research Institute, etc." required>
+                                        <small class="form-text text-muted">Please specify your organization or institution</small>
                                     </div>
                                 </div>
 
-                                <button type="submit" class="btn btn-primary-modern btn-modern w-100 mb-3">
+                                <button type="submit" class="btn btn-primary-modern btn-modern w-100 mb-3" id="submitBtn">
                                     <i class="fas fa-user-plus"></i>
                                     Create Account
+                                </button>
+
+                                <!-- Alternative Registration Methods -->
+                                <div class="text-center mb-3">
+                                    <small class="text-muted">or</small>
+                                </div>
+
+                                <button type="button" class="btn btn-outline-danger w-100 mb-3" id="googleSignUpBtn">
+                                    <i class="fab fa-google"></i>
+                                    Sign up with Google
                                 </button>
                             </form>
                             
@@ -188,10 +227,44 @@
         </div>
     </div>
 
-    <!-- JavaScript -->
+    <!-- JavaScript Libraries -->
     <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
     <script src="{{ url_for('static', path='lib/bootstrap/js/bootstrap.js') }}"></script>
     <script src="{{ url_for('static', path='lib/swal.js') }}"></script>
+    
+    <!-- Firebase Libraries -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+
+    <!-- Firebase Configuration -->
+    <script>
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBwY2rp39tjUeZXsbYiWbu6eD4VzqaWuj4",
+            authDomain: "planktoscan.firebaseapp.com",
+            projectId: "planktoscan",
+            storageBucket: "planktoscan.firebasestorage.app",
+            messagingSenderId: "657895774674",
+            appId: "1:657895774674:web:d858190e42f3a49e16500b"
+        };
+
+        // Initialize Firebase
+        try {
+            firebase.initializeApp(firebaseConfig);
+            console.log('Firebase initialized successfully');
+        } catch (error) {
+            console.error('Firebase initialization error:', error);
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Configuration Error',
+                    text: 'Firebase is not properly configured',
+                    icon: 'error'
+                });
+            }
+        }
+    </script>
+
+    <!-- Custom Register Script -->
     <script src="{{ url_for('static', path='js/register.js') }}"></script>
 </body>
 </html>
