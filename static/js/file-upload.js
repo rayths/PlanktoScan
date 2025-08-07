@@ -16,8 +16,11 @@ function setupFileUploadHandlers() {
         e.preventDefault();
         e.stopPropagation();
 
+        console.log('Upload zone clicked, checking permissions...');
+
         // Check if user can upload
         if (!canUserUpload()) {
+            console.log('User cannot upload, upload blocked');
             return;
         }
         
@@ -31,6 +34,8 @@ function setupFileUploadHandlers() {
         
         if (getCurrentMode() === 'file') {
             $fileInput.trigger('click');
+        } else {
+            console.log('Not in file mode, current mode:', getCurrentMode());
         }
     });
 
@@ -66,6 +71,8 @@ function canUserUpload() {
     const isAuthenticated = window.USER_AUTHENTICATED || false;
     const userRole = window.USER_ROLE || null;
     
+    console.log('canUserUpload check:', { isAuthenticated, userRole });
+    
     if (!isAuthenticated) {
         console.log('User not authenticated, showing login popup');
         if (typeof showLoginRequiredPopup === 'function') {
@@ -88,6 +95,8 @@ function canUserUpload() {
         return false;
     }
     
+    // Allow Basic, Expert, and Admin users to upload
+    console.log('User can upload:', { userRole, isAuthenticated });
     return true;
 }
 

@@ -29,6 +29,12 @@
                 </a>
                 <div class="d-flex align-items-center ms-auto">
                     <div class="navbar-nav">
+                        {% if current_user and current_user.role.value in ['Expert', 'Admin'] %}
+                            <a href="/feedback/{{ classification.id }}" class="btn btn-warning btn-modern me-2">
+                                <i class="fas fa-comment-medical"></i> 
+                                {% if classification.user_feedback %}Edit Feedback{% else %}Add Feedback{% endif %}
+                            </a>
+                        {% endif %}
                         <button class="btn btn-primary-modern btn-modern" onclick="window.location.href='/'">
                             <i class="fas fa-plus"></i> New Analysis
                         </button>

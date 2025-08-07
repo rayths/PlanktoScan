@@ -32,9 +32,21 @@
                     <div class="card">
                         <div class="card-header">
                             <h4><i class="fas fa-history"></i> Prediction History</h4>
-                            <p class="text-muted mb-0">Your recent plankton analysis results</p>
+                            {% if is_admin %}
+                                <p class="text-muted mb-0">All plankton analysis results (Admin View)</p>
+                            {% elif is_expert %}
+                                <p class="text-muted mb-0">Your expert analysis results</p>
+                            {% else %}
+                                <p class="text-muted mb-0">Your recent plankton analysis results</p>
+                            {% endif %}
                         </div>
                         <div class="card-body">
+                            {% if error %}
+                                <div class="alert alert-danger" role="alert">
+                                    <i class="fas fa-exclamation-triangle"></i> {{ error }}
+                                </div>
+                            {% endif %}
+                            
                             {% if predictions %}
                                 <div class="table-responsive">
                                     <table class="table table-hover">
@@ -45,6 +57,10 @@
                                                 <th>Classification</th>
                                                 <th>Confidence</th>
                                                 <th>Location</th>
+                                                {% if is_admin %}
+                                                    <th>User</th>
+                                                    <th>Feedback Status</th>
+                                                {% endif %}
                                                 <th>Model</th>
                                                 <th>Actions</th>
                                             </tr>
@@ -53,7 +69,7 @@
                                             {% for prediction in predictions %}
                                             <tr>
                                                 <td>
-                                                    <small>{{ prediction.upload_date.strftime('%d/%m/%Y %H:%M') if prediction.upload_date else 'Unknown' }}</small>
+                                                    <small>{{ prediction.timestamp.strftime('%d/%m/%Y %H:%M') if prediction.timestamp else 'Unknown' }}</small>
                                                 </td>
                                                 <td>
                                                     <img src="/static/uploads/results/{{ prediction.stored_filename }}" 
@@ -61,21 +77,59 @@
                                                          style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;">
                                                 </td>
                                                 <td>
-                                                    <strong>{{ prediction.top_class }}</strong>
+                                                    <strong>{{ prediction.classification_result }}</strong>
                                                 </td>
                                                 <td>
-                                                    <span class="badge bg-success">{{ prediction.top_probability|round(3) * 100 }}%</span>
+                                                    <span class="badge bg-success">{{ (prediction.confidence * 100)|round(1) }}%</span>
                                                 </td>
                                                 <td>
                                                     <small>{{ prediction.location if prediction.location else 'Unknown' }}</small>
                                                 </td>
+                                                {% if is_admin %}
+                                                    <td>
+                                                        <small>
+                                                            {{ prediction.user_id[:8] }}...
+                                                            <br>
+                                                            <span class="badge bg-secondary">{{ prediction.user_role }}</span>
+                                                        </small>
+                                                    </td>
+                                                    <td>
+                                                        {% if prediction.user_feedback %}
+                                                            {% if prediction.is_correct == True %}
+                                                                <span class="badge bg-success">
+                                                                    <i class="fas fa-check"></i> Validated
+                                                                </span>
+                                                            {% elif prediction.is_correct == False %}
+                                                                <span class="badge bg-warning">
+                                                                    <i class="fas fa-exclamation"></i> Corrected
+                                                                </span>
+                                                            {% else %}
+                                                                <span class="badge bg-info">
+                                                                    <i class="fas fa-comment"></i> Reviewed
+                                                                </span>
+                                                            {% endif %}
+                                                        {% else %}
+                                                            <span class="badge bg-light text-dark">
+                                                                <i class="fas fa-clock"></i> Pending
+                                                            </span>
+                                                        {% endif %}
+                                                    </td>
+                                                {% endif %}
                                                 <td>
                                                     <small>{{ prediction.model_used }}</small>
                                                 </td>
                                                 <td>
-                                                    <a href="/result/{{ prediction.id }}" class="btn btn-sm btn-primary">
-                                                        <i class="fas fa-eye"></i> View
-                                                    </a>
+                                                    <div class="btn-group" role="group">
+                                                        <a href="/result/{{ prediction.id }}" class="btn btn-sm btn-primary">
+                                                            <i class="fas fa-eye"></i> View
+                                                        </a>
+                                                        {% if is_expert_or_admin %}
+                                                            <a href="/feedback/{{ prediction.id }}" class="btn btn-sm btn-warning">
+                                                                <i class="fas fa-comment-medical"></i> 
+                                                                {% if prediction.user_feedback %}Edit{% else %}Feedback{% endif %}
+                                                            </a>
+                                                        {% endif %}
+                                                    </div>
                                                 </td>
                                             </tr>
                                             {% endfor %}

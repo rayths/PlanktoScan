@@ -61,7 +61,8 @@
                             <div class="dropdown">
                                 <button class="btn btn-outline-light dropdown-toggle user-dropdown-btn" 
                                         type="button" 
-                                        id="userDropdown"  
+                                        id="userDropdown"
+                                        data-bs-toggle="dropdown"  
                                         aria-expanded="false">
                                     <i class="fas fa-user-circle"></i>
                                     <span class="user-name">{{ request.session.get('user_name', 'User') }}</span>
@@ -291,6 +292,56 @@
             console.log('USER_AUTHENTICATED:', window.USER_AUTHENTICATED);
             console.log('USER_ROLE:', window.USER_ROLE);
             console.log('SHOW_WELCOME_POPUP:', window.SHOW_WELCOME_POPUP);
+            
+            // Initialize Bootstrap dropdowns explicitly
+            if (typeof bootstrap !== 'undefined') {
+                // Initialize user dropdown
+                const userDropdownEl = document.getElementById('userDropdown');
+                if (userDropdownEl) {
+                    new bootstrap.Dropdown(userDropdownEl);
+                    console.log('User dropdown initialized');
+                }
+                
+                // Initialize other dropdowns
+                document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(dropdownEl => {
+                    new bootstrap.Dropdown(dropdownEl);
+                });
+            } else {
+                console.warn('Bootstrap not loaded, using fallback dropdown handler');
+                
+                // Fallback manual dropdown handler
+                const userDropdownEl = document.getElementById('userDropdown');
+                const userMenuEl = document.querySelector('#userDropdown + .dropdown-menu');
+                
+                if (userDropdownEl && userMenuEl) {
+                    userDropdownEl.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const isShown = userMenuEl.classList.contains('show');
+                        
+                        // Close all dropdowns first
+                        document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
+                            menu.classList.remove('show');
+                        });
+                        
+                        if (!isShown) {
+                            userMenuEl.classList.add('show');
+                            userDropdownEl.setAttribute('aria-expanded', 'true');
+                        } else {
+                            userDropdownEl.setAttribute('aria-expanded', 'false');
+                        }
+                    });
+                    
+                    // Close dropdown when clicking outside
+                    document.addEventListener('click', function(e) {
+                        if (!userDropdownEl.contains(e.target) && !userMenuEl.contains(e.target)) {
+                            userMenuEl.classList.remove('show');
+                            userDropdownEl.setAttribute('aria-expanded', 'false');
+                        }
+                    });
+                }
+            }
             
             // Initialize welcome popup with server data
             if (typeof handleWelcomePopupFromServer === 'function') {

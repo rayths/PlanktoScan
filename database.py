@@ -566,10 +566,10 @@ class FirestoreDB:
 
     # Data Retrieval Methods for Admin/History
     def get_all_classifications_from_database(self, user_role: UserRole = None) -> List[Dict[str, Any]]:
-        """Get all classification logs from database (only for admin)"""
+        """Get all classification logs from database (for admin only)"""
         try:
             # Security check - only admin can access all classifications
-            if user_role and user_role != UserRole.ADMIN:
+            if user_role and user_role not in [UserRole.ADMIN]:
                 raise SecurityError("Only admin can access all classifications")
             
             docs = self.classifications_collection.order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
@@ -577,10 +577,11 @@ class FirestoreDB:
             classifications = []
             for doc in docs:
                 data = doc.to_dict()
-                data["documentId"] = doc.id
+                data["id"] = doc.id  # Use 'id' instead of 'documentId' for consistency
+                data["documentId"] = doc.id  # Keep backward compatibility
                 classifications.append(data)
             
-            logger.info(f"Retrieved {len(classifications)} classifications from database")
+            logger.info(f"Retrieved {len(classifications)} classifications from database for {user_role}")
             return classifications
         except Exception as e:
             logger.error(f"Failed to get all classifications from database: {e}")
@@ -597,7 +598,8 @@ class FirestoreDB:
             classifications = []
             for doc in docs:
                 data = doc.to_dict()
-                data["documentId"] = doc.id
+                data["id"] = doc.id  # Use 'id' for consistency
+                data["documentId"] = doc.id  # Keep backward compatibility
                 classifications.append(data)
             
             logger.info(f"Retrieved {len(classifications)} classifications for user: {user_id}")

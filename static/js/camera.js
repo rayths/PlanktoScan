@@ -142,6 +142,8 @@ function cleanCameraState() {
 
 // Mode switching
 function switchMode(mode) {
+    console.log('switchMode called with mode:', mode);
+    
     window.capturedImageFile = null;
     PlanktoScanApp.uploadedImagePath = '';
     updateUIState('reset');
@@ -160,6 +162,34 @@ function switchMode(mode) {
     cleanCameraState();
     
     if (isCamera) {
+        // Check permissions for camera mode
+        const isAuthenticated = window.USER_AUTHENTICATED || false;
+        const userRole = window.USER_ROLE || null;
+        
+        if (!isAuthenticated) {
+            console.log('Camera mode requires authentication');
+            if (typeof showLoginRequiredPopup === 'function') {
+                showLoginRequiredPopup('not_logged_in');
+            } else {
+                window.location.href = '/login';
+            }
+            // Switch back to file mode
+            switchToFileMode();
+            return;
+        }
+        
+        if (userRole === 'guest') {
+            console.log('Guest users cannot use camera mode');
+            if (typeof showLoginRequiredPopup === 'function') {
+                showLoginRequiredPopup('guest_role');
+            } else {
+                alert('Guests can only view the application. Please login with a BASIC account or higher to use camera.');
+            }
+            // Switch back to file mode
+            switchToFileMode();
+            return;
+        }
+        
         startCamera().catch(error => {
             console.error('Failed to start camera:', error);
             showError('Failed to start camera. Please check permissions.');
@@ -170,8 +200,15 @@ function switchMode(mode) {
     }
 }
 
-function switchToCameraMode() { return switchMode('camera'); }
-function switchToFileMode() { return switchMode('file'); }
+function switchToCameraMode() { 
+    console.log('switchToCameraMode called');
+    return switchMode('camera'); 
+}
+
+function switchToFileMode() { 
+    console.log('switchToFileMode called');
+    return switchMode('file'); 
+}
 
 // Upload captured image
 function uploadCapturedImage(file, dataURL, cameraContainer) {

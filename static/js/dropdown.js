@@ -1,5 +1,12 @@
 // DROPDOWN MANAGEMENT MODULE
 
+/**
+ * Log dropdown actions for debugging
+ */
+function logDropdownAction(action, details = '') {
+    console.log(`[Dropdown] ${action}`, details);
+}
+
 function getDefaultValue(dropdownId) {
     const defaults = { 'classification-model': 'efficientnetv2b0' };
     return defaults[dropdownId] || '';
@@ -11,24 +18,20 @@ function updateActiveState($dropdown, $activeItem) {
 }
 
 function setupOutsideClickHandler() {
+    // Let Bootstrap handle outside clicks for dropdowns
+    // Only handle specific cases if needed
     document.addEventListener('click', function(e) {
-        const userToggle = document.querySelector('#userDropdown');
-        const userMenu = document.querySelector('#userDropdown + .dropdown-menu, .user-dropdown-btn + .dropdown-menu');
-        
-        if (userToggle && userMenu && !userToggle.contains(e.target) && !userMenu.contains(e.target)) {
-            userMenu.classList.remove('show');
-            userToggle.setAttribute('aria-expanded', 'false');
-        }
-        
+        // Only handle model dropdowns, not user dropdown
         if (!e.target.closest('.dropdown')) {
-            document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                if (menu !== userMenu) menu.classList.remove('show');
+            document.querySelectorAll('.dropdown-menu.show:not([aria-labelledby="userDropdown"])').forEach(menu => {
+                menu.classList.remove('show');
             });
         }
     });
 }
 
 function setupMenuClickHandlers(menu, toggle) {
+    // Only setup click prevention for non-navigation items
     menu.addEventListener('click', function(e) {
         if (!e.target.classList.contains('dropdown-item')) {
             e.stopPropagation();
@@ -38,6 +41,13 @@ function setupMenuClickHandlers(menu, toggle) {
     menu.querySelectorAll('.dropdown-item').forEach(item => {
         item.addEventListener('click', function(e) {
             logDropdownAction('item clicked', this.textContent.trim());
+            
+            // For navigation items (like history, logout), let them navigate
+            if (this.getAttribute('href') && this.getAttribute('href') !== '#') {
+                return true; // Allow navigation
+            }
+            
+            // For other items, close dropdown
             menu.classList.remove('show');
             toggle.setAttribute('aria-expanded', 'false');
             return true;
@@ -66,53 +76,14 @@ function initializeUserDropdown() {
     const dropdownToggle = document.querySelector('#userDropdown');
     const dropdownMenu = document.querySelector('#userDropdown + .dropdown-menu, .user-dropdown-btn + .dropdown-menu');
 
-    if (dropdownToggle) {
-        // Remove any existing event listeners
-        const newToggle = dropdownToggle.cloneNode(true);
-        dropdownToggle.parentNode.replaceChild(newToggle, dropdownToggle);
+    if (dropdownToggle && dropdownMenu) {
+        // Let Bootstrap handle the dropdown - don't add custom handlers
+        logDropdownAction('User dropdown found and ready for Bootstrap handling');
         
-        // Get the new reference
-        const freshToggle = document.querySelector('#userDropdown');
-        const freshMenu = document.querySelector('#userDropdown + .dropdown-menu, .user-dropdown-btn + .dropdown-menu');
-        
-        if (freshToggle && freshMenu) {
-            // Initialize Bootstrap dropdown
-            let bsDropdown;
-            if (typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
-                bsDropdown = new bootstrap.Dropdown(freshToggle);
-            }
-            
-            // Manual click handler
-            freshToggle.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                const isShown = freshMenu.classList.contains('show');
-                
-                // Close all other dropdowns first
-                document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                    if (menu !== freshMenu) {
-                        menu.classList.remove('show');
-                    }
-                });
-                
-                if (isShown) {
-                    freshMenu.classList.remove('show');
-                    freshToggle.setAttribute('aria-expanded', 'false');
-                } else {
-                    freshMenu.classList.add('show');
-                    freshToggle.setAttribute('aria-expanded', 'true');
-                }
-            });
-            
-            // Setup menu from closing when clicking inside
-            if (freshMenu) {
-                setupMenuClickHandlers(freshMenu, freshToggle);
-            }
-
-            // Setup outside click handler
-            setupOutsideClickHandler();
-        }
+        // Only setup menu click handlers for items
+        setupMenuClickHandlers(dropdownMenu, dropdownToggle);
+    } else {
+        logDropdownAction('User dropdown elements not found');
     }
 }
 
@@ -275,7 +246,7 @@ function updateDropdownButtonText(dropdownId) {
 // Export to global scope
 if (typeof window !== 'undefined') {
     Object.assign(window, {
-        initializeDropdowns, initializeUserDropdown, initializeAllDropdowns,
+        logDropdownAction, initializeDropdowns, initializeUserDropdown, initializeAllDropdowns,
         setupDropdownHandlers, getDropdownValue, setDropdownValue, validateDropdowns,
         resetDropdown, getAllDropdownValues, updateDropdownButtonText
     });

@@ -962,31 +962,66 @@ async def expert_feedback_page(
 # History and admin routes
 @router.get("/history", response_class=HTMLResponse)
 async def user_history(request: Request, db: FirestoreDB = Depends(get_db)):
-    """User prediction history"""
+    """User prediction history with role-based access"""
     current_user = get_current_user(request, db)
     if not current_user:
         return RedirectResponse(url="/login?next=/history", status_code=302)
     
     try:
-        # Get user's classifications
+        # Role-based data retrieval
         if current_user.role == UserRole.ADMIN:
-            # Admin can see all
+            # Only Admin can see all classifications
             classifications_data = db.get_all_classifications_from_database(current_user.role)
-            classifications = [ClassificationEntry.from_dict(data) for data in classifications_data]
+            logger.info(f"Admin {current_user.uid} accessing all predictions: {len(classifications_data)} results")
         else:
-            # Users see only their own
+            # Basic and Expert users see only their own
             classifications_data = db.get_classifications_by_user_id(current_user.uid)
-            classifications = [ClassificationEntry.from_dict(data) for data in classifications_data]
+            logger.info(f"{current_user.role.value} user {current_user.uid} accessing own predictions: {len(classifications_data)} results")
+        
+        # Convert to objects for template
+        predictions = []
+        for data in classifications_data:
+            try:
+                classification = ClassificationEntry.from_dict(data)
+                predictions.append(classification)
+            except Exception as e:
+                logger.warning(f"Error converting classification data: {e}")
+                # Create a basic object with available data
+                prediction = type('obj', (object,), {
+                    'id': data.get('id'),
+                    'stored_filename': data.get('stored_filename'),
+                    'classification_result': data.get('classification_result'),
+                    'confidence': data.get('confidence', 0),
+                    'location': data.get('location'),
+                    'model_used': data.get('model_used'),
+                    'timestamp': data.get('timestamp'),
+                    'user_id': data.get('user_id'),
+                    'user_role': data.get('user_role'),
+                    'user_feedback': data.get('user_feedback'),
+                    'is_correct': data.get('is_correct')
+                })
+                predictions.append(prediction)
         
         return templates.TemplateResponse("history.html", {
             "request": request,
-            "user": current_user,
-            "classifications": classifications
+            "predictions": predictions,
+            "current_user": current_user,
+            "is_admin": current_user.role == UserRole.ADMIN,
+            "is_expert": current_user.role == UserRole.EXPERT,
+            "is_expert_or_admin": current_user.role in [UserRole.EXPERT, UserRole.ADMIN]
         })
         
     except Exception as e:
-        logger.error(f"History error: {e}")
-        return RedirectResponse(url="/", status_code=302)
+        logger.error(f"History error for user {current_user.uid}: {e}")
+        return templates.TemplateResponse("history.html", {
+            "request": request,
+            "predictions": [],
+            "current_user": current_user,
+            "is_admin": current_user.role == UserRole.ADMIN,
+            "is_expert": current_user.role == UserRole.EXPERT,
+            "is_expert_or_admin": current_user.role in [UserRole.EXPERT, UserRole.ADMIN],
+            "error": "Failed to load prediction history"
+        })
 
 @router.get("/admin/export")
 async def export_classifications(request: Request, db: FirestoreDB = Depends(get_db)):
