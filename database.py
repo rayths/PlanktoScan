@@ -178,6 +178,13 @@ class ClassificationEntry:
         if self.third_confidence is not None:
             self.third_confidence = convert_numpy_types(self.third_confidence)
 
+    @property
+    def stored_filename(self) -> str:
+        """Extract filename from image_path for template compatibility"""
+        if self.image_path:
+            return self.image_path.split('/')[-1]  # Get just the filename
+        return ""
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for Firestore"""
         data = {

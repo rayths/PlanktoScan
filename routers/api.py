@@ -982,23 +982,24 @@ async def user_history(request: Request, db: FirestoreDB = Depends(get_db)):
         predictions = []
         for data in classifications_data:
             try:
-                classification = ClassificationEntry.from_dict(data)
+                # Use the ID that's already in the data
+                classification = ClassificationEntry.from_dict(data, data.get('id'))
                 predictions.append(classification)
             except Exception as e:
                 logger.warning(f"Error converting classification data: {e}")
                 # Create a basic object with available data
                 prediction = type('obj', (object,), {
                     'id': data.get('id'),
-                    'stored_filename': data.get('stored_filename'),
-                    'classification_result': data.get('classification_result'),
+                    'stored_filename': data.get('imagePath', '').split('/')[-1] if data.get('imagePath') else '',
+                    'classification_result': data.get('classificationResult'),
                     'confidence': data.get('confidence', 0),
                     'location': data.get('location'),
-                    'model_used': data.get('model_used'),
-                    'timestamp': data.get('timestamp'),
-                    'user_id': data.get('user_id'),
-                    'user_role': data.get('user_role'),
-                    'user_feedback': data.get('user_feedback'),
-                    'is_correct': data.get('is_correct')
+                    'model_used': data.get('modelUsed'),
+                    'timestamp': data.get('timestamp') or data.get('createdAt'),
+                    'user_id': data.get('userId'),
+                    'user_role': data.get('userRole'),
+                    'user_feedback': data.get('userFeedback'),
+                    'is_correct': data.get('isCorrect')
                 })
                 predictions.append(prediction)
         
@@ -1057,3 +1058,44 @@ async def get_admin_stats(request: Request, db: FirestoreDB = Depends(get_db)):
     except Exception as e:
         logger.error(f"Stats error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
+
+# Debug route to test authentication
+@router.get("/debug/user")
+async def debug_user_info(request: Request, db: FirestoreDB = Depends(get_db)):
+    """Debug route to check current user info"""
+    try:
+        current_user = get_current_user(request, db)
+        if not current_user:
+            return JSONResponse(content={"authenticated": False, "session": dict(request.session)})
+        
+        return JSONResponse(content={
+            "authenticated": True,
+            "user_id": current_user.uid,
+            "user_role": current_user.role.value,
+            "user_name": current_user.display_name,
+            "session": dict(request.session)
+        })
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)})
+
+# Debug route to test classifications retrieval
+@router.get("/debug/classifications")
+async def debug_classifications(request: Request, db: FirestoreDB = Depends(get_db)):
+    """Debug route to check classifications data"""
+    try:
+        current_user = get_current_user(request, db)
+        if not current_user:
+            return JSONResponse(content={"error": "Not authenticated"})
+        
+        if current_user.role == UserRole.ADMIN:
+            classifications_data = db.get_all_classifications_from_database(current_user.role)
+        else:
+            classifications_data = db.get_classifications_by_user_id(current_user.uid)
+        
+        return JSONResponse(content={
+            "user_role": current_user.role.value,
+            "classifications_count": len(classifications_data),
+            "sample_data": classifications_data[:2] if classifications_data else []
+        })
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)})
