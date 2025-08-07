@@ -236,32 +236,20 @@
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
 
+    <!-- Firebase Configuration Loader -->
+    <script src="{{ url_for('static', path='js/firebase-config.js') }}"></script>
+
     <!-- Firebase Configuration -->
     <script>
-        // Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyBwY2rp39tjUeZXsbYiWbu6eD4VzqaWuj4",
-            authDomain: "planktoscan.firebaseapp.com",
-            projectId: "planktoscan",
-            storageBucket: "planktoscan.firebasestorage.app",
-            messagingSenderId: "657895774674",
-            appId: "1:657895774674:web:d858190e42f3a49e16500b"
-        };
-
-        // Initialize Firebase
-        try {
-            firebase.initializeApp(firebaseConfig);
-            console.log('Firebase initialized successfully');
-        } catch (error) {
-            console.error('Firebase initialization error:', error);
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    title: 'Configuration Error',
-                    text: 'Firebase is not properly configured',
-                    icon: 'error'
-                });
+        // Initialize Firebase when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Use the parent container class since it doesn't have an ID
+            const container = document.querySelector('.login-form-container');
+            if (container && !container.id) {
+                container.id = 'register-form-container';
             }
-        }
+            initializeFirebaseForForm('register-form-container', 'registerForm');
+        });
     </script>
 
     <!-- Custom Register Script -->

@@ -52,6 +52,29 @@ async def login_page(request: Request, next: str = "/"):
         "next": next
     })
 
+# Firebase config endpoint
+@router.get("/api/firebase-config")
+async def get_firebase_config():
+    """Get Firebase configuration for frontend"""
+    config = {
+        "apiKey": os.getenv("FIREBASE_API_KEY"),
+        "authDomain": os.getenv("FIREBASE_AUTH_DOMAIN"),
+        "projectId": os.getenv("FIREBASE_PROJECT_ID"),
+        "storageBucket": os.getenv("FIREBASE_STORAGE_BUCKET"),
+        "messagingSenderId": os.getenv("FIREBASE_MESSAGING_SENDER_ID"),
+        "appId": os.getenv("FIREBASE_APP_ID")
+    }
+    
+    # Debug: Log config values
+    logger.info(f"Firebase config - apiKey: {'***' if config['apiKey'] else 'MISSING'}")
+    logger.info(f"Firebase config - authDomain: {config['authDomain']}")
+    logger.info(f"Firebase config - projectId: {config['projectId']}")
+    logger.info(f"Firebase config - storageBucket: {config['storageBucket']}")
+    logger.info(f"Firebase config - messagingSenderId: {config['messagingSenderId']}")
+    logger.info(f"Firebase config - appId: {'***' if config['appId'] else 'MISSING'}")
+    
+    return JSONResponse(content=config)
+
 @router.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
     """Registration page"""

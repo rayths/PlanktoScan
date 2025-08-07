@@ -22,21 +22,47 @@ FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")
 def initialize_firebase():
     """Initialize Firebase Admin SDK"""
     try:
+        logger.info(f"Current working directory: {os.getcwd()}")
+        logger.info(f"Environment FIREBASE_PROJECT_ID: {os.getenv('FIREBASE_PROJECT_ID')}")
+        logger.info(f"Environment FIREBASE_CREDENTIALS_PATH: {os.getenv('FIREBASE_CREDENTIALS_PATH')}")
+        
         if not firebase_admin._apps:
             # Get credentials path from environment  
-            cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH", "firebase-service-account.json")
+            cred_path = os.getenv("FIREBASE_CREDENTIALS_PATH")
             
-            if not os.path.exists(cred_path):
+            logger.info(f"Attempting to initialize Firebase with credentials: {cred_path}")
+            logger.info(f"Project ID: {FIREBASE_PROJECT_ID}")
+            logger.info(f"Credentials file exists: {os.path.exists(cred_path) if cred_path else False}")
+            
+            if not cred_path or not os.path.exists(cred_path):
                 raise FileNotFoundError(f"Firebase credentials file not found: {cred_path}")
+                
+            # Read and log service account project ID
+            try:
+                import json
+                with open(cred_path, 'r') as f:
+                    service_account = json.load(f)
+                    logger.info(f"Service account project_id: {service_account.get('project_id')}")
+                    logger.info(f"Service account client_email: {service_account.get('client_email')}")
+            except Exception as read_err:
+                logger.warning(f"Could not read service account for debugging: {read_err}")
                 
             # Initialize with service account
             cred = credentials.Certificate(cred_path)
-            initialize_app(cred, {
-                'projectId': FIREBASE_PROJECT_ID,
-            })
+            initialize_app(cred)
             logger.info("Firebase Admin SDK initialized successfully")
         else:
             logger.info("Firebase Admin SDK already initialized")
+        
+        # Test Firebase Admin connection
+        try:
+            # Test with a non-existent user to verify connection
+            auth.get_user_by_email("test@nonexistent.example.com")
+        except auth.UserNotFoundError:
+            logger.info("Firebase Admin SDK connection test passed (user not found as expected)")
+        except Exception as e:
+            logger.error(f"Firebase Admin SDK connection test failed: {type(e).__name__}: {str(e)}")
+            # Don't raise here, let the app continue but log the issue
         
         return firestore.client()
     except Exception as e:
@@ -232,8 +258,64 @@ class FirestoreDB:
     def verify_firebase_token(self, id_token: str) -> Optional[Dict[str, Any]]:
         """Verify Firebase ID token and return user claims"""
         try:
-            # Decode dan verify token menggunakan Firebase Admin
-            decoded_token = auth.verify_id_token(id_token)
+            logger.info(f"Attempting to verify Firebase token of length: {len(id_token)}")
+            logger.info(f"Token preview: {id_token[:50]}...")
+            
+            # Additional debug: Check if token is JWT format
+            if not id_token.count('.') == 2:
+                logger.error(f"Token is not JWT format - dot count: {id_token.count('.')}")
+                return None
+            
+            # Split token parts for analysis
+            parts = id_token.split('.')
+            logger.info(f"JWT parts lengths: header={len(parts[0])}, payload={len(parts[1])}, signature={len(parts[2])}")
+            
+            # Try to decode header for debugging
+            try:
+                import base64
+                import json
+                header_data = parts[0]
+                # Add padding if needed
+                missing_padding = len(header_data) % 4
+                if missing_padding:
+                    header_data += '=' * (4 - missing_padding)
+                decoded_header = base64.urlsafe_b64decode(header_data)
+                header = json.loads(decoded_header)
+                logger.info(f"JWT Header: {header}")
+            except Exception as header_err:
+                logger.warning(f"Could not decode JWT header: {header_err}")
+            
+            # Decode dan verify token menggunakan Firebase Admin dengan clock skew handling
+            max_retries = 3
+            retry_delay = 2  # seconds
+            
+            for attempt in range(max_retries):
+                try:
+                    decoded_token = auth.verify_id_token(id_token)
+                    logger.info(f"Token decoded successfully for UID: {decoded_token.get('uid')}")
+                    break
+                    
+                except auth.InvalidIdTokenError as e:
+                    error_msg = str(e)
+                    
+                    if "used too early" in error_msg and attempt < max_retries - 1:
+                        logger.warning(f"Clock skew detected (attempt {attempt + 1}/{max_retries}): {error_msg}")
+                        logger.info(f"Waiting {retry_delay} seconds and retrying...")
+                        
+                        import time
+                        time.sleep(retry_delay)
+                        retry_delay += 1  # Increase delay for next attempt
+                        continue
+                    else:
+                        # Final attempt failed or different error
+                        if "used too early" in error_msg:
+                            logger.error(f"Persistent clock skew after {max_retries} attempts")
+                            logger.error("Please sync your system clock: Run 'w32tm /resync' as administrator")
+                        raise e
+                        
+            else:
+                # This shouldn't happen due to break, but just in case
+                raise auth.InvalidIdTokenError("Max retries exceeded")
             
             # Get user info from Firebase Auth to get latest profile data
             firebase_user = auth.get_user(decoded_token['uid'])
@@ -253,14 +335,17 @@ class FirestoreDB:
             logger.info(f"Display name from user record: {firebase_user.display_name}")
             return user_info
             
-        except auth.InvalidIdTokenError:
-            logger.error("Invalid Firebase ID token")
+        except auth.InvalidIdTokenError as e:
+            logger.error(f"Invalid Firebase ID token - Details: {str(e)}")
+            logger.error(f"Token format check - Length: {len(id_token)}, Starts with: {id_token[:20] if id_token else 'None'}")
             return None
-        except auth.ExpiredIdTokenError:
-            logger.error("Expired Firebase ID token")
+        except auth.ExpiredIdTokenError as e:
+            logger.error(f"Expired Firebase ID token - Details: {str(e)}")
             return None
         except Exception as e:
-            logger.error(f"Error verifying Firebase token: {str(e)}")
+            logger.error(f"Error verifying Firebase token - Type: {type(e).__name__}, Details: {str(e)}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return None
     
     def authenticate_with_firebase(self, id_token: str) -> Optional['AppUser']:

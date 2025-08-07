@@ -3,14 +3,16 @@ import uvicorn
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+# Load environment variables FIRST before any other imports
+load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from dotenv import load_dotenv
-
 
 from routers import api
 from utils import preload_models, get_cache_info, clear_model_cache
@@ -28,7 +30,10 @@ logger = logging.getLogger(__name__)
 # BACKGROUND TASKS
 # ============================================================================
 
-load_dotenv()
+# Debug: Check if environment variables are loaded
+logger.info(f"Environment check - FIREBASE_API_KEY: {'SET' if os.getenv('FIREBASE_API_KEY') else 'NOT SET'}")
+logger.info(f"Environment check - FIREBASE_PROJECT_ID: {os.getenv('FIREBASE_PROJECT_ID')}")
+logger.info(f"Environment check - FIREBASE_AUTH_DOMAIN: {os.getenv('FIREBASE_AUTH_DOMAIN')}")
 
 async def background_model_preload():
     """Preload models in background"""
