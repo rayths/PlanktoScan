@@ -529,7 +529,7 @@ async def index(request: Request, db: FirestoreDB = Depends(get_db)):
     if current_user:
         logger.info(f"Current user: {current_user.uid} ({current_user.role.value})")
     
-    return templates.TemplateResponse("dashboard.html", {
+    return templates.TemplateResponse("index.html", {
         "request": request, 
         "show_welcome": show_welcome
     })
