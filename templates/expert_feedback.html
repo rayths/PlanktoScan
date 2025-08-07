@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Expert Feedback - PlanktoScan</title>
+    
+    <!-- Favicon and Stylesheets -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', path='assets/icon.png') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', path='assets/icon.png') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap/css/bootstrap.css') }}">    
+    <link rel="stylesheet" href="{{ url_for('static', path='lib/fontawesome/css/all.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}">
+</head>
+<body>
+    <!-- Results Container -->
+    <div class="results-container">
+        <!-- Background and Overlay -->
+        <div class="background">
+            <img src="{{ url_for('static', path='assets/background.png') }}" alt="background" class="background-image">
+        </div>
+        <div class="results-overlay"></div>
+
+        <!-- Navigation Bar -->
+        <nav class="navbar navbar-expand-lg navbar-light navbar-results">
+            <div class="container">
+                <a class="navbar-brand" href="https://www.brin.go.id" target="_blank" rel="noopener noreferrer">
+                    <img src="{{ url_for('static', path='assets/logo_brin.png') }}" alt="BRIN" class="main-logo">
+                </a>
+                <div class="d-flex align-items-center ms-auto">
+                    <div class="navbar-nav">
+                        <a href="/result/{{ result_id }}" class="btn btn-outline-primary me-2">
+                            <i class="fas fa-arrow-left"></i> Back to Result
+                        </a>
+                        <button class="btn btn-primary-modern btn-modern" onclick="window.location.href='/'">
+                            <i class="fas fa-plus"></i> New Analysis
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="results-content">
+            <div class="container">
+
+                <!-- Header Section -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="text-center mb-4">
+                            <img src="{{ url_for('static', path='assets/judul.png') }}" alt="PlanktoScan" class="card-title-logo">
+                            <h3 class="mt-3 mb-2">Expert Feedback</h3>
+                            <p class="text-muted">Provide professional evaluation for classification result</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Content Section -->
+                <div class="row justify-content-center">
+                    <div class="col-lg-10">
+                        
+                        <!-- Classification Summary -->
+                        <div class="results-card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-microscope text-primary"></i> 
+                                    Classification Summary
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="text-center">
+                                            <img src="{{ img_path }}" alt="Analyzed Image" class="img-fluid rounded shadow-sm" style="max-height: 200px;">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <table class="table table-sm">
+                                            <tr>
+                                                <td><strong>Primary Classification:</strong></td>
+                                                <td>{{ class1 }} ({{ probability1 }})</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Secondary:</strong></td>
+                                                <td>{{ class2 }} ({{ probability2 }})</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Tertiary:</strong></td>
+                                                <td>{{ class3 }} ({{ probability3 }})</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Model Used:</strong></td>
+                                                <td>{{ classification.model_used or 'Default Model' }}</td>
+                                            </tr>
+                                            <tr>
+                                                <td><strong>Analysis Date:</strong></td>
+                                                <td>{{ classification.created_at.strftime('%d %B %Y, %H:%M') }}</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Expert Feedback Form -->
+                        <div class="results-card">
+                            <div class="card-header">
+                                <h5 class="mb-0">
+                                    <i class="fas fa-user-md text-success"></i> 
+                                    Expert Evaluation
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                
+                                {% if classification.user_feedback %}
+                                    <!-- Show existing feedback -->
+                                    <div class="alert alert-success">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <i class="fas fa-check-circle me-2"></i>
+                                            <h6 class="mb-0">Expert Feedback Already Submitted</h6>
+                                        </div>
+                                        
+                                        <div class="mb-3">
+                                            <strong>Classification Status:</strong>
+                                            <span class="badge bg-{{ 'success' if classification.is_correct else 'warning' }} ms-2">
+                                                {{ 'Correct' if classification.is_correct else 'Incorrect' }}
+                                            </span>
+                                        </div>
+                                        
+                                        {% if not classification.is_correct and classification.correct_class %}
+                                        <div class="mb-3">
+                                            <strong>Correct Classification:</strong>
+                                            <span class="badge bg-info ms-2">{{ classification.correct_class }}</span>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        <div class="mb-3">
+                                            <strong>Expert Comments:</strong>
+                                            <p class="mt-2 mb-0">{{ classification.user_feedback }}</p>
+                                        </div>
+                                        
+                                        <button type="button" class="btn btn-outline-primary" onclick="enableEdit()">
+                                            <i class="fas fa-edit"></i> Edit Feedback
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Hidden edit form -->
+                                    <div id="edit-form" style="display: none;">
+                                {% else %}
+                                    <!-- New feedback form -->
+                                    <div id="feedback-form">
+                                {% endif %}
+                                
+                                        <form method="post" action="/feedback/{{ result_id }}">
+                                            <div class="row">
+                                                <div class="col-md-6 mb-3">
+                                                    <label for="is_correct" class="form-label">
+                                                        <i class="fas fa-clipboard-check"></i> Classification Accuracy
+                                                    </label>
+                                                    <select id="is_correct" name="is_correct" class="form-select" required onchange="toggleCorrectClassField()">
+                                                        <option value="">-- Select Status --</option>
+                                                        <option value="true" {{ 'selected' if classification.is_correct else '' }}>
+                                                            Correct - Classification is accurate
+                                                        </option>
+                                                        <option value="false" {{ 'selected' if classification.is_correct == false else '' }}>
+                                                            Incorrect - Classification needs correction
+                                                        </option>
+                                                    </select>
+                                                </div>
+                                                
+                                                <div class="col-md-6 mb-3" id="correct-class-field" style="display: none;">
+                                                    <label for="correct_class" class="form-label">
+                                                        <i class="fas fa-search"></i> Correct Classification
+                                                    </label>
+                                                    <input 
+                                                        type="text" 
+                                                        id="correct_class" 
+                                                        name="correct_class" 
+                                                        class="form-control"
+                                                        value="{{ classification.correct_class or '' }}"
+                                                        placeholder="Enter the correct species name"
+                                                    >
+                                                    <small class="text-muted">Specify the correct plankton species if classification is wrong</small>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-4">
+                                                <label for="user_feedback" class="form-label">
+                                                    <i class="fas fa-comment-medical"></i> Expert Comments & Analysis
+                                                </label>
+                                                <textarea 
+                                                    id="user_feedback" 
+                                                    name="user_feedback" 
+                                                    class="form-control" 
+                                                    rows="6" 
+                                                    maxlength="2000" 
+                                                    placeholder="Provide detailed expert analysis including:&#10;- Accuracy assessment&#10;- Morphological observations&#10;- Classification reasoning&#10;- Suggestions for improvement&#10;- Any additional scientific comments"
+                                                    required
+                                                >{{ classification.user_feedback or '' }}</textarea>
+                                                <div class="form-text">
+                                                    <span id="char-count">{{ (classification.user_feedback or '') | length }}</span>/2000 characters
+                                                </div>
+                                            </div>
+
+                                            <div class="expert-info mb-4 p-3 bg-light rounded">
+                                                <small class="text-muted">
+                                                    <i class="fas fa-user-md"></i> Expert: <strong>{{ current_user.display_name or current_user.email }}</strong>
+                                                    <span class="badge bg-success ms-1">BRIN Expert</span>
+                                                    {% if current_user.organization %}
+                                                    <br><i class="fas fa-building"></i> {{ current_user.organization }}
+                                                    {% endif %}
+                                                </small>
+                                            </div>
+
+                                            <div class="d-flex gap-2">
+                                                <button type="submit" class="btn btn-success" id="submit-feedback-btn">
+                                                    <i class="fas fa-paper-plane"></i> Submit Expert Feedback
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary" onclick="resetForm()">
+                                                    <i class="fas fa-undo"></i> Reset
+                                                </button>
+                                                {% if classification.user_feedback %}
+                                                <button type="button" class="btn btn-outline-danger" onclick="cancelEdit()">
+                                                    <i class="fas fa-times"></i> Cancel
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </form>
+                                    </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Additional Info -->
+                        <div class="results-card mt-4">
+                            <div class="card-header">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-info-circle text-info"></i> 
+                                    Expert Feedback Guidelines
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <ul class="mb-0">
+                                    <li>Evaluate classification accuracy based on morphological characteristics</li>
+                                    <li>Provide detailed scientific reasoning for your assessment</li>
+                                    <li>If incorrect, specify the correct species identification</li>
+                                    <li>Include suggestions for model improvement when applicable</li>
+                                    <li>Your feedback helps improve the classification system</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Load JavaScript -->
+    <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
+    <script src="{{ url_for('static', path='lib/bootstrap/js/bootstrap.js') }}"></script>
+    <script src="{{ url_for('static', path='lib/swal.js') }}"></script>
+    
+    <script>
+        // Character counter
+        document.getElementById('user_feedback').addEventListener('input', function() {
+            const current = this.value.length;
+            document.getElementById('char-count').textContent = current;
+        });
+
+        // Toggle correct class field
+        function toggleCorrectClassField() {
+            const isCorrect = document.getElementById('is_correct').value;
+            const correctClassField = document.getElementById('correct-class-field');
+            const correctClassInput = document.getElementById('correct_class');
+            
+            if (isCorrect === 'false') {
+                correctClassField.style.display = 'block';
+                correctClassInput.required = true;
+            } else {
+                correctClassField.style.display = 'none';
+                correctClassInput.required = false;
+                correctClassInput.value = '';
+            }
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            toggleCorrectClassField();
+            
+            // Check for error messages from URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
+            
+            if (error) {
+                let errorMessage = 'An error occurred while submitting feedback.';
+                if (error === 'save_failed') {
+                    errorMessage = 'Failed to save feedback to database. Please try again.';
+                } else if (error === 'general') {
+                    errorMessage = 'An unexpected error occurred. Please try again.';
+                }
+                
+                Swal.fire({
+                    title: 'Submission Failed',
+                    text: errorMessage,
+                    icon: 'error',
+                    confirmButtonText: 'Try Again'
+                });
+            }
+        });
+
+        // Edit functionality
+        function enableEdit() {
+            document.querySelector('.alert-success').style.display = 'none';
+            document.getElementById('edit-form').style.display = 'block';
+        }
+
+        function cancelEdit() {
+            document.querySelector('.alert-success').style.display = 'block';
+            document.getElementById('edit-form').style.display = 'none';
+        }
+
+        function resetForm() {
+            document.getElementById('user_feedback').value = '';
+            document.getElementById('is_correct').value = '';
+            document.getElementById('correct_class').value = '';
+            document.getElementById('char-count').textContent = '0';
+            toggleCorrectClassField();
+        }
+
+        // Form submission handling
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const feedback = document.getElementById('user_feedback').value.trim();
+            if (feedback.length < 10) {
+                e.preventDefault();
+                Swal.fire({
+                    title: 'Feedback Too Short',
+                    text: 'Please provide more detailed expert analysis (minimum 10 characters)',
+                    icon: 'warning'
+                });
+                return;
+            }
+
+            // Show loading
+            const submitBtn = document.getElementById('submit-feedback-btn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+        });
+    </script>
+</body>
+</html>

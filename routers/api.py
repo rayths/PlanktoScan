@@ -855,31 +855,86 @@ async def submit_expert_feedback(
         if not classification:
             raise HTTPException(status_code=404, detail="Classification not found")
         
+        # Convert string to boolean
+        is_correct_bool = is_correct == 'true' if isinstance(is_correct, str) else is_correct
+        
         # Update classification with feedback
         classification.user_feedback = user_feedback
-        classification.is_correct = is_correct
-        classification.correct_class = correct_class if not is_correct else None
+        classification.is_correct = is_correct_bool
+        classification.correct_class = correct_class if not is_correct_bool and correct_class else None
         
         # Update in database using Android-compatible method
         success = db.update_classification_in_database(classification, current_user.uid)
         
         if success:
-            return JSONResponse(content={
-                "success": True,
-                "message": "Feedback submitted successfully"
-            })
+            # Redirect back to result page with success message
+            return RedirectResponse(
+                url=f"/result/{result_id}?feedback_success=1", 
+                status_code=302
+            )
         else:
-            return JSONResponse(
-                status_code=500,
-                content={"success": False, "message": "Failed to save feedback"}
+            # Redirect back to feedback page with error
+            return RedirectResponse(
+                url=f"/feedback/{result_id}?error=save_failed", 
+                status_code=302
             )
         
     except Exception as e:
         logger.error(f"Submit feedback error: {str(e)}")
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "message": str(e)}
+        # Redirect back to feedback page with error
+        return RedirectResponse(
+            url=f"/feedback/{result_id}?error=general", 
+            status_code=302
         )
+
+# Expert feedback page
+@router.get("/feedback/{result_id}", response_class=HTMLResponse)
+async def expert_feedback_page(
+    result_id: str,
+    request: Request,
+    db: FirestoreDB = Depends(get_db)
+):
+    """Expert feedback page for classification result"""
+    try:
+        # Get current user and check if expert
+        current_user = get_current_user(request, db)
+        if not current_user or current_user.role not in [UserRole.EXPERT, UserRole.ADMIN]:
+            raise HTTPException(status_code=403, detail="Only experts and admins can access feedback page")
+        
+        # Get classification
+        classification = db.get_classification_by_id(result_id)
+        if not classification:
+            raise HTTPException(status_code=404, detail="Classification not found")
+        
+        # Generate image URL for result
+        filename = os.path.basename(classification.image_path)
+        image_url = f"/static/uploads/results/{filename}"
+
+        # Prepare context for rendering
+        context = {
+            "request": request,
+            "result_id": result_id,
+            "classification": classification,
+            "current_user": current_user,
+            
+            # Template variables for compatibility
+            "img_path": image_url,
+            "class1": classification.classification_result,
+            "class2": classification.second_class or "Unknown",
+            "class3": classification.third_class or "Unknown", 
+            "probability1": f"{classification.confidence:.1%}",
+            "probability2": f"{classification.second_confidence:.1%}" if classification.second_confidence else "0.0%",
+            "probability3": f"{classification.third_confidence:.1%}" if classification.third_confidence else "0.0%",
+            "response": f"Analisis menunjukkan {classification.classification_result} dengan tingkat keyakinan {classification.confidence:.1%}. Model yang digunakan: {classification.model_used}."
+        }
+        
+        return templates.TemplateResponse("expert_feedback.html", context)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error loading feedback page for {result_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error loading feedback page")
     
 # History and admin routes
 @router.get("/history", response_class=HTMLResponse)
