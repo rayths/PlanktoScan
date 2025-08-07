@@ -1,30 +1,27 @@
 import os
 import time
-import uuid
+import logging
 import requests
 from datetime import datetime
 from typing import Optional
-from utils import predict_img, get_cache_info, get_detailed_cache_info, get_model_mapping, MODEL_CACHE, generate_stored_filename, get_image_metadata, generate_uuid_28
 
 from fastapi import APIRouter, UploadFile, File, Form, Request, Response, Depends, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from database import (
-    get_db, FirestoreDB, AppUser, ClassificationEntry, UserRole,
-    create_guest_user, create_basic_user, create_expert_user, create_admin_user,
-    convert_numpy_types
-)
 
-import logging
+from utils import predict_img, get_cache_info, get_model_mapping, MODEL_CACHE, generate_uuid_28, preload_models_async, clear_model_cache
+from database import get_db, FirestoreDB, AppUser, ClassificationEntry, UserRole, create_guest_user
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
 
-result_cache = {}
+# ============================================================================
+# HELPER FUNCTIONS
+# ============================================================================
 
-# Auth helper functions
 def get_current_user(request: Request, db: FirestoreDB = Depends(get_db)) -> Optional[AppUser]:
     """Get current user from session"""
     user_id = request.session.get('user_id')
@@ -32,16 +29,9 @@ def get_current_user(request: Request, db: FirestoreDB = Depends(get_db)) -> Opt
         return db.get_user_by_uid(user_id)
     return None
 
-def require_role(required_role: UserRole):
-    """Decorator to require specific user role"""
-    def decorator(func):
-        async def wrapper(request: Request, *args, **kwargs):
-            user = get_current_user(request)
-            if not user or user.role != required_role:
-                raise HTTPException(status_code=403, detail="Insufficient permissions")
-            return await func(request, *args, **kwargs)
-        return wrapper
-    return decorator
+# ============================================================================
+# AUTHENTICATION ROUTES
+# ============================================================================
 
 # Login Routes
 @router.get("/login", response_class=HTMLResponse)
@@ -65,20 +55,14 @@ async def get_firebase_config():
         "appId": os.getenv("FIREBASE_APP_ID")
     }
     
-    # Debug: Log config values
     logger.info(f"Firebase config - apiKey: {'***' if config['apiKey'] else 'MISSING'}")
-    logger.info(f"Firebase config - authDomain: {config['authDomain']}")
     logger.info(f"Firebase config - projectId: {config['projectId']}")
-    logger.info(f"Firebase config - storageBucket: {config['storageBucket']}")
-    logger.info(f"Firebase config - messagingSenderId: {config['messagingSenderId']}")
-    logger.info(f"Firebase config - appId: {'***' if config['appId'] else 'MISSING'}")
     
     return JSONResponse(content=config)
 
 @router.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
     """Registration page"""
-    # Firebase config for frontend (public config only)
     firebase_config = {
         "api_key": os.getenv("FIREBASE_API_KEY"),
         "auth_domain": os.getenv("FIREBASE_AUTH_DOMAIN"),
@@ -128,7 +112,6 @@ async def expert_register(
             )
         
         # Update to expert role
-        from database import UserRole
         user.role = UserRole.EXPERT
         user.organization = organization or 'BRIN (Badan Riset dan Inovasi Nasional)'
         
@@ -146,7 +129,7 @@ async def expert_register(
             content={
                 "success": True,
                 "message": "Expert registration successful",
-                "redirect": "/dashboard"
+                "redirect": "/login"
             }
         )
         
@@ -156,37 +139,13 @@ async def expert_register(
             status_code=500,
             content={"success": False, "message": "Registration failed"}
         )
-
-@router.get("/login/guest")
-async def guest_login_direct(request: Request, next: str = "/"):
-    """Direct guest login without form"""
-    try:
-        # Create temporary guest user
-        guest_uid = f"guest_{int(time.time() * 1000)}"
-        user = create_guest_user(guest_uid)
-        
-        # Set session
-        request.session['user_id'] = user.uid
-        request.session['user_name'] = "Guest User"
-        request.session['user_role'] = user.role.value
-        
-        logger.info(f"Guest user created: {guest_uid}")
-        
-        # Create redirect response with welcome_seen cookie
-        response = RedirectResponse(url=next, status_code=302)
-        response.set_cookie("welcome_seen", "true", max_age=24*60*60)  # 1 day
-        return response
-        
-    except Exception as e:
-        logger.error(f"Guest login error: {str(e)}")
-        return RedirectResponse(url="/login?error=guest_failed", status_code=302)
-
+    
 @router.post("/login/guest")
-async def guest_login_api(request: Request):
-    """Guest login API endpoint"""
+async def guest_login(request: Request, next_url: str = Form("/")):
+    """Guest login endpoint - handles both API and form requests"""
     try:
         # Create temporary guest user
-        guest_uid = f"guest_{int(time.time() * 1000)}"
+        guest_uid = generate_uuid_28()
         user = create_guest_user(guest_uid)
         
         # Set session
@@ -196,17 +155,40 @@ async def guest_login_api(request: Request):
         
         logger.info(f"Guest user created: {guest_uid}")
         
-        # Create response with welcome_seen cookie
-        response = JSONResponse(content={"success": True, "role": "guest", "message": "Guest access granted"})
+        # Check if request expects JSON (API call) or redirect (form submission)
+        content_type = request.headers.get("content-type", "")
+        accept_header = request.headers.get("accept", "")
+        
+        if "application/json" in accept_header or "application/json" in content_type:
+            # API response
+            response = JSONResponse(content={
+                "success": True, 
+                "role": "Guest", 
+                "message": "Guest access granted",
+                "redirect_url": next_url
+            })
+        else:
+            # Form submission - redirect response
+            response = RedirectResponse(url=next_url, status_code=302)
+        
+        # Set welcome cookie for both response types
         response.set_cookie("welcome_seen", "true", max_age=24*60*60)  # 1 day
         return response
         
     except Exception as e:
         logger.error(f"Guest login error: {str(e)}")
-        return JSONResponse(
-            status_code=500,
-            content={"success": False, "message": "Guest access failed"}
-        )
+        
+        # Error handling based on request type
+        content_type = request.headers.get("content-type", "")
+        accept_header = request.headers.get("accept", "")
+        
+        if "application/json" in accept_header or "application/json" in content_type:
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "message": "Guest access failed"}
+            )
+        else:
+            return RedirectResponse(url="/login?error=guest_failed", status_code=302)
 
 @router.post("/auth/firebase")
 async def authenticate_with_firebase(
@@ -220,7 +202,6 @@ async def authenticate_with_firebase(
     """Authenticate user using Firebase ID token"""
     try:
         logger.info(f"Firebase auth attempt - Role: {role}")
-        logger.info(f"ID token length: {len(id_token) if id_token else 0}")
         
         # Verify Firebase token first
         firebase_user_info = db.verify_firebase_token(id_token)
@@ -254,9 +235,6 @@ async def authenticate_with_firebase(
                     status_code=403,
                     content={"success": False, "message": "Expert role requires @brin.go.id email"}
                 )
-            
-            # Update user role and organization
-            from database import UserRole  # Import here to avoid circular import
             
             if role.lower() == 'expert':
                 user.role = UserRole.EXPERT
@@ -352,7 +330,7 @@ async def logout(request: Request):
             status_code=500,
             content={"success": False, "message": "Logout failed"}
         )
-    
+
 @router.post("/change-password")
 async def change_password(
     request: Request,
@@ -420,7 +398,11 @@ async def change_password(
             status_code=500,
             content={"success": False, "error": "Failed to change password"}
         )
-    
+
+# ============================================================================
+# LOCATION AND UTILITY ROUTES
+# ============================================================================
+
 # Location Routes
 @router.get("/api/reverse-geocode")
 async def reverse_geocode(lat: float, lon: float):
@@ -428,21 +410,16 @@ async def reverse_geocode(lat: float, lon: float):
         "User-Agent": "PlanktoScanApp/1.0"
     }
 
-    # URL untuk Nominatim API
     url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=14&addressdetails=1"
     
     try:
-        # Request ke Nominatim dengan headers yang benar
         resp = requests.get(url, headers=headers, timeout=15)
-        resp.raise_for_status()  # Raise exception jika status code error
-        
+        resp.raise_for_status()  
         data = resp.json()
         
-        # Pastikan response valid
         if data and 'display_name' in data:
             return JSONResponse(content=data)
         else:
-            # Jika tidak ada display_name, return koordinat
             return JSONResponse(content={
                 "display_name": f"GPS: {lat:.4f}, {lon:.4f}",
                 "address": {}
@@ -450,7 +427,6 @@ async def reverse_geocode(lat: float, lon: float):
             
     except requests.exceptions.HTTPError as e:
         print(f"HTTP Error: {e}")
-        # Return koordinat jika HTTP error
         return JSONResponse(content={
             "display_name": f"GPS: {lat:.4f}, {lon:.4f}",
             "address": {},
@@ -459,7 +435,6 @@ async def reverse_geocode(lat: float, lon: float):
         
     except requests.exceptions.RequestException as e:
         print(f"Request Error: {e}")
-        # Return koordinat jika request error
         return JSONResponse(content={
             "display_name": f"GPS: {lat:.4f}, {lon:.4f}",
             "address": {},
@@ -468,29 +443,64 @@ async def reverse_geocode(lat: float, lon: float):
         
     except Exception as e:
         print(f"Unexpected Error: {e}")
-        # Return koordinat jika error lainnya
         return JSONResponse(content={
             "display_name": f"GPS: {lat:.4f}, {lon:.4f}",
             "address": {},
             "error": f"Unexpected error: {str(e)}"
         })
-    
-@router.get("/cache-status")
+
+# ============================================================================
+# CACHE MANAGEMENT ROUTES
+# ============================================================================
+
+@router.get("/cache/status")
 async def get_cache_status():
-    """Get current model cache status"""
+    """Get detailed cache status and performance metrics"""
     try:
         cache_info = get_cache_info()
-        detailed_info = get_detailed_cache_info()
         
         return JSONResponse(content={
             "status": "success",
             "cache_info": cache_info,
-            "detailed_info": detailed_info,
-            "cache_keys": list(MODEL_CACHE.keys()),
             "timestamp": time.time()
         })
     except Exception as e:
         logger.error(f"Error getting cache status: {str(e)}")
+        return JSONResponse(status_code=500, content={
+            "status": "error",
+            "error": str(e)
+        })
+
+@router.post("/cache/clear")
+async def clear_cache():
+    """Clear model cache (admin only)"""
+    try:
+        # Note: Add admin authentication here
+        clear_model_cache()
+        
+        return JSONResponse(content={
+            "status": "success",
+            "message": "Model cache cleared successfully"
+        })
+    except Exception as e:
+        logger.error(f"Error clearing cache: {str(e)}")
+        return JSONResponse(status_code=500, content={
+            "status": "error", 
+            "error": str(e)
+        })
+    
+@router.post("/cache/preload")
+async def preload_models_endpoint():
+    """Manually trigger model preloading"""
+    try:
+        results = preload_models_async()
+        
+        return JSONResponse(content={
+            "status": "success",
+            "preload_results": results
+        })
+    except Exception as e:
+        logger.error(f"Error preloading models: {str(e)}")
         return JSONResponse(status_code=500, content={
             "status": "error",
             "error": str(e)
@@ -525,6 +535,10 @@ async def get_preload_status():
             "error": str(e)
         })
 
+# ============================================================================
+# MAIN APPLICATION ROUTES
+# ============================================================================
+
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request, db: FirestoreDB = Depends(get_db)):
     """Main dashboard route with welcome popup on first visit"""
@@ -542,20 +556,19 @@ async def index(request: Request, db: FirestoreDB = Depends(get_db)):
     # Check if user has seen welcome popup before
     welcome_seen = request.cookies.get("welcome_seen")
     
-    # Get session info for debugging
-    session_info = dict(request.session)
-    
     # Don't show welcome popup if user is logged in OR if they've seen it before
     show_welcome = not user_logged_in and not bool(welcome_seen)
     
-    logger.info(f"Welcome popup check - User logged in: {user_logged_in}, Cookie: {welcome_seen}, Session: {session_info}, Show welcome: {show_welcome}")
-    if current_user:
-        logger.info(f"Current user: {current_user.uid} ({current_user.role.value})")
+    logger.info(f"Welcome popup check - User logged in: {user_logged_in}, Show welcome: {show_welcome}")
     
     return templates.TemplateResponse("index.html", {
         "request": request, 
         "show_welcome": show_welcome
     })
+
+# ============================================================================
+# WELCOME POPUP MANAGEMENT
+# ============================================================================
 
 @router.post("/set-welcome-seen")
 async def set_welcome_seen(response: Response):
@@ -589,6 +602,10 @@ async def check_cookie(request: Request):
         "show_welcome": not bool(welcome_seen)
     })
 
+# ============================================================================
+# FILE UPLOAD AND PREDICTION
+# ============================================================================
+
 @router.post("/upload")
 async def upload_image(file: UploadFile = File(...)):
     """Upload image file to server and return server path"""
@@ -606,7 +623,6 @@ async def upload_image(file: UploadFile = File(...)):
 
         # Generate unique filename to avoid conflicts
         timestamp = int(time.time())
-        file_extension = os.path.splitext(file.filename)[1]
         filename = f"{timestamp}_{file.filename}"
         file_path = os.path.join(upload_dir, filename)
         
@@ -627,7 +643,7 @@ async def upload_image(file: UploadFile = File(...)):
         # Return server path (not data URL)
         return JSONResponse(content={
             "success": True,
-            "img_path": file_path,  # This is the server file path
+            "img_path": file_path,
             "filename": filename,
             "original_filename": file.filename,
             "file_size": file_size
@@ -640,174 +656,128 @@ async def upload_image(file: UploadFile = File(...)):
             content={"error": f"Upload failed: {str(e)}"}
         )
 
-def require_auth(request: Request):
-    """Middleware function to require authentication"""
-    user_id = request.session.get("user_id")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Authentication required")
-    return user_id
-
-# Classification prediction endopoint
 @router.post("/predict")
-async def predict(
+async def predict_image_enhanced(
     request: Request,
-    model_option: str = Form(...),
-    location: Optional[str] = Form("unknown"),
-    file: Optional[UploadFile] = File(None),
-    img_path: Optional[str] = Form(None),
-    has_captured_file: Optional[bool] = Form(False),
+    image: UploadFile = File(...),
+    classification_model: str = Form(...),
+    sampling_location: str = Form(...),
     db: FirestoreDB = Depends(get_db)
 ):
-    start_time = time.time()
-
+    """Enhanced prediction endpoint with performance monitoring"""
+    
+    request_start_time = time.time()
+    
     try:
-        logger.info(f"Prediction request: model={model_option}, has_file={file is not None}, has_captured={has_captured_file}")
-        logger.info(f"img_path received: {img_path}")
+        # Validate user session
+        user_id = request.session.get('user_id')
+        if not user_id:
+            raise HTTPException(status_code=401, detail="User not authenticated")
         
-        # Validate image path
-        if img_path and img_path.startswith('data:'):
-            raise ValueError("Data URL received instead of file path. File upload may have failed.")
+        logger.info(f"Prediction request from user: {user_id}")
+        logger.info(f"Model requested: {classification_model}")
         
-        # Get current user or create guest
-        current_user = get_current_user(request, db)
-        if not current_user:
-            # Create temporary guest user
-            guest_uid = f"temp_guest_{int(time.time())}"
-            current_user = create_guest_user(guest_uid)
-            current_user = db.save_user(current_user)
-            
-            # Set session
-            request.session['user_id'] = current_user.uid
-            request.session['user_role'] = current_user.role.value
+        # Validate file
+        if not image.filename:
+            raise HTTPException(status_code=400, detail="No file uploaded")
         
-        # Get user IP
-        user_ip = request.client.host if request.client else "unknown"
-        original_filename = None
-
-        # Handle different image sources
-        if file:
-            # Handle uploaded file
-            original_filename = file.filename
-            file_extension = os.path.splitext(original_filename)[1].lower()
-            
-            # Generate temporary path for prediction
-            temp_file_path = f"static/uploads/temp/temp_{int(time.time())}_{file.filename}"
-            
-            # Save uploaded file temporarily
-            with open(temp_file_path, "wb") as buffer:
-                content = await file.read()
-                buffer.write(content)
-            
-            file_path_for_prediction = temp_file_path
-            
-        elif has_captured_file:
-            # Handle camera capture
-            original_filename = "camera-capture.jpg"
-            file_extension = ".jpg"
-            file_path_for_prediction = "static/uploads/temp/camera-capture.jpg"
-            
-            if not os.path.exists(file_path_for_prediction):
-                raise FileNotFoundError(f"Camera capture file not found: {file_path_for_prediction}")
-            
-        elif img_path:
-            # Handle existing image path
-            if not os.path.exists(img_path):
-                raise FileNotFoundError(f"Image file not found: {img_path}")
-            
-            original_filename = os.path.basename(img_path)
-            file_extension = os.path.splitext(original_filename)[1].lower()
-            file_path_for_prediction = img_path
-            
-        else:
-            raise ValueError("No image source provided")
-
-        # Run prediction
-        logger.info(f"Starting prediction with model: {model_option}")
-        actual_class, probability_class, response = predict_img(model_option, file_path_for_prediction)
+        # Check file size (10MB limit)
+        MAX_FILE_SIZE = 10 * 1024 * 1024
+        content = await image.read()
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail="File too large (max 10MB)")
         
-        processing_time = time.time() - start_time
-
-        # Generate unique ID for this classification
-        classification_id = str(int(time.time() * 1000)) 
+        # Validate file type
+        allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+        if image.content_type not in allowed_types:
+            raise HTTPException(status_code=400, detail="Invalid file type")
         
-        # Generate filename for storage
-        top_classification = actual_class[0] if actual_class else "unknown"
-        stored_filename = generate_stored_filename(
-            location=location,
-            classification_result=top_classification,
-            original_extension=file_extension
+        # Save uploaded file
+        file_save_start = time.time()
+        filename = f"{generate_uuid_28()}_{image.filename}"
+        file_path = f"static/uploads/{filename}"
+        
+        with open(file_path, "wb") as buffer:
+            buffer.write(content)
+        
+        file_save_time = time.time() - file_save_start
+        logger.info(f"File saved in {file_save_time:.3f}s: {filename}")
+        
+        # Run prediction with enhanced function
+        prediction_result = predict_img(
+            model_option=classification_model,
+            img_path=file_path,
+            use_cache=True
         )
         
-        # Move file to final location
-        final_file_path = f"static/uploads/results/{stored_filename}"
-
-        # Create results directory if not exists
-        os.makedirs(os.path.dirname(final_file_path), exist_ok=True)
+        # Extract results
+        predicted_class = prediction_result['predicted_class']
+        confidence = prediction_result['confidence']
+        response_message = prediction_result['response_message']
+        performance_metrics = prediction_result.get('performance_metrics', {})
         
-        if file or has_captured_file:
-            # Move/rename file to final location
-            if os.path.exists(file_path_for_prediction):
-                os.rename(file_path_for_prediction, final_file_path)
-                logger.info(f"File renamed: {file_path_for_prediction} -> {final_file_path}")
-        else:
-            # For existing files, copy to new location
-            import shutil
-            shutil.copy2(file_path_for_prediction, final_file_path)
-        
-        # Get image metadata
-        metadata = get_image_metadata(final_file_path)
-        
-        # Create ClassificationEntry object
+        # Save to database
+        db_save_start = time.time()
         classification_entry = ClassificationEntry(
-            id=classification_id,
-            user_id=current_user.uid,
-            user_role=current_user.role.value,
-            image_path=final_file_path,
-            classification_result=actual_class[0] if len(actual_class) > 0 else "Unknown",
-            confidence=convert_numpy_types(probability_class[0]) if len(probability_class) > 0 else 0.0,
-            model_used=model_option,
-            timestamp=datetime.utcnow(),
-            location=location,
-            second_class=actual_class[1] if len(actual_class) > 1 else None,
-            second_confidence=convert_numpy_types(probability_class[1]) if len(probability_class) > 1 else None,
-            third_class=actual_class[2] if len(actual_class) > 2 else None,
-            third_confidence=convert_numpy_types(probability_class[2]) if len(probability_class) > 2 else None,
+            user_id=user_id,
+            image_path=filename,
+            classification_result=predicted_class,
+            confidence=confidence,
+            model_used=classification_model,
+            sampling_location=sampling_location,
+            timestamp=datetime.now()
         )
         
-        # Save to Firestore using Android-compatible method
-        result_id = db.save_classification_to_database(classification_entry)
+        doc_id = db.save_classification(classification_entry)
+        db_save_time = time.time() - db_save_start
         
-        logger.info(f"Classification saved to Firestore with ID: {result_id}")
-
-        # Store in cache
-        result_cache[str(result_id)] = {
-            "img_path": f"/static/uploads/results/{stored_filename}",
-            "class1": actual_class[0],
-            "class2": actual_class[1] if len(actual_class) > 1 else "Unknown",
-            "class3": actual_class[2] if len(actual_class) > 2 else "Unknown",
-            "probability1": f"{probability_class[0]:.1%}",
-            "probability2": f"{probability_class[1]:.1%}" if len(probability_class) > 1 else "0.0%",
-            "probability3": f"{probability_class[2]:.1%}" if len(probability_class) > 2 else "0.0%",
-            "response": response,
-            "location": location,
-            "model_used": model_option,
-            "timestamp": time.time()
+        total_request_time = time.time() - request_start_time
+        
+        # Enhanced response with performance metrics
+        response_data = {
+            "message": "success",
+            "classification_result": predicted_class,
+            "confidence": f"{confidence:.4f}",
+            "response": response_message,
+            "result_id": doc_id,
+            "top_3_predictions": prediction_result.get('top_3_predictions', []),
+            "performance": {
+                **performance_metrics,
+                "file_save_time": f"{file_save_time:.3f}s",
+                "db_save_time": f"{db_save_time:.3f}s",
+                "total_request_time": f"{total_request_time:.3f}s"
+            }
         }
         
-        logger.info(f"Prediction successful. Result ID: {result_id}")
-
-        return JSONResponse(content={
-            "success": True,
-            "result_id": result_id,  
-            "redirect_url": f"/result/{result_id}"
-        })
+        logger.info(f"Prediction completed successfully in {total_request_time:.3f}s")
         
+        return JSONResponse(content=response_data)
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Prediction failed: {str(e)}")
+        total_request_time = time.time() - request_start_time
+        logger.error(f"Prediction failed after {total_request_time:.3f}s: {str(e)}")
+        
+        # Cleanup uploaded file if it exists
+        if 'file_path' in locals() and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except:
+                pass
+        
         return JSONResponse(
             status_code=500,
-            content={"success": False, "error": str(e)}
+            content={
+                "message": "error",
+                "error": str(e),
+                "request_time": f"{total_request_time:.3f}s"
+            }
         )
+
+# ============================================================================
+# RESULT AND FEEDBACK ROUTES
+# ============================================================================
 
 @router.get("/result/{result_id}", response_class=HTMLResponse)
 async def get_result(
@@ -838,15 +808,13 @@ async def get_result(
             "classification": classification,
             "current_user": current_user,
             "can_edit": current_user and current_user.role in [UserRole.EXPERT, UserRole.ADMIN],
-            
-            # Template variables for compatibility
             "img_path": image_url,
             "class1": classification.classification_result,
             "class2": classification.second_class or "Unknown",
             "class3": classification.third_class or "Unknown", 
-            "probability1": f"{classification.confidence:.1%}",
-            "probability2": f"{classification.second_confidence:.1%}" if classification.second_confidence else "0.0%",
-            "probability3": f"{classification.third_confidence:.1%}" if classification.third_confidence else "0.0%",
+            "confidence1": f"{classification.confidence:.1%}",
+            "confidence2": f"{classification.second_confidence:.1%}" if classification.second_confidence else "0.0%",
+            "confidence3": f"{classification.third_confidence:.1%}" if classification.third_confidence else "0.0%",
             "response": f"Analisis menunjukkan {classification.classification_result} dengan tingkat keyakinan {classification.confidence:.1%}. Model yang digunakan: {classification.model_used}."
         }
         
@@ -855,8 +823,54 @@ async def get_result(
     except Exception as e:
         logger.error(f"Error loading result {result_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Error loading result")
+    
+@router.get("/feedback/{result_id}", response_class=HTMLResponse)
+async def expert_feedback_page(
+    result_id: str,
+    request: Request,
+    db: FirestoreDB = Depends(get_db)
+):
+    """Expert feedback page for classification result"""
+    try:
+        # Get current user and check if expert
+        current_user = get_current_user(request, db)
+        if not current_user or current_user.role not in [UserRole.EXPERT, UserRole.ADMIN]:
+            raise HTTPException(status_code=403, detail="Only experts and admins can access feedback page")
+        
+        # Get classification
+        classification = db.get_classification_by_id(result_id)
+        if not classification:
+            raise HTTPException(status_code=404, detail="Classification not found")
+        
+        # Generate image URL for result
+        filename = os.path.basename(classification.image_path)
+        image_url = f"/static/uploads/results/{filename}"
 
-# Expert feedback
+        # Prepare context for rendering
+        context = {
+            "request": request,
+            "result_id": result_id,
+            "classification": classification,
+            "current_user": current_user,
+            "img_path": image_url,
+            "class1": classification.classification_result,
+            "class2": classification.second_class or "Unknown",
+            "class3": classification.third_class or "Unknown", 
+            "confidence1": f"{classification.confidence:.1%}",
+            "confidence2": f"{classification.second_confidence:.1%}" if classification.second_confidence else "0.0%",
+            "confidence3": f"{classification.third_confidence:.1%}" if classification.third_confidence else "0.0%",
+            "response": f"Analisis menunjukkan {classification.classification_result} dengan tingkat keyakinan {classification.confidence:.1%}. Model yang digunakan: {classification.model_used}."
+        }
+        
+        return templates.TemplateResponse("expert_feedback.html", context)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error loading feedback page for {result_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error loading feedback page")
+
+
 @router.post("/feedback/{result_id}")
 async def submit_expert_feedback(
     result_id: str,
@@ -910,56 +924,10 @@ async def submit_expert_feedback(
             status_code=302
         )
 
-# Expert feedback page
-@router.get("/feedback/{result_id}", response_class=HTMLResponse)
-async def expert_feedback_page(
-    result_id: str,
-    request: Request,
-    db: FirestoreDB = Depends(get_db)
-):
-    """Expert feedback page for classification result"""
-    try:
-        # Get current user and check if expert
-        current_user = get_current_user(request, db)
-        if not current_user or current_user.role not in [UserRole.EXPERT, UserRole.ADMIN]:
-            raise HTTPException(status_code=403, detail="Only experts and admins can access feedback page")
-        
-        # Get classification
-        classification = db.get_classification_by_id(result_id)
-        if not classification:
-            raise HTTPException(status_code=404, detail="Classification not found")
-        
-        # Generate image URL for result
-        filename = os.path.basename(classification.image_path)
-        image_url = f"/static/uploads/results/{filename}"
+# ============================================================================
+# HISTORY AND ADMIN ROUTES
+# ============================================================================
 
-        # Prepare context for rendering
-        context = {
-            "request": request,
-            "result_id": result_id,
-            "classification": classification,
-            "current_user": current_user,
-            
-            # Template variables for compatibility
-            "img_path": image_url,
-            "class1": classification.classification_result,
-            "class2": classification.second_class or "Unknown",
-            "class3": classification.third_class or "Unknown", 
-            "probability1": f"{classification.confidence:.1%}",
-            "probability2": f"{classification.second_confidence:.1%}" if classification.second_confidence else "0.0%",
-            "probability3": f"{classification.third_confidence:.1%}" if classification.third_confidence else "0.0%",
-            "response": f"Analisis menunjukkan {classification.classification_result} dengan tingkat keyakinan {classification.confidence:.1%}. Model yang digunakan: {classification.model_used}."
-        }
-        
-        return templates.TemplateResponse("expert_feedback.html", context)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error loading feedback page for {result_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error loading feedback page")
-    
-# History and admin routes
 @router.get("/history", response_class=HTMLResponse)
 async def user_history(request: Request, db: FirestoreDB = Depends(get_db)):
     """User prediction history with role-based access"""
@@ -1059,7 +1027,10 @@ async def get_admin_stats(request: Request, db: FirestoreDB = Depends(get_db)):
         logger.error(f"Stats error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# Debug route to test authentication
+# ============================================================================
+# DEBUG ROUTES (for development only)
+# ============================================================================
+
 @router.get("/debug/user")
 async def debug_user_info(request: Request, db: FirestoreDB = Depends(get_db)):
     """Debug route to check current user info"""
@@ -1078,7 +1049,6 @@ async def debug_user_info(request: Request, db: FirestoreDB = Depends(get_db)):
     except Exception as e:
         return JSONResponse(content={"error": str(e)})
 
-# Debug route to test classifications retrieval
 @router.get("/debug/classifications")
 async def debug_classifications(request: Request, db: FirestoreDB = Depends(get_db)):
     """Debug route to check classifications data"""
