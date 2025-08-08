@@ -695,18 +695,35 @@ async def predict_image(
         allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
         if img_path.content_type not in allowed_types:
             raise HTTPException(status_code=400, detail="Invalid file type")
+
+        # Ensure results directory exists
+        results_dir = "static/uploads/results"
+        os.makedirs(results_dir, exist_ok=True)
+
+        # Create filename with timestamp and prediction info
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
+        # Clean location for filename (remove spaces, special chars)
+        location_clean = location.replace(" ", "").replace(",", "").replace("(", "").replace(")", "")[:20] if location else "Unknown"
+        
+        # Generate filename
+        uuid_suffix = generate_uuid_28()[:6]  # Short UUID for uniqueness
+        file_extension = os.path.splitext(img_path.filename)[1]
+        filename = f"{timestamp}_{location_clean}_{os.path.splitext(img_path.filename)[0]}_{uuid_suffix}{file_extension}"
+        
+        # Full path for saving
+        file_path = os.path.join(results_dir, filename)
+
         # Save uploaded file
-        file_save_start = time.time()
-        filename = f"{generate_uuid_28()}_{img_path.filename}"
-        file_path = f"static/uploads/{filename}"
-        
+        file_save_start = time.time()        
         with open(file_path, "wb") as buffer:
             buffer.write(content)
         
         file_save_time = time.time() - file_save_start
         logger.info(f"File saved in {file_save_time:.3f}s: {filename}")
-        
+
+        stored_image_path = file_path.replace('\\', '/')  
+
         # Run prediction with enhanced function
         prediction_result = predict_img(
             model_option=model_option,
@@ -722,6 +739,21 @@ async def predict_image(
         
         # Get top 3 predictions for additional classes
         top_3_predictions = prediction_result.get('top_3_predictions', [])
+        
+        # Create new filename with predicted class
+        predicted_class_clean = predicted_class.replace(" ", "").replace(",", "")
+        final_filename = f"{timestamp}_{location_clean}_{predicted_class_clean}_{uuid_suffix}{file_extension}"
+        final_file_path = os.path.join(results_dir, final_filename)
+        
+        # Rename file to include prediction
+        try:
+            os.rename(file_path, final_file_path)
+            stored_image_path = final_file_path.replace('\\', '/') 
+            logger.info(f"File renamed to include prediction: {final_file_path}")
+        except Exception as rename_error:
+            logger.warning(f"Could not rename file: {rename_error}")
+            # Continue with original filename if rename fails
+            stored_image_path = file_path.replace('\\', '/')
 
         # Generate unique ID for the classification
         classification_id = str(datetime.now().timestamp() * 1000)
@@ -731,7 +763,7 @@ async def predict_image(
             id=classification_id,
             user_id=user_id,
             user_role=current_user.role.value,
-            image_path=filename,
+            image_path=stored_image_path,
             classification_result=predicted_class,
             confidence=confidence,
             model_used=model_option,
@@ -761,6 +793,7 @@ async def predict_image(
             "confidence": f"{confidence:.4f}",
             "response": response_message,
             "result_id": doc_id,
+            "image_path": stored_image_path,
             "top_3_predictions": prediction_result.get('top_3_predictions', []),
             "performance": {
                 **performance_metrics,
@@ -786,6 +819,11 @@ async def predict_image(
                 os.remove(file_path)
             except:
                 pass
+        if 'final_file_path' in locals() and os.path.exists(final_file_path):
+            try:
+                os.remove(final_file_path)
+            except:
+                pass
         
         return JSONResponse(
             status_code=500,
@@ -809,7 +847,7 @@ async def get_result(
 ):
     """Get analysis result """
     try:
-        # Get the classification result from Firestore
+        # Get the classification result from database
         classification = db.get_classification_by_id(result_id)
         
         if not classification:
@@ -819,8 +857,44 @@ async def get_result(
         current_user = get_current_user(request, db)
         
         # Generate image URL for result
-        filename = os.path.basename(classification.image_path)
-        image_url = f"/static/uploads/results/{filename}"
+        image_path = classification.image_path
+        logger.info(f"Original image path from database: {image_path}")
+
+        if image_path:
+            # Normalize path separators
+            normalized_path = image_path.replace('\\', '/')
+            
+            # If path already starts with 'static/', prepend with '/'
+            if normalized_path.startswith('static/'):
+                img_url = '/' + normalized_path
+            # If path already starts with '/static/', use as is
+            elif normalized_path.startswith('/static/'):
+                img_url = normalized_path
+            # If path is just filename, assume it's in results directory
+            else:
+                img_url = f"/static/uploads/results/{normalized_path}"
+            
+            # Check if file exists (convert URL back to file path for checking)
+            file_check_path = img_url.lstrip('/').replace('/', os.sep)
+            
+            if not os.path.exists(file_check_path):
+                logger.warning(f"Image file not found at: {file_check_path}")
+                logger.warning(f"Attempting to use placeholder image")
+                img_url = "/static/assets/placeholder-image.png"
+                
+                # Ensure placeholder exists
+                placeholder_path = "static/assets/placeholder-image.png"
+                if not os.path.exists(placeholder_path):
+                    logger.error(f"Placeholder image also missing: {placeholder_path}")
+                    # Create a simple placeholder or use a default
+                    img_url = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTgiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZSBOb3QgRm91bmQ8L3RleHQ+PC9zdmc+"
+            else:
+                logger.info(f"Image file found at: {file_check_path}")
+                logger.info(f"Final image URL: {img_url}")
+                
+        else:
+            logger.warning(f"No image path found for result {result_id}")
+            img_url = "/static/assets/placeholder-image.png"
 
         # Prepare context for rendering
         context = {
@@ -829,7 +903,7 @@ async def get_result(
             "classification": classification,
             "current_user": current_user,
             "can_edit": current_user and current_user.role in [UserRole.EXPERT, UserRole.ADMIN],
-            "img_path": image_url,
+            "img_path": img_url,
             "class1": classification.classification_result,
             "class2": classification.second_class or "Unknown",
             "class3": classification.third_class or "Unknown", 

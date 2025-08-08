@@ -86,7 +86,7 @@
                                         <tr>
                                             <th scope="col">Rank</th>
                                             <th scope="col">Plankton Species</th>
-                                            <th scope="col">Probability</th>
+                                            <th scope="col">Confidence</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -96,9 +96,9 @@
                                             </td>
                                             <td class="fw-semibold">{{class1}}</td>
                                             <td>
-                                                <span class="fw-bold text-success">{{probability1}}</span>
-                                                <div class="probability-bar">
-                                                    <div class="probability-fill rank-1" style="width: {{probability1|replace('%', '')}}%"></div>
+                                                <span class="fw-bold text-success">{{confidence1}}</span>
+                                                <div class="confidence-bar">
+                                                    <div class="confidence-fill rank-1" style="width: {{confidence1|replace('%', '')}}%"></div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -108,9 +108,9 @@
                                             </td>
                                             <td class="fw-semibold">{{class2}}</td>
                                             <td>
-                                                <span class="fw-bold">{{probability2}}</span>
-                                                <div class="probability-bar">
-                                                    <div class="probability-fill rank-2" style="width: {{probability2|replace('%', '')}}%"></div>
+                                                <span class="fw-bold">{{confidence2}}</span>
+                                                <div class="confidence-bar">
+                                                    <div class="confidence-fill rank-2" style="width: {{confidence2|replace('%', '')}}%"></div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -120,9 +120,9 @@
                                             </td>
                                             <td class="fw-semibold">{{class3}}</td>
                                             <td>
-                                                <span class="fw-bold">{{probability3}}</span>
-                                                <div class="probability-bar">
-                                                    <div class="probability-fill rank-3" style="width: {{probability3|replace('%', '')}}%"></div>
+                                                <span class="fw-bold">{{confidence3}}</span>
+                                                <div class="confidence-bar">
+                                                    <div class="confidence-fill rank-3" style="width: {{confidence3|replace('%', '')}}%"></div>
                                                 </div>
                                             </td>
                                         </tr>
