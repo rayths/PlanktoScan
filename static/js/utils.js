@@ -1,10 +1,7 @@
-/**
- * Utility functions for PlanktoScan application
- */
+// ============================================================================
+// ALERT MASSAGES
+// ============================================================================
 
-/**
- * Show error message using SweetAlert
- */
 function showError(message) {
     if (typeof swal !== 'undefined') {
         swal({
@@ -18,9 +15,6 @@ function showError(message) {
     }
 }
 
-/**
- * Show success message using SweetAlert
- */
 function showSuccess(message) {
     if (typeof swal !== 'undefined') {
         swal({
@@ -34,9 +28,10 @@ function showSuccess(message) {
     }
 }
 
-/**
- * Show loading overlay
- */
+// ============================================================================
+// LOADING STATE MANAGEMENT
+// ============================================================================
+
 function showLoading() {
     const $loading = $('#load');
     const $transparent = $('#transparant-bg');
@@ -45,9 +40,6 @@ function showLoading() {
     if ($transparent.length) $transparent.show();
 }
 
-/**
- * Hide loading overlay
- */
 function hideLoading() {
     const $loading = $('#load');
     const $transparent = $('#transparant-bg');
@@ -56,9 +48,10 @@ function hideLoading() {
     if ($transparent.length) $transparent.hide();
 }
 
-/**
- * Get cookie value by name
- */
+// ============================================================================
+// COOKIE MANAGEMENT
+// ============================================================================
+
 function getCookie(name) {
     const nameEQ = name + "=";
     const ca = document.cookie.split(';');
@@ -70,9 +63,6 @@ function getCookie(name) {
     return null;
 }
 
-/**
- * Set cookie
- */
 function setCookie(name, value, days) {
     let expires = "";
     if (days) {
@@ -83,9 +73,10 @@ function setCookie(name, value, days) {
     document.cookie = name + "=" + (value || "") + expires + "; path=/";
 }
 
-/**
- * Logout function with confirmation and loading state
- */
+// ============================================================================
+// USER AUTHENTICATION
+// ============================================================================
+
 function logout() {
     // Show confirmation dialog
     if (confirm('Are you sure you want to logout?')) {
@@ -122,9 +113,10 @@ function logout() {
     }
 }
 
-/**
- * Format file size for display
- */
+// ============================================================================
+// FILE VALIDATION AND UTILITIES
+// ============================================================================
+
 function formatFileSize(bytes) {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -133,76 +125,28 @@ function formatFileSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
-/**
- * Validate image file type
- */
 function isValidImageFile(file) {
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     return validTypes.includes(file.type.toLowerCase());
 }
 
-/**
- * Validate file size
- */
 function isValidFileSize(file, maxSizeMB = 10) {
     const maxSizeBytes = maxSizeMB * 1024 * 1024;
     return file.size <= maxSizeBytes;
 }
 
-/**
- * Debounce function to limit rate of function calls
- */
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
+// ============================================================================
+// DEVICE AND BROWSER CAPABILITIES
+// ============================================================================
 
-/**
- * Throttle function to limit rate of function calls
- */
-function throttle(func, limit) {
-    let inThrottle;
-    return function() {
-        const args = arguments;
-        const context = this;
-        if (!inThrottle) {
-            func.apply(context, args);
-            inThrottle = true;
-            setTimeout(() => inThrottle = false, limit);
-        }
-    };
-}
-
-/**
- * Check if geolocation is supported
- */
 function isGeolocationSupported() {
     return "geolocation" in navigator;
 }
 
-/**
- * Check if device has camera
- */
-async function isCameraAvailable() {
-    try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        return devices.some(device => device.kind === 'videoinput');
-    } catch (error) {
-        console.error('Error checking camera availability:', error);
-        return false;
-    }
-}
+// ============================================================================
+// APPLICATION STATE MANAGEMENT
+// ============================================================================
 
-/**
- * Get current mode (file or camera)
- */
 function getCurrentMode() {
     const fileModeBtn = document.getElementById('file-mode-btn');
     const cameraModeBtn = document.getElementById('camera-mode-btn');
@@ -216,9 +160,6 @@ function getCurrentMode() {
     return 'file'; // Default to file mode
 }
 
-/**
- * Update file info display
- */
 function updateFileInfo(fileName, show = true) {
     const $fileInfo = $('#file-info');
     const $fileName = $('#file-name');
@@ -232,44 +173,15 @@ function updateFileInfo(fileName, show = true) {
     }
 }
 
-/**
- * Reset all UI states
- */
-function resetAllUIStates() {
-    // Hide file info
-    updateFileInfo('', false);
-    
-    // Reset dropdowns
-    if (typeof resetDropdowns === 'function') {
-        resetDropdowns();
-    }
-    
-    // Clear location input
-    const $locationInput = $('#sampling-location');
-    if ($locationInput.length) {
-        $locationInput.val('');
-    }
-    
-    // Hide loading
-    hideLoading();
-    
-    // Disable predict button
-    const $predictButton = $('.btn-predict-image');
-    if ($predictButton.length) {
-        $predictButton.prop('disabled', true);
-    }
-    
-    console.log('All UI states reset');
-}
-
-/**
- * Enable or disable predict button based on conditions
- */
 function updatePredictButtonState() {
     const $predictButton = $('.btn-predict-image');
     if (!$predictButton.length) return;
     
-    const hasImage = PlanktoScanApp.uploadedImagePath || window.capturedImageFile;
+    const hasImage = window.capturedImageFile || 
+                     PlanktoScanApp.uploadedFile || 
+                     PlanktoScanApp.uploadedImagePath ||
+                     (document.getElementById('file-image-upload')?.files?.[0]);
+                     
     const hasLocation = $('#sampling-location').val().trim() !== '';
     const hasModel = $('#classification-model').val() !== '';
     
@@ -284,7 +196,10 @@ function updatePredictButtonState() {
     }
 }
 
-// Export to global scope
+// ============================================================================
+// GLOBAL EXPORTS
+// ============================================================================
+
 if (typeof window !== 'undefined') {
     window.showError = showError;
     window.showSuccess = showSuccess;
@@ -295,13 +210,9 @@ if (typeof window !== 'undefined') {
     window.formatFileSize = formatFileSize;
     window.isValidImageFile = isValidImageFile;
     window.isValidFileSize = isValidFileSize;
-    window.debounce = debounce;
-    window.throttle = throttle;
     window.isGeolocationSupported = isGeolocationSupported;
-    window.isCameraAvailable = isCameraAvailable;
     window.getCurrentMode = getCurrentMode;
     window.updateFileInfo = updateFileInfo;
-    window.resetAllUIStates = resetAllUIStates;
     window.updatePredictButtonState = updatePredictButtonState;
     window.logout = logout;
 }

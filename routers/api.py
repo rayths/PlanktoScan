@@ -657,11 +657,11 @@ async def upload_image(file: UploadFile = File(...)):
         )
 
 @router.post("/predict")
-async def predict_image_enhanced(
+async def predict_image(
     request: Request,
-    image: UploadFile = File(...),
-    classification_model: str = Form(...),
-    sampling_location: str = Form(...),
+    img_path: UploadFile = File(...),
+    model_option: str = Form(...),
+    location: str = Form(...),
     db: FirestoreDB = Depends(get_db)
 ):
     """Enhanced prediction endpoint with performance monitoring"""
@@ -674,27 +674,31 @@ async def predict_image_enhanced(
         if not user_id:
             raise HTTPException(status_code=401, detail="User not authenticated")
         
-        logger.info(f"Prediction request from user: {user_id}")
-        logger.info(f"Model requested: {classification_model}")
+        current_user = get_current_user(request, db)
+        if not current_user:
+            raise HTTPException(status_code=401, detail="User not found")
         
+        logger.info(f"Prediction request from user: {user_id}")
+        logger.info(f"Model requested: {model_option}")
+
         # Validate file
-        if not image.filename:
+        if not img_path.filename:
             raise HTTPException(status_code=400, detail="No file uploaded")
         
         # Check file size (10MB limit)
         MAX_FILE_SIZE = 10 * 1024 * 1024
-        content = await image.read()
+        content = await img_path.read()
         if len(content) > MAX_FILE_SIZE:
             raise HTTPException(status_code=400, detail="File too large (max 10MB)")
         
         # Validate file type
         allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
-        if image.content_type not in allowed_types:
+        if img_path.content_type not in allowed_types:
             raise HTTPException(status_code=400, detail="Invalid file type")
         
         # Save uploaded file
         file_save_start = time.time()
-        filename = f"{generate_uuid_28()}_{image.filename}"
+        filename = f"{generate_uuid_28()}_{img_path.filename}"
         file_path = f"static/uploads/{filename}"
         
         with open(file_path, "wb") as buffer:
@@ -705,7 +709,7 @@ async def predict_image_enhanced(
         
         # Run prediction with enhanced function
         prediction_result = predict_img(
-            model_option=classification_model,
+            model_option=model_option,
             img_path=file_path,
             use_cache=True
         )
@@ -716,18 +720,34 @@ async def predict_image_enhanced(
         response_message = prediction_result['response_message']
         performance_metrics = prediction_result.get('performance_metrics', {})
         
-        # Save to database
-        db_save_start = time.time()
+        # Get top 3 predictions for additional classes
+        top_3_predictions = prediction_result.get('top_3_predictions', [])
+
+        # Generate unique ID for the classification
+        classification_id = str(datetime.now().timestamp() * 1000)
+
+        # Create classification entry
         classification_entry = ClassificationEntry(
+            id=classification_id,
             user_id=user_id,
+            user_role=current_user.role.value,
             image_path=filename,
             classification_result=predicted_class,
             confidence=confidence,
-            model_used=classification_model,
-            sampling_location=sampling_location,
-            timestamp=datetime.now()
+            model_used=model_option,
+            location=location,
+            timestamp=datetime.now(),
+            second_class=top_3_predictions[1]['class'] if len(top_3_predictions) > 1 else None,
+            second_confidence=top_3_predictions[1]['confidence'] if len(top_3_predictions) > 1 else None,
+            third_class=top_3_predictions[2]['class'] if len(top_3_predictions) > 2 else None,
+            third_confidence=top_3_predictions[2]['confidence'] if len(top_3_predictions) > 2 else None,
+            user_feedback=None,
+            is_correct=None,
+            correct_class=None
         )
-        
+
+        # Save to database
+        db_save_start = time.time()
         doc_id = db.save_classification(classification_entry)
         db_save_time = time.time() - db_save_start
         
@@ -735,6 +755,7 @@ async def predict_image_enhanced(
         
         # Enhanced response with performance metrics
         response_data = {
+            "success": True,
             "message": "success",
             "classification_result": predicted_class,
             "confidence": f"{confidence:.4f}",

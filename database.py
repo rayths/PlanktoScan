@@ -527,7 +527,7 @@ class FirestoreDB:
             raise e
         
     # Classification Management Methods
-    def save_classification_to_database(self, entry: ClassificationEntry) -> str:
+    def save_classification(self, entry: ClassificationEntry) -> str:
         """Save classification result to database"""
         try:
             doc_ref = self.classifications_collection.document(entry.id)

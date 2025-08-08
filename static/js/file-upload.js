@@ -1,6 +1,7 @@
-// FILE UPLOAD MANAGEMENT
+// ============================================================================
+// MAIN SETUP FUNCTION
+// ============================================================================
 
-// Setup file upload event handlers
 function setupFileUploadHandlers() {
     const $uploadZone = $('#upload-zone');
     const $fileInput = $('#file-image-upload');
@@ -24,30 +25,46 @@ function setupFileUploadHandlers() {
             return;
         }
         
-        // Jika sudah ada image preview, jangan trigger file input lagi
+        // If already has an image preview, don't trigger file input again
         if ($(this).hasClass('success') || $(this).find('.image-preview-container').length > 0) {
             console.log('Upload zone already has image, click ignored');
             return;
         }
         
-        console.log('Upload zone clicked, triggering file input');
-        
-        if (getCurrentMode() === 'file') {
-            $fileInput.trigger('click');
-        } else {
-            console.log('Not in file mode, current mode:', getCurrentMode());
-        }
+        $fileInput.click();
     });
 
     // File input change handler
     $fileInput.on('change.fileupload', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        console.log('File input changed, processing file');
         const file = e.target.files[0];
         if (file) {
-            handleFileSelection(file);
+            console.log('File selected:', file.name, formatFileSize(file.size));
+            
+            // Validate file
+            if (!isValidImageFile(file)) {
+                showError('Please select a valid image file (JPG, PNG, GIF, WebP)');
+                return;
+            }
+            
+            if (!isValidFileSize(file)) {
+                showError('File size must be less than 10MB');
+                return;
+            }
+
+            // Store file directly for prediction
+            PlanktoScanApp.uploadedFile = file;
+            PlanktoScanApp.uploadedImagePath = URL.createObjectURL(file);
+
+            // Show image preview and info
+            showImagePreview(file);
+            updateFileInfo(file.name, true);
+            
+            // Update predict button state
+            if (typeof updatePredictButtonState === 'function') {
+                updatePredictButtonState();
+            }
+
+            console.log('File processed successfully for prediction');
         }
     });
 
@@ -59,14 +76,41 @@ function setupFileUploadHandlers() {
     });
 
     // Drag and drop handlers
-    $uploadZone.on('dragover.fileupload', handleDragOver);
-    $uploadZone.on('dragleave.fileupload', handleDragLeave);
-    $uploadZone.on('drop.fileupload', handleDrop);
+    $uploadZone.on('dragover.fileupload', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).addClass('drag-over');
+    });
+
+    $uploadZone.on('dragleave.fileupload', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).removeClass('drag-over');
+    });
+
+    $uploadZone.on('drop.fileupload', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        $(this).removeClass('drag-over');
+
+        if (!canUserUpload()) {
+            return;
+        }
+
+        const files = e.originalEvent.dataTransfer.files;
+        if (files.length > 0) {
+            $fileInput[0].files = files;
+            $fileInput.trigger('change');
+        }
+    });
 
     console.log('File upload event handlers setup complete');
 }
 
-// Check if user can upload files based on authentication and role
+// ============================================================================
+// PERMISSION AND VALIDATION
+// ============================================================================
+
 function canUserUpload() {
     const isAuthenticated = window.USER_AUTHENTICATED || false;
     const userRole = window.USER_ROLE || null;
@@ -100,98 +144,10 @@ function canUserUpload() {
     return true;
 }
 
-// Handle file selection and validation
-function handleFileSelection(file) {
-    console.log('File selected:', file.name, formatFileSize(file.size));
+// ============================================================================
+// IMAGE PREVIEW AND UI UPDATES
+// ============================================================================
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-        swal({
-            title: "Invalid File",
-            text: "Please select a valid image file.",
-            icon: "error",
-        });
-        return;
-    }
-
-    // Validate file size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
-        swal({
-            title: "File Too Large",
-            text: "Please select an image smaller than 10MB.",
-            icon: "error",
-        });
-        return;
-    }
-
-    // Show image preview immediately
-    showImagePreview(file);
-
-    // Upload file to server
-    uploadFileToServer(file);
-}
-
-// Upload file to server
-function uploadFileToServer(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    // Show uploading state
-    const $fileName = $('#file-name');
-    const $fileInfo = $('#file-info');
-    const $uploadZone = $('.upload-zone');
-    const $predictButton = $('.btn-predict-image');
-    const $imageUploadInput = $('#image-upload');
-    
-    $fileName.text('Uploading...');
-    $fileInfo.show();
-    $uploadZone.addClass('uploading');
-    $predictButton.prop('disabled', true);
-    
-    // Upload file
-    $.ajax({
-        url: '/upload',
-        type: 'POST',
-        data: formData,
-        processData: false,
-        contentType: false,
-        timeout: 30000,
-        success: (data) => {
-            PlanktoScanApp.uploadedImagePath = data.img_path;
-            $imageUploadInput.val(PlanktoScanApp.uploadedImagePath);
-            $fileName.text(file.name);
-            $uploadZone.removeClass('uploading').addClass('success');
-            
-            // Update predict button state
-            updatePredictButtonState();
-
-            console.log('File upload completed successfully');
-        },
-        error: () => {
-            resetFileUpload();
-            $uploadZone.removeClass('uploading');
-
-            let errorMessage = "Failed to upload image. Please try again.";
-            if (xhr.status === 401) {
-                errorMessage = "Please login to upload images.";
-                // Redirect to login
-                setTimeout(() => {
-                    window.location.href = '/login';
-                }, 2000);
-            } else if (xhr.status === 403) {
-                errorMessage = "You don't have permission to upload images.";
-            }
-            
-            swal({
-                title: "Upload Error",
-                text: errorMessage,
-                icon: "error",
-            });
-        }
-    });
-}
-
-// Show image preview in upload zone
 function showImagePreview(file) {
     const $uploadZone = $('.upload-zone');
     const reader = new FileReader();
@@ -220,15 +176,15 @@ function showImagePreview(file) {
                 ">
                     <img src="${e.target.result}" alt="Preview" class="image-preview">
                     <div class="upload-overlay">
-                        <i class="fas fa-check-circle"></i>
-                        <div class="success-text">File Uploaded!</div>
+                        <i class="fas fa-check-circle" success-icon></i>
+                        <div class="success-text">Upload Successful!</div>
                         <div class="change-text">Click to change image</div>
                     </div>
                 </div>
             `);
             
             // Add class to indicate image is loaded and remove padding
-            $uploadZone.addClass('with-image');
+            $uploadZone.addClass('with-image success');
             
             // Add hover effect
             $uploadZone.off('mouseenter.preview mouseleave.preview').on('mouseenter.preview', '.image-preview-container', function() {
@@ -237,7 +193,7 @@ function showImagePreview(file) {
                 $(this).find('.upload-overlay').css('opacity', '0');
             });
             
-            // Add click handler untuk overlay change image
+            // Add click handler for overlay to change image
             $uploadZone.off('click.overlay').on('click.overlay', '.upload-overlay', function(e) {
                 e.preventDefault();
                 e.stopPropagation();
@@ -254,48 +210,20 @@ function showImagePreview(file) {
     reader.readAsDataURL(file);
 }
 
-// Handle successful upload
-function handleUploadSuccess(response, fileName) {
-    console.log('Upload successful:', response);
+// ============================================================================
+// UPLOAD MANAGEMENT
+// ============================================================================
 
-    // Store the uploaded image path
-    PlanktoScanApp.uploadedImagePath = response.img_path;
-
-    // Update UI to show success
-    updateUploadZoneSuccess();
-    updateFileInfo(fileName, true);
-
-    // Update predict button state
-    if (typeof updatePredictButtonState === 'function') {
-        updatePredictButtonState();
-    }
-
-    console.log('File upload completed successfully');
-}
-
-// Update upload zone with success indicators
-function updateUploadZoneSuccess() {
-    const $uploadZone = $('.upload-zone');
-    
-    // Update upload icon to show success
-    $uploadZone.find('.upload-icon').html('<i class="fas fa-check-circle"></i>');
-    
-    // Update upload text to show success
-    $uploadZone.find('.upload-text').text('Upload Successful!');
-    $uploadZone.find('.upload-subtext').text('Click to change image');
-}
-
-// Cancel current upload
 function cancelUpload() {
     const currentMode = getCurrentMode();
     
     console.log('Cancel upload called:', {
         currentMode,
-        hasCapturedFile: !!PlanktoScanApp.capturedImageFile,
-        hasUploadedPath: !!PlanktoScanApp.uploadedImagePath
+        hasCapturedFile: !!window.capturedImageFile,
+        hasUploadedPath: !!PlanktoScanApp.uploadedFile
     });
 
-    if (currentMode === 'camera' || PlanktoScanApp.capturedImageFile) {
+    if (currentMode === 'camera' || window.capturedImageFile) {
         // Reset camera capture state
         if (typeof resetCameraCapture === 'function') {
             resetCameraCapture();
@@ -336,7 +264,6 @@ function cancelUpload() {
     }
 }
 
-// Reset file upload UI to initial state
 function resetFileUpload() {
     const $fileInput = $('#file-image-upload');
     const $imageUploadInput = $('#image-upload');
@@ -350,6 +277,7 @@ function resetFileUpload() {
     $fileInput.val('');
     $imageUploadInput.val('');
     PlanktoScanApp.uploadedImagePath = '';
+    PlanktoScanApp.uploadedFile = null;
     PlanktoScanApp.capturedImageFile = null;
 
     // Reset location input if no GPS position
@@ -365,7 +293,7 @@ function resetFileUpload() {
     // Update UI elements
     $fileInfo.hide();
     $fileName.text('No file selected');
-    $uploadZone.removeClass('success with-image uploading dragover');
+    $uploadZone.removeClass('success with-image uploading drag-over');
     $predictButton.prop('disabled', true);
     
     // Reset upload zone content and styling
@@ -392,43 +320,10 @@ function resetFileUpload() {
     console.log('File upload state reset completely');
 }
 
-// Handle drag over event
-function handleDragOver(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (getCurrentMode() === 'file' && canUserUpload()) {
-        $(e.currentTarget).addClass('dragover');
-    }
-}
+// ============================================================================
+// MODE SWITCHING
+// ============================================================================
 
-// Handle drag leave event
-function handleDragLeave(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    $(e.currentTarget).removeClass('dragover');
-}
-
-// Handle drop event
-function handleDrop(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const $target = $(e.currentTarget);
-    $target.removeClass('dragover');
-    
-    if (getCurrentMode() !== 'file' || !canUserUpload()) {
-        return;
-    }
-    
-    const files = e.originalEvent.dataTransfer.files;
-    if (files.length > 0) {
-        const file = files[0];
-        handleFileSelection(file);
-    }
-}
-
-// Switch to file mode
 function switchToFileMode() {
     console.log('Switching to file mode...');
 
@@ -448,7 +343,7 @@ function switchToFileMode() {
     }
     
     // Reset state variables
-    PlanktoScanApp.capturedImageFile = null;
+    window.capturedImageFile = null;
     
     // Hide camera preview overlay if exists
     const previewOverlay = document.getElementById('camera-preview-overlay');
@@ -481,17 +376,73 @@ function switchToFileMode() {
     console.log('Switched to file mode');
 }
 
-// Export to global scope
+// ============================================================================
+// ENHANCED DRAG & DROP HANDLERS
+// ============================================================================
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (getCurrentMode() === 'file' && canUserUpload()) {
+        $(e.currentTarget).addClass('drag-over');
+    }
+}
+
+function handleDragLeave(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    $(e.currentTarget).removeClass('drag-over');
+}
+
+function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const $target = $(e.currentTarget);
+    $target.removeClass('drag-over');
+    
+    if (getCurrentMode() !== 'file' || !canUserUpload()) {
+        return;
+    }
+    
+    const files = e.originalEvent.dataTransfer.files;
+    if (files.length > 0) {
+        const file = files[0];
+
+        // Validate file type
+        if (!isValidImageFile(file)) {
+            showError('Please drop a valid image file (JPG, PNG, GIF, WebP)');
+            return;
+        }
+        
+        // Validate file size
+        if (!isValidFileSize(file)) {
+            showError('File size must be less than 10MB');
+            return;
+        }
+        
+        // Set file to input and trigger change
+        const fileInput = document.getElementById('file-image-upload');
+        if (fileInput) {
+            fileInput.files = files;
+            $(fileInput).trigger('change');
+        }
+    }
+}
+
+// ============================================================================
+// GLOBAL EXPORTS
+// ============================================================================
+
 if (typeof window !== 'undefined') {
     window.setupFileUploadHandlers = setupFileUploadHandlers;
     window.canUserUpload = canUserUpload;
-    window.handleFileSelection = handleFileSelection;
-    window.uploadFileToServer = uploadFileToServer;
     window.showImagePreview = showImagePreview;
     window.cancelUpload = cancelUpload;
     window.resetFileUpload = resetFileUpload;
+    window.switchToFileMode = switchToFileMode;
     window.handleDragOver = handleDragOver;
     window.handleDragLeave = handleDragLeave;
     window.handleDrop = handleDrop;
-    window.switchToFileMode = switchToFileMode;
 }

@@ -1,15 +1,20 @@
+// ============================================================================
 // GLOBAL APPLICATION STATE
+// ============================================================================
+
 const PlanktoScanApp = {
     isInitialized: false,
     currentStream: null,
     facingMode: 'environment',
     uploadedImagePath: '',
+    uploadedFile: null,
     capturedImageFile: null
 };
 
-/**
- * Initialize the entire PlanktoScan application
- */
+// ============================================================================
+// MAIN INITIALIZATION
+// ============================================================================
+
 function initializePlanktoScan() {
     if (PlanktoScanApp.isInitialized) {
         console.log('PlanktoScan already initialized, skipping...');
@@ -20,12 +25,19 @@ function initializePlanktoScan() {
     PlanktoScanApp.isInitialized = true;
     
     try {
-        // Initialize all modules in correct order
-        initializeAllDropdowns();
+        // Initialize all modules
+        if (typeof initializeAllDropdowns === 'function') {
+            initializeAllDropdowns();
+        }
+        
         setupAllEventHandlers();
         initializeLocationInput();
         initializeModeButtons();
-        setupWelcomePopupHandlers();
+
+        // Setup welcome popup handlers
+        if (typeof setupWelcomePopupHandlers === 'function') {
+            setupWelcomePopupHandlers();
+        }
 
         // Initialize welcome popup with server data
         if (typeof initializeWelcomePopupWithServerData === 'function') {
@@ -34,7 +46,9 @@ function initializePlanktoScan() {
         
         // Set default file mode
         setTimeout(() => {
-            switchToFileMode();
+            if (typeof switchToFileMode === 'function') {
+                switchToFileMode();
+            }
         }, 50);
                 
         // Final initialization check
@@ -49,35 +63,42 @@ function initializePlanktoScan() {
     }
 }
 
-/**
- * Setup all event handlers from different modules
- */
+// ============================================================================
+// EVENT HANDLER SETUP
+// ============================================================================
+
 function setupAllEventHandlers() {
     console.log('Setting up all event handlers...');
     
     // File upload handlers
     if (typeof setupFileUploadHandlers === 'function') {
         setupFileUploadHandlers();
+    } else {
+        console.warn('setupFileUploadHandlers function not found');
     }
     
     // Camera handlers
     if (typeof setupCameraHandlers === 'function') {
         setupCameraHandlers();
+    } else {
+        console.warn('setupCameraHandlers function not found');
     }
     
     // GPS location handlers
-    if (typeof setupGPSHandlers === 'function') {
-        setupGPSHandlers();
-    }
+    setupGPSHandlers();
     
     // Prediction handlers
     if (typeof setupPredictionHandlers === 'function') {
         setupPredictionHandlers();
+    } else {
+        console.warn('setupPredictionHandlers function not found');
     }
     
     // Dropdown handlers
     if (typeof setupDropdownHandlers === 'function') {
         setupDropdownHandlers();
+    } else {
+        console.warn('setupDropdownHandlers function not found');
     }
     
     // General UI handlers
@@ -86,14 +107,11 @@ function setupAllEventHandlers() {
     console.log('All event handlers setup complete');
 }
 
-/**
- * Setup general UI event handlers
- */
 function setupGeneralUIHandlers() {
     const $locationInput = $('#sampling-location');
     
     // Location input handler
-    $locationInput.off('input').on('input', function() {
+    $locationInput.off('input.app').on('input.app', function() {
         const value = $(this).val();
         
         // Hide GPS accuracy info when manually editing
@@ -111,7 +129,9 @@ function setupGeneralUIHandlers() {
         }
         
         // Update predict button state
-        updatePredictButtonState();
+        if (typeof updatePredictButtonState === 'function') {
+            updatePredictButtonState();
+        }
         
         console.log('Location input updated:', value.substring(0, 50) + (value.length > 50 ? '...' : ''));
     });
@@ -124,41 +144,43 @@ function setupGeneralUIHandlers() {
     });
 
     // Initialize GPS button state
-    if (!isGeolocationSupported()) {
+    if (typeof isGeolocationSupported === 'function' && !isGeolocationSupported()) {
         $('#get-gps-location').prop('disabled', true).attr('title', 'GPS not supported on this device');
     }
     
     console.log('General UI handlers setup complete');
 }
 
-/**
- * Setup GPS event handlers
- */
 function setupGPSHandlers() {
     // GPS button click handler
-    $('#get-gps-location').off('click').on('click', function(e) {
+    $('#get-gps-location').off('click.gps').on('click.gps', function(e) {
         e.preventDefault();
         e.stopPropagation();
         if (typeof getCurrentGPSLocation === 'function') {
             getCurrentGPSLocation();
+        } else {
+            console.warn('getCurrentGPSLocation function not found');
         }
     });
 
     // Clear location button click handler
-    $('#clear-location').off('click').on('click', function(e) {
+    $('#clear-location').off('click.gps').on('click.gps', function(e) {
         e.preventDefault();
         e.stopPropagation();
         if (typeof clearLocationInput === 'function') {
             clearLocationInput();
+        } else {
+            console.warn('clearLocationInput function not found');
         }
     });
     
     console.log('GPS event handlers setup complete');
 }
 
-/**
- * Initialize location input with default value
- */
+// ============================================================================
+// INITIALIZATION HELPERS
+// ============================================================================
+
 function initializeLocationInput() {
     const $locationInput = $('#sampling-location');
     if ($locationInput.length) {
@@ -170,9 +192,6 @@ function initializeLocationInput() {
     }
 }
 
-/**
- * Initialize mode buttons (File/Camera)
- */
 function initializeModeButtons() {
     const fileModeBtn = document.getElementById('file-mode-btn');
     const cameraModeBtn = document.getElementById('camera-mode-btn');
@@ -188,9 +207,6 @@ function initializeModeButtons() {
     console.log('Mode buttons initialized - File mode active');
 }
 
-/**
- * Perform final initialization check and adjustments
- */
 function performFinalInitializationCheck() {
     console.log('=== Final Initialization Check ===');
     
@@ -201,8 +217,8 @@ function performFinalInitializationCheck() {
     console.log('Location input:', $locationInput.val());
     
     // Force re-initialization if any value is still empty
-    if (typeof initializeDropdowns === 'function') {
-        initializeDropdowns();
+    if (typeof initializeAllDropdowns === 'function') {
+        initializeAllDropdowns();
     }
     
     // Ensure dropdown buttons show correct text
@@ -213,35 +229,56 @@ function performFinalInitializationCheck() {
     }
     
     // Update predict button state
-    updatePredictButtonState();
-    
+    if (typeof updatePredictButtonState === 'function') {
+        updatePredictButtonState();
+    }
+
     console.log('Final initialization check complete');
 }
 
-/**
- * Clean up application state when page unloads
- */
+// ============================================================================
+// CLEANUP
+// ============================================================================
+
 function cleanupPlanktoScan() {
-    // Stop camera if running
-    if (PlanktoScanApp.currentStream && typeof stopCamera === 'function') {
-        stopCamera();
+    try {
+        // Stop camera if running
+        if (PlanktoScanApp.currentStream && typeof stopCamera === 'function') {
+            stopCamera();
+        }
+
+        // Stop GPS watching
+        if (typeof stopWatchingGPS === 'function') {
+            stopWatchingGPS();
+        }
+
+        // Clear file objects to prevent memory leaks
+        if (PlanktoScanApp.uploadedImagePath && PlanktoScanApp.uploadedImagePath.startsWith('blob:')) {
+            URL.revokeObjectURL(PlanktoScanApp.uploadedImagePath);
+        }
+
+        // Reset state
+        PlanktoScanApp.uploadedImagePath = '';
+        PlanktoScanApp.uploadedFile = null;
+        PlanktoScanApp.capturedImageFile = null;
+        
+        console.log('PlanktoScan cleanup completed');
+    } catch (error) {
+        console.error('Error during cleanup:', error);
     }
-    
-    // Stop GPS watching
-    if (typeof stopWatchingGPS === 'function') {
-        stopWatchingGPS();
-    }
-    
-    // Reset state
-    PlanktoScanApp.uploadedImagePath = '';
-    PlanktoScanApp.capturedImageFile = null;
-    
-    console.log('PlanktoScan cleanup completed');
 }
+
+// ============================================================================
+// DOCUMENT READY AND EVENT BINDING
+// ============================================================================
 
 // Initialize when DOM is ready
 $(document).ready(function() {
-    initializePlanktoScan();
+    try {
+        initializePlanktoScan();
+    } catch (error) {
+        console.error('Failed to initialize PlanktoScan:', error);
+    }
 });
 
 // Cleanup when page unloads
@@ -249,7 +286,27 @@ $(window).on('beforeunload', function() {
     cleanupPlanktoScan();
 });
 
-// Export to global scope
+// Handle page visibility changes
+if (typeof document.addEventListener === 'function') {
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            // Page is hidden, pause expensive operations
+            if (typeof pauseCamera === 'function') {
+                pauseCamera();
+            }
+        } else {
+            // Page is visible, resume operations
+            if (typeof resumeCamera === 'function') {
+                resumeCamera();
+            }
+        }
+    });
+}
+
+// ============================================================================
+// GLOBAL EXPORTS
+// ============================================================================
+
 if (typeof window !== 'undefined') {
     window.PlanktoScanApp = PlanktoScanApp;
     window.initializePlanktoScan = initializePlanktoScan;

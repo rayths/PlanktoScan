@@ -1,13 +1,14 @@
-/**
- * Prediction handling module for PlanktoScan
- */
+// ============================================================================
+// MAIN SETUP FUNCTION
+// ============================================================================
 
-/**
- * Handle prediction button click with comprehensive validation
- */
 function handlePredictButtonClick() {
-    // Check if we have either uploaded image or captured image
-    if (!PlanktoScanApp.uploadedImagePath && !window.capturedImageFile) {
+    // Check if we have either uploaded file or captured image
+    const hasUploadedFile = PlanktoScanApp.uploadedFile || 
+                           (document.getElementById('file-image-upload')?.files?.[0]);
+    const hasCapturedFile = window.capturedImageFile;
+    
+    if (!hasUploadedFile && !hasCapturedFile) {
         return swal({ 
             title: "No Image Selected",
             text: "Please upload an image or capture a photo first.", 
@@ -16,7 +17,9 @@ function handlePredictButtonClick() {
     }
 
     // Re-initialize dropdowns to ensure values are set
-    initializeDropdowns();
+    if (typeof initializeDropdowns === 'function') {
+        initializeDropdowns();
+    }
 
     // Get values from dropdowns and location input
     const $modelSelect = $('#classification-model');
@@ -42,40 +45,37 @@ function handlePredictButtonClick() {
         });
     }
 
-    // Validate location input
-    if (!locationValue || locationValue.trim() === '') {
-        return swal({
-            title: "Location Required",
-            text: "Please enter a sampling location.",
-            icon: "warning"
-        });
-    }
-
+    // Create FormData
     const formData = new FormData();
 
-    // Add location to form data
     formData.append('location', locationValue.trim());
-    
-    // Handle camera capture vs file upload
-    if (window.capturedImageFile) {
-        // Use captured image file
-        formData.append('file', window.capturedImageFile);
-        console.log('Using captured image file for prediction');
-    } else {
-        // Use uploaded image path
-        formData.append('img_path', PlanktoScanApp.uploadedImagePath);
-        console.log('Using uploaded image path for prediction');
-    }
-    
-    // Ensure no undefined values are sent
     formData.append('model_option', String(modelOption));
 
-    console.log('Sending prediction request with data:', {
-        has_captured_file: !!window.capturedImageFile,
-        img_path: PlanktoScanApp.uploadedImagePath,
-        model_option: String(modelOption),
-        location: locationValue.trim()
-    });
+    // Handle file source
+    if (window.capturedImageFile) {
+        // Use captured image file
+        formData.append('img_path', window.capturedImageFile);
+        console.log('Using captured image file for prediction');
+    } else if (PlanktoScanApp.uploadedFile) {
+        // Use stored uploaded file
+        formData.append('img_path', PlanktoScanApp.uploadedFile);
+        console.log('Using stored uploaded file for prediction');
+    } else {
+        // Fallback: get from file input
+        const fileInput = document.getElementById('file-image-upload');
+        if (fileInput?.files?.[0]) {
+            formData.append('img_path', fileInput.files[0]);
+            console.log('Using file input for prediction');
+        } else {
+            return swal({
+                title: "File Error",
+                text: "Unable to access image file. Please try again.",
+                icon: "error"
+            });
+        }
+    }
+
+    console.log('Sending prediction request with correct parameters');
 
     // Show loading state
     showLoading();
@@ -84,10 +84,6 @@ function handlePredictButtonClick() {
     submitPrediction(formData);
 }
 
-/**
- * Submit prediction using fetch API with comprehensive error handling
- * @param {FormData} formData - Form data to submit
- */
 function submitPrediction(formData) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
@@ -111,6 +107,7 @@ function submitPrediction(formData) {
         // Hide loading
         hideLoading();
         
+        // Check for success response
         if (data.success && data.result_id) {
             handlePredictionSuccess(data);
         } else {
@@ -130,15 +127,11 @@ function submitPrediction(formData) {
     });
 }
 
-/**
- * Handle successful prediction response
- * @param {Object} data - Success response data
- */
 function handlePredictionSuccess(data) {
     console.log('Prediction successful:', data);
     
     if (data.success && data.result_id) {
-        // Use result_id (integer) for redirect
+        // Use result_id for redirect
         const redirectUrl = `/result/${data.result_id}`;
         console.log('Redirecting to:', redirectUrl);
         
@@ -150,11 +143,6 @@ function handlePredictionSuccess(data) {
     }
 }
 
-/**
- * Get appropriate error message based on error type
- * @param {Error} error - The error object
- * @returns {string} User-friendly error message
- */
 function getPredictionErrorMessage(error) {
     let errorMessage = "Failed to analyze image. Please try again.";
     
@@ -162,10 +150,14 @@ function getPredictionErrorMessage(error) {
         errorMessage = "Request timed out. Please try again.";
     } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
         errorMessage = "Network error. Please check your connection.";
+    } else if (error.message.includes('HTTP 401')) {
+        errorMessage = "Please log in to analyze images.";
     } else if (error.message.includes('HTTP 413')) {
         errorMessage = "File too large. Please upload a smaller image.";
     } else if (error.message.includes('HTTP 415')) {
         errorMessage = "Unsupported file type. Please upload a valid image.";
+    } else if (error.message.includes('HTTP 422')) {
+        errorMessage = "Invalid request format. Please try uploading the file again.";
     } else if (error.message.includes('HTTP 500')) {
         errorMessage = "Server error. Please try again later.";
     } else if (error.message.includes('HTTP')) {
@@ -177,17 +169,14 @@ function getPredictionErrorMessage(error) {
     return errorMessage;
 }
 
-/**
- * Setup prediction event handlers
- */
 function setupPredictionHandlers() {
     const $predictButton = $('.btn-predict-image');
     
     // Remove existing handlers to prevent duplicates
-    $predictButton.off('click');
+    $predictButton.off('click.prediction');
     
     // Predict button handler
-    $predictButton.on('click', function(e) {
+    $predictButton.on('click.prediction', function(e) {
         e.preventDefault();
         e.stopPropagation();
         handlePredictButtonClick();
@@ -196,7 +185,10 @@ function setupPredictionHandlers() {
     console.log('Prediction event handlers setup complete');
 }
 
-// Export to global scope
+// ============================================================================
+// GLOBAL EXPORTS
+// ============================================================================
+
 if (typeof window !== 'undefined') {
     window.handlePredictButtonClick = handlePredictButtonClick;
     window.submitPrediction = submitPrediction;
