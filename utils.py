@@ -257,6 +257,19 @@ def generate_uuid_28():
     # Take the first 28 characters (from 32 characters)
     return full_uuid[:28]
 
+def extract_filename_from_path(image_path):
+    """Extract filename from full path"""
+    if not image_path:
+        return ''
+    
+    # Handle both full path and just filename
+    if image_path.startswith('static/uploads/results/'):
+        return image_path.replace('static/uploads/results/', '')
+    elif '/' in image_path:
+        return image_path.split('/')[-1]
+    else:
+        return image_path
+
 # ============================================================================
 # CACHE MANAGEMENT PUBLIC API
 # ============================================================================

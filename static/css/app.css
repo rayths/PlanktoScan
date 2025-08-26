@@ -21,6 +21,7 @@
 @import url('./features/results.css');
 @import url('./features/feedback.css');
 @import url('./features/login.css');
+@import url('./features/history.css');
 
 /* Responsive */
 @import url('./responsive/mobile.css');

@@ -5,33 +5,63 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Prediction History - PlanktoScan</title>
     
-    <!-- Stylesheets -->
+    <!-- Favicon and Stylesheets -->
     <link rel="icon" type="image/png" href="{{ url_for('static', path='assets/icon.png') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', path='assets/icon.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='lib/bootstrap/css/bootstrap.css') }}">    
     <link rel="stylesheet" href="{{ url_for('static', path='lib/fontawesome/css/all.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}">
+
+    <style>
+        .main-card{
+            max-width: 100%;
+        }
+    </style>
 </head>
 <body>
+    <!-- History Container -->
     <div class="history-container">
-        <!-- Header -->
-        <nav class="navbar navbar-expand-lg navbar-light">
+        
+        <!-- Background and Overlay -->
+        <div class="background">
+            <img src="{{ url_for('static', path='assets/background.png') }}" alt="background" class="background-image">
+        </div>
+        <div class="main-overlay"></div>
+
+        <!-- Navigation Bar -->
+        <nav class="navbar navbar-expand-lg navbar-light navbar-dashboard">
             <div class="container">
-                <a class="navbar-brand" href="/">
-                    <img src="{{ url_for('static', path='assets/judul.png') }}" alt="PlanktoScan" style="height: 40px;">
+                <a class="navbar-brand" href="https://www.brin.go.id" target="_blank" rel="noopener noreferrer">
+                    <img src="{{ url_for('static', path='assets/logo_brin.png') }}" alt="BRIN" class="main-logo">
                 </a>
-                <a href="/" class="btn btn-outline-primary">
-                    <i class="fas fa-arrow-left"></i> Back to Dashboard
-                </a>
+                <div class="d-flex align-items-center ms-auto">
+                    <div class="navbar-nav">
+                        {% if request.session.get('user_id') %}
+                            <button class="btn btn-primary-modern btn-modern ms-2" onclick="window.location.href='/'">
+                                <i class="fas fa-plus"></i> New Analysis
+                            </button>
+                        {% else %}
+                            <button class="btn btn-primary-modern btn-modern" onclick="window.location.href='/login'">
+                                <i class="fas fa-sign-in-alt"></i> Login
+                            </button>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
         </nav>
 
         <!-- Main Content -->
-        <main class="container mt-4">
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h4><i class="fas fa-history"></i> Prediction History</h4>
+        <main class="history-content">
+            <div class="container">
+                
+                <!-- Header Section -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="text-center mb-4">
+                            <img src="{{ url_for('static', path='assets/judul.png') }}" alt="PlanktoScan" class="card-title-logo">
+                            <h2 class="history-title mt-3 mb-2">
+                                <i class="fas fa-history"></i> Prediction History
+                            </h2>
                             {% if is_admin %}
                                 <p class="text-muted mb-0">All plankton analysis results (Admin View)</p>
                             {% elif is_expert %}
@@ -40,112 +70,192 @@
                                 <p class="text-muted mb-0">Your recent plankton analysis results</p>
                             {% endif %}
                         </div>
-                        <div class="card-body">
-                            {% if error %}
-                                <div class="alert alert-danger" role="alert">
-                                    <i class="fas fa-exclamation-triangle"></i> {{ error }}
-                                </div>
-                            {% endif %}
-                            
-                            {% if predictions %}
-                                <div class="table-responsive">
-                                    <table class="table table-hover">
-                                        <thead>
-                                            <tr>
-                                                <th>Date</th>
-                                                <th>Image</th>
-                                                <th>Classification</th>
-                                                <th>Confidence</th>
-                                                <th>Location</th>
-                                                {% if is_admin %}
-                                                    <th>User</th>
-                                                    <th>Feedback Status</th>
-                                                {% endif %}
-                                                <th>Model</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for prediction in predictions %}
-                                            <tr>
-                                                <td>
-                                                    <small>{{ prediction.timestamp.strftime('%d/%m/%Y %H:%M') if prediction.timestamp else 'Unknown' }}</small>
-                                                </td>
-                                                <td>
-                                                    <img src="/static/uploads/results/{{ prediction.stored_filename }}" 
-                                                         alt="Plankton" 
-                                                         style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;">
-                                                </td>
-                                                <td>
-                                                    <strong>{{ prediction.classification_result }}</strong>
-                                                </td>
-                                                <td>
-                                                    <span class="badge bg-success">{{ (prediction.confidence * 100)|round(1) }}%</span>
-                                                </td>
-                                                <td>
-                                                    <small>{{ prediction.location if prediction.location else 'Unknown' }}</small>
-                                                </td>
-                                                {% if is_admin %}
-                                                    <td>
-                                                        <small>
-                                                            {{ prediction.user_id[:8] }}...
-                                                            <br>
-                                                            <span class="badge bg-secondary">{{ prediction.user_role }}</span>
-                                                        </small>
+                    </div>
+                </div>
+
+                <!-- History Content -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="main-card">
+                            <div class="card-body">
+                                {% if error %}
+                                    <div class="alert alert-danger d-flex align-items-center" role="alert">
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                        <div>{{ error }}</div>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if classifications %}
+                                    <!-- Filter and Sort Options -->
+                                    <div class="history-filters mb-4">
+                                        <div class="row align-items-center">
+                                            <div class="col-md-6">
+                                                <div class="d-flex align-items-center">
+                                                    <span class="text-muted me-3">
+                                                        <i class="fas fa-chart-line"></i>
+                                                        Total: <strong>{{ classifications|length }}</strong> classifications
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6 text-end">
+                                                <div class="btn-group" role="group">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm active" onclick="sortTable('date')">
+                                                        <i class="fas fa-calendar"></i> Date
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sortTable('confidence')">
+                                                        <i class="fas fa-percentage"></i> Confidence
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="sortTable('classification')">
+                                                        <i class="fas fa-tags"></i> Species
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- History Table -->
+                                    <div class="table-responsive history-table-wrapper">
+                                        <table class="table table-modern history-table" id="historyTable">
+                                            <thead>
+                                                <tr>
+                                                    <th><i class="fas fa-calendar"></i> Date</th>
+                                                    <th><i class="fas fa-image"></i> Image</th>
+                                                    <th><i class="fas fa-tags"></i> Classification</th>
+                                                    <th><i class="fas fa-percentage"></i> Confidence</th>
+                                                    <th><i class="fas fa-map-marker-alt"></i> Location</th>
+                                                    {% if is_admin %}
+                                                        <th><i class="fas fa-user"></i> User</th>
+                                                        <th><i class="fas fa-comment-medical"></i> Status</th>
+                                                    {% endif %}
+                                                    <th><i class="fas fa-brain"></i> Model</th>
+                                                    <th><i class="fas fa-cogs"></i> Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for classification in classifications %}
+                                                <tr class="history-row">
+                                                    <td class="date-cell">
+                                                        <div class="date-wrapper">
+                                                            <div class="date-primary">
+                                                                {{ classification.timestamp.strftime('%d/%m/%Y') if classification.timestamp else 'Unknown' }}
+                                                            </div>
+                                                            <div class="date-secondary">
+                                                                {{ classification.timestamp.strftime('%H:%M') if classification.timestamp else '--:--' }}
+                                                            </div>
+                                                        </div>
                                                     </td>
-                                                    <td>
-                                                        {% if prediction.user_feedback %}
-                                                            {% if prediction.is_correct == True %}
-                                                                <span class="badge bg-success">
-                                                                    <i class="fas fa-check"></i> Validated
-                                                                </span>
-                                                            {% elif prediction.is_correct == False %}
-                                                                <span class="badge bg-warning">
-                                                                    <i class="fas fa-exclamation"></i> Corrected
-                                                                </span>
+                                                    <td class="image-cell">
+                                                        <div class="image-preview-wrapper">
+                                                            <img src="/static/uploads/results/{{ classification.stored_filename }}" 
+                                                                 alt="Plankton Sample" 
+                                                                 class="history-image"
+                                                                 onclick="showImageModal('{{ classification.stored_filename }}', '{{ classification.classification_result }}')">
+                                                            <div class="image-overlay">
+                                                                <i class="fas fa-expand"></i>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td class="classification-cell">
+                                                        <div class="classification-wrapper">
+                                                            <strong class="classification-name">{{ classification.classification_result }}</strong>
+                                                            {% if classification.is_correct == False and classification.correct_class %}
+                                                                <div class="correction-badge">
+                                                                    <i class="fas fa-arrow-right"></i>
+                                                                    <span class="corrected-name">{{ classification.correct_class }}</span>
+                                                                </div>
+                                                            {% endif %}
+                                                        </div>
+                                                    </td>
+                                                    <td class="confidence-cell">
+                                                        <div class="confidence-wrapper">
+                                                            <span class="confidence-percentage">{{ (classification.confidence * 100)|round(1) }}%</span>
+                                                            <div class="confidence-bar">
+                                                                <div class="confidence-fill" style="width: {{ (classification.confidence * 100)|round(1) }}%"></div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td class="location-cell">
+                                                        <div class="location-wrapper">
+                                                            {% if classification.location %}
+                                                                <i class="fas fa-map-marker-alt text-success"></i>
+                                                                <span class="location-text">{{ classification.location[:30] }}{% if classification.location|length > 30 %}...{% endif %}</span>
                                                             {% else %}
-                                                                <span class="badge bg-info">
-                                                                    <i class="fas fa-comment"></i> Reviewed
+                                                                <i class="fas fa-map-marker text-muted"></i>
+                                                                <span class="text-muted">Not specified</span>
+                                                            {% endif %}
+                                                        </div>
+                                                    </td>
+                                                    {% if is_admin %}
+                                                        <td class="user-cell">
+                                                            <div class="user-info">
+                                                                <div class="user-id">{{ classification.user_id[:8] }}...</div>
+                                                                <span class="role-badge badge-{{ classification.user_role.lower() }}">
+                                                                    {{ classification.user_role }}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td class="feedback-cell">
+                                                            {% if classification.user_feedback %}
+                                                                {% if classification.is_correct == True %}
+                                                                    <span class="feedback-badge verified">
+                                                                        <i class="fas fa-check-circle"></i> Verified
+                                                                    </span>
+                                                                {% elif classification.is_correct == False %}
+                                                                    <span class="feedback-badge corrected">
+                                                                        <i class="fas fa-exclamation-triangle"></i> Corrected
+                                                                    </span>
+                                                                {% else %}
+                                                                    <span class="feedback-badge reviewed">
+                                                                        <i class="fas fa-comment"></i> Reviewed
+                                                                    </span>
+                                                                {% endif %}
+                                                            {% else %}
+                                                                <span class="feedback-badge pending">
+                                                                    <i class="fas fa-clock"></i> Pending
                                                                 </span>
                                                             {% endif %}
-                                                        {% else %}
-                                                            <span class="badge bg-light text-dark">
-                                                                <i class="fas fa-clock"></i> Pending
-                                                            </span>
-                                                        {% endif %}
+                                                        </td>
+                                                    {% endif %}
+                                                    <td class="model-cell">
+                                                        <span class="model-badge">{{ classification.model_used }}</span>
                                                     </td>
-                                                {% endif %}
-                                                <td>
-                                                    <small>{{ prediction.model_used }}</small>
-                                                </td>
-                                                <td>
-                                                    <div class="btn-group" role="group">
-                                                        <a href="/result/{{ prediction.id }}" class="btn btn-sm btn-primary">
-                                                            <i class="fas fa-eye"></i> View
-                                                        </a>
-                                                        {% if is_expert_or_admin %}
-                                                            <a href="/feedback/{{ prediction.id }}" class="btn btn-sm btn-warning">
-                                                                <i class="fas fa-comment-medical"></i> 
-                                                                {% if prediction.user_feedback %}Edit{% else %}Feedback{% endif %}
+                                                    <td class="actions-cell">
+                                                        <div class="action-buttons">
+                                                            <a href="/result/{{ classification.id }}" 
+                                                               class="btn btn-primary btn-sm action-btn" 
+                                                               title="View Details">
+                                                                <i class="fas fa-eye"></i>
                                                             </a>
-                                                        {% endif %}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            {% else %}
-                                <div class="text-center py-5">
-                                    <i class="fas fa-history fa-3x text-muted mb-3"></i>
-                                    <h5>No Prediction History</h5>
-                                    <p class="text-muted">You haven't made any predictions yet.</p>
-                                    <a href="/" class="btn btn-primary">
-                                        <i class="fas fa-plus"></i> Start Analysis
-                                    </a>
-                                </div>
-                            {% endif %}
+                                                            {% if is_expert_or_admin %}
+                                                                <a href="/feedback/{{ classification.id }}" 
+                                                                   class="btn btn-warning btn-sm action-btn" 
+                                                                   title="{% if classification.user_feedback %}Edit Feedback{% else %}Add Feedback{% endif %}">
+                                                                    <i class="fas fa-comment-medical"></i>
+                                                                </a>
+                                                            {% endif %}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <!-- Empty State -->
+                                    <div class="empty-state">
+                                        <div class="empty-state-content">
+                                            <div class="empty-state-icon">
+                                                <i class="fas fa-history"></i>
+                                            </div>
+                                            <h3 class="empty-state-title">No Prediction History</h3>
+                                            <p class="empty-state-subtitle">You haven't made any predictions yet.</p>
+                                            <button class="btn btn-primary-modern btn-modern" onclick="window.location.href='/'">
+                                                <i class="fas fa-plus"></i> Start Your First Analysis
+                                            </button>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -153,8 +263,142 @@
         </main>
     </div>
 
-    <!-- JavaScript -->
+    <!-- Image Modal -->
+    <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="imageModalTitle">
+                        <i class="fas fa-microscope"></i> Plankton Sample
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="modalImage" src="" alt="Plankton Sample" class="img-fluid rounded">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load JavaScript -->
     <script src="{{ url_for('static', path='lib/jquery.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
     <script src="{{ url_for('static', path='lib/bootstrap/js/bootstrap.js') }}"></script>
+    <script src="{{ url_for('static', path='lib/swal.js') }}"></script>
+    <script src="{{ url_for('static', path='js/utils.js') }}"></script>
+    <script src="{{ url_for('static', path='js/dropdown.js') }}"></script>
+
+    <script>
+        // Set server data for JavaScript modules dengan debug
+        window.USER_AUTHENTICATED = {% if request.session.get('user_id') %}true{% else %}false{% endif %};
+        window.USER_ROLE = "{{ request.session.get('user_role', '') }}";
+        window.IS_ADMIN = {% if is_admin %}true{% else %}false{% endif %};
+        window.IS_EXPERT = {% if is_expert %}true{% else %}false{% endif %};
+        window.CLASSIFICATIONS_COUNT = {{ classifications|length }};
+
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('=== History Page Debug Info ===');
+            console.log('USER_AUTHENTICATED:', window.USER_AUTHENTICATED);
+            console.log('USER_ROLE:', window.USER_ROLE);
+            console.log('IS_ADMIN:', window.IS_ADMIN);
+            console.log('IS_EXPERT:', window.IS_EXPERT);
+            console.log('CLASSIFICATIONS_COUNT:', window.CLASSIFICATIONS_COUNT);
+
+            // Check if classifications data is available
+            {% if classifications %}
+                console.log('Classifications found:', {{ classifications|length }});
+                {% if classifications|length > 0 %}
+                    console.log('First classification ID:', '{{ classifications[0].id }}');
+                    console.log('First classification result:', '{{ classifications[0].classification_result }}');
+                {% endif %}
+            {% else %}
+                console.log('No classifications data found');
+            {% endif %}
+            
+            {% if error %}
+                console.error('Error in template:', '{{ error }}');
+            {% endif %}
+
+            // Initialize history functionality
+            initializeHistoryPage();
+        });
+
+        // History page specific functions
+        function initializeHistoryPage() {
+            // Add hover effects
+            $('.history-row').hover(
+                function() { $(this).addClass('table-row-hover'); },
+                function() { $(this).removeClass('table-row-hover'); }
+            );
+
+            // Initialize image modal
+            const imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
+        }
+
+        function showImageModal(filename, classification) {
+            const modal = document.getElementById('imageModal');
+            const modalImage = document.getElementById('modalImage');
+            const modalTitle = document.getElementById('imageModalTitle');
+            
+            modalImage.src = `/static/uploads/results/${filename}`;
+            modalTitle.innerHTML = `<i class="fas fa-microscope"></i> ${classification}`;
+            
+            const imageModal = new bootstrap.Modal(modal);
+            imageModal.show();
+        }
+
+        function sortTable(criteria) {
+            // Remove active class from all buttons
+            document.querySelectorAll('.btn-group .btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+            
+            const table = document.getElementById('historyTable');
+            const tbody = table.getElementsByTagName('tbody')[0];
+            const rows = Array.from(tbody.getElementsByTagName('tr'));
+            
+            rows.sort((a, b) => {
+                let aValue, bValue;
+                
+                switch(criteria) {
+                    case 'date':
+                        aValue = a.querySelector('.date-primary').textContent;
+                        bValue = b.querySelector('.date-primary').textContent;
+                        return new Date(bValue) - new Date(aValue); // Newest first
+                        
+                    case 'confidence':
+                        aValue = parseFloat(a.querySelector('.confidence-percentage').textContent);
+                        bValue = parseFloat(b.querySelector('.confidence-percentage').textContent);
+                        return bValue - aValue; // Highest first
+                        
+                    case 'classification':
+                        aValue = a.querySelector('.classification-name').textContent;
+                        bValue = b.querySelector('.classification-name').textContent;
+                        return aValue.localeCompare(bValue); // Alphabetical
+                        
+                    default:
+                        return 0;
+                }
+            });
+            
+            // Re-append sorted rows
+            rows.forEach(row => tbody.appendChild(row));
+            
+            // Show sort feedback
+            if (typeof swal !== 'undefined') {
+                swal({
+                    title: 'Table Sorted',
+                    text: `Sorted by ${criteria}`,
+                    icon: 'success',
+                    timer: 1000,
+                    buttons: false
+                });
+            }
+        }
+    </script>
 </body>
 </html>

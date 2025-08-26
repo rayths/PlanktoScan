@@ -4,12 +4,13 @@ import logging
 import requests
 from datetime import datetime
 from typing import Optional
+from firebase_admin import firestore
 
 from fastapi import APIRouter, UploadFile, File, Form, Request, Response, Depends, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from utils import predict_img, get_cache_info, get_model_mapping, MODEL_CACHE, generate_uuid_28, preload_models_async, clear_model_cache
+from utils import predict_img, get_cache_info, get_model_mapping, MODEL_CACHE, generate_uuid_28, preload_models_async, clear_model_cache, extract_filename_from_path
 from database import get_db, FirestoreDB, AppUser, ClassificationEntry, UserRole, create_guest_user
 
 logging.basicConfig(level=logging.INFO)
@@ -834,6 +835,56 @@ async def predict_image(
             }
         )
 
+@router.get("/debug/classifications")
+async def debug_classifications(request: Request, db: FirestoreDB = Depends(get_db)):
+    """Debug route to check classifications data"""
+    try:
+        user_id = request.session.get('user_id')
+        if not user_id:
+            return JSONResponse(content={"error": "Not authenticated"})
+
+        # Check classifications collection directly
+        classifications_ref = db.db.collection('classifications')
+
+        # Get all classifications for debugging
+        all_classifications = classifications_ref.limit(10).stream()
+        sample_data = []
+
+        for doc in all_classifications:
+            data = doc.to_dict()
+            sample_data.append({
+                'id': doc.id,
+                'userId': data.get('userId'),
+                'classificationResult': data.get('classificationResult'),
+                'timestamp': str(data.get('timestamp')),
+                'imagePath': data.get('imagePath'),
+                'keys': list(data.keys())
+            })
+
+        # Check user-specific classifications
+        user_classifications = classifications_ref.where('userId', '==', user_id).limit(5).stream()
+        user_data = []
+
+        for doc in user_classifications:
+            data = doc.to_dict()
+            user_data.append({
+                'id': doc.id,
+                'userId': data.get('userId'),
+                'classificationResult': data.get('classificationResult'),
+                'timestamp': str(data.get('timestamp'))
+            })
+        
+        return JSONResponse(content={
+            'current_user_id': user_id,
+            'sample_predictions': sample_data,
+            'user_specific_predictions': user_data,
+            'total_sample_count': len(sample_data),
+            'user_predictions_count': len(user_data)
+        })
+        
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)})
+    
 # ============================================================================
 # RESULT AND FEEDBACK ROUTES
 # ============================================================================
@@ -1024,67 +1075,140 @@ async def submit_expert_feedback(
 # ============================================================================
 
 @router.get("/history", response_class=HTMLResponse)
-async def user_history(request: Request, db: FirestoreDB = Depends(get_db)):
+async def show_history(request: Request, db: FirestoreDB = Depends(get_db)):
     """User prediction history with role-based access"""
-    current_user = get_current_user(request, db)
-    if not current_user:
-        return RedirectResponse(url="/login?next=/history", status_code=302)
-    
     try:
-        # Role-based data retrieval
+        user_id = request.session.get('user_id')
+        user_role = request.session.get('user_role', 'guest')
+        
+        if not user_id:
+            return RedirectResponse(url="/login", status_code=302)
+        
+        logger.info(f"=== History Debug Info ===")
+        logger.info(f"User ID: {user_id}")
+        logger.info(f"User Role: {user_role}")
+        
+        # Get current user object
+        current_user = get_current_user(request, db)
+        if not current_user:
+            logger.error("Current user not found")
+            return RedirectResponse(url="/login", status_code=302)
+       
+        # Get classifications from Firestore
+        classifications_ref = db.db.collection('classifications')
+        
         if current_user.role == UserRole.ADMIN:
-            # Only Admin can see all classifications
-            classifications_data = db.get_all_classifications_from_database(current_user.role)
-            logger.info(f"Admin {current_user.uid} accessing all predictions: {len(classifications_data)} results")
+            # Admin can see all classifications - hanya order by timestamp
+            query = classifications_ref.order_by('timestamp', direction=firestore.Query.DESCENDING)
+            is_admin = True
+            is_expert = True
+            logger.info("Admin user - querying all classifications")
+        elif current_user.role == UserRole.EXPERT:
+            query = classifications_ref.where('userId', '==', user_id)
+            is_admin = False
+            is_expert = True
+            logger.info("Expert user - querying all classifications")
         else:
-            # Basic and Expert users see only their own
-            classifications_data = db.get_classifications_by_user_id(current_user.uid)
-            logger.info(f"{current_user.role.value} user {current_user.uid} accessing own predictions: {len(classifications_data)} results")
+            query = classifications_ref.where('userId', '==', user_id)
+            is_admin = False
+            is_expert = False
+            logger.info(f"Basic user - querying own classifications for userId: {user_id}")
+
+        # Execute query
+        try:
+            classifications_docs = query.stream()
+            classifications_list = list(classifications_docs)
+            logger.info(f"Found {len(classifications_list)} raw documents")
+
+            if len(classifications_list) == 0:
+                logger.warning("No documents found in query result")
+                # Debug: Try to get any document from classifications collection
+                all_classifications = classifications_ref.limit(5).stream()
+                all_list = list(all_classifications)
+                logger.info(f"Total documents in classifications collection (sample): {len(all_list)}")
+                for i, doc in enumerate(all_list[:3]):
+                    data = doc.to_dict()
+                    logger.info(f"Sample doc {i+1}: userId={data.get('userId')}, classificationResult={data.get('classificationResult')}")
         
-        # Convert to objects for template
-        predictions = []
-        for data in classifications_data:
+        except Exception as query_error:
+            logger.error(f"Query execution failed: {str(query_error)}")
+            return templates.TemplateResponse("history.html", {
+                "request": request,
+                "classifications": [],
+                "is_admin": False,
+                "is_expert": False,
+                "is_expert_or_admin": False,
+                "error": f"Database query failed: {str(query_error)}"
+            })
+
+        classifications = []
+
+        for doc in classifications_list:
             try:
-                # Use the ID that's already in the data
-                classification = ClassificationEntry.from_dict(data, data.get('id'))
-                predictions.append(classification)
-            except Exception as e:
-                logger.warning(f"Error converting classification data: {e}")
-                # Create a basic object with available data
-                prediction = type('obj', (object,), {
-                    'id': data.get('id'),
-                    'stored_filename': data.get('imagePath', '').split('/')[-1] if data.get('imagePath') else '',
-                    'classification_result': data.get('classificationResult'),
-                    'confidence': data.get('confidence', 0),
-                    'location': data.get('location'),
-                    'model_used': data.get('modelUsed'),
-                    'timestamp': data.get('timestamp') or data.get('createdAt'),
-                    'user_id': data.get('userId'),
-                    'user_role': data.get('userRole'),
+                data = doc.to_dict()
+                logger.info(f"Processing doc: {doc.id}")
+                logger.info(f"Document data keys: {list(data.keys()) if data else 'None'}")
+                
+                if not data:
+                    logger.warning(f"Empty document data for doc: {doc.id}")
+                    continue
+                
+                # Map database fields to template expected fields dengan fallback
+                classification = type('Classification', (), {
+                    'id': doc.id,
+                    'stored_filename': extract_filename_from_path(data.get('imagePath', '')),
+                    'classification_result': data.get('classificationResult', 'Unknown'),
+                    'confidence': data.get('confidence', 0.0),
+                    'location': data.get('location', ''),
+                    'model_used': data.get('modelUsed', 'Unknown'),
+                    'user_id': data.get('userId', ''),
+                    'user_role': data.get('userRole', 'Basic'),
+                    'timestamp': data.get('timestamp'),
+                    'created_at': data.get('createdAt'),
+                    'is_correct': data.get('isCorrect'),
+                    'correct_class': data.get('correctClass'),
                     'user_feedback': data.get('userFeedback'),
-                    'is_correct': data.get('isCorrect')
-                })
-                predictions.append(prediction)
+                    'second_class': data.get('secondClass'),
+                    'second_confidence': data.get('secondConfidence', 0.0),
+                    'third_class': data.get('thirdClass'),
+                    'third_confidence': data.get('thirdConfidence', 0.0)
+                })()
+
+                logger.info(f"Mapped classification: {classification.id} - {classification.classification_result} - {classification.confidence}")
+                classifications.append(classification)
+
+            except Exception as mapping_error:
+                logger.error(f"Error mapping document {doc.id}: {str(mapping_error)}")
+                continue
         
+        # SORT DI PYTHON UNTUK BASIC USER (menghindari composite index)
+        if current_user.role == UserRole.BASIC:
+            classifications.sort(key=lambda x: x.timestamp or x.created_at or datetime.min, reverse=True)
+            logger.info("Sorted classifications by timestamp in Python")
+
+        logger.info(f"Final classifications count: {len(classifications)}")
+
         return templates.TemplateResponse("history.html", {
             "request": request,
-            "predictions": predictions,
-            "current_user": current_user,
-            "is_admin": current_user.role == UserRole.ADMIN,
-            "is_expert": current_user.role == UserRole.EXPERT,
-            "is_expert_or_admin": current_user.role in [UserRole.EXPERT, UserRole.ADMIN]
+            "classifications": classifications,
+            "is_admin": is_admin,
+            "is_expert": is_expert,
+            "is_expert_or_admin": is_expert or is_admin,
+            "error": None
         })
         
     except Exception as e:
-        logger.error(f"History error for user {current_user.uid}: {e}")
+        logger.error(f"Error in show_history: {str(e)}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        
         return templates.TemplateResponse("history.html", {
             "request": request,
-            "predictions": [],
-            "current_user": current_user,
-            "is_admin": current_user.role == UserRole.ADMIN,
-            "is_expert": current_user.role == UserRole.EXPERT,
-            "is_expert_or_admin": current_user.role in [UserRole.EXPERT, UserRole.ADMIN],
-            "error": "Failed to load prediction history"
+            "classifications": [],
+            "is_admin": False,
+            "is_expert": False,
+            "is_expert_or_admin": False,
+            "error": f"Failed to load classification history: {str(e)}"
         })
 
 @router.get("/admin/export")
