@@ -65,7 +65,7 @@ class FirebaseConfigLoader {
             // Load configuration
             await this.loadConfig();
             
-            console.log('Firebase config loaded:', this.config);
+            console.log('Firebase config loaded');
             
             // Check if Firebase is already initialized
             if (firebase.apps.length > 0) {
@@ -78,7 +78,7 @@ class FirebaseConfigLoader {
             firebase.initializeApp(this.config);
             this.isInitialized = true;
             
-            console.log('Firebase initialized successfully with project:', this.config.projectId);
+            console.log('Firebase initialized successfully');
             return this.config;
             
         } catch (error) {
