@@ -8,7 +8,7 @@ $(document).ready(function() {
         return;
     }
 
-    if (typeof Swal === 'undefined') {
+    if (typeof swal === 'undefined') {
         console.error('SweetAlert2 not loaded');
         // Use basic alert as fallback
         window.showAlert = function(title, text, icon) {
@@ -16,7 +16,7 @@ $(document).ready(function() {
         };
     } else {
         window.showAlert = function(title, text, icon) {
-            Swal.fire({ title, text, icon });
+            swal.fire({ title, text, icon });
         };
     }
 
@@ -273,8 +273,8 @@ $(document).ready(function() {
             $('#submitBtn').prop('disabled', false);
 
             if (response.ok && result.success) {
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({
+                if (typeof swal !== 'undefined') {
+                    swal.fire({
                         title: 'Account Created Successfully!',
                         html: `
                             <p>Your ${formData.role} account has been created.</p>
@@ -375,8 +375,8 @@ $(document).ready(function() {
             $('#loadingModal').modal('hide');
 
             if (result.success) {
-                if (typeof Swal !== 'undefined') {
-                    Swal.fire({
+                if (typeof swal !== 'undefined') {
+                    swal.fire({
                         title: 'Account Created Successfully!',
                         text: `Welcome to PlanktoScan! Your ${selectedRole} account is ready.`,
                         icon: 'success',
