@@ -69,13 +69,13 @@
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                                     <li>
-                                        <a class="dropdown-item" href="/history">
+                                        <a class="dropdown-item" href="/history" data-link="history">
                                             <i class="fas fa-history"></i> Prediction History
                                         </a>
                                     </li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li>
-                                        <a class="dropdown-item logout-item" href="#" onclick="logout()">
+                                        <a class="dropdown-item logout-item" href="#" onclick="logout(); return false;">
                                             <i class="fas fa-sign-out-alt"></i> Logout
                                         </a>
                                     </li>
@@ -295,52 +295,45 @@
             
             // Initialize Bootstrap dropdowns explicitly
             if (typeof bootstrap !== 'undefined') {
-                // Initialize user dropdown
+                // Initialize user dropdown dengan event handlers
                 const userDropdownEl = document.getElementById('userDropdown');
                 if (userDropdownEl) {
-                    new bootstrap.Dropdown(userDropdownEl);
+                    const userDropdown = new bootstrap.Dropdown(userDropdownEl, {
+                        boundary: 'viewport',
+                        display: 'dynamic'
+                    });
+
                     console.log('User dropdown initialized');
+
+                    // Event listeners untuk dropdown
+                    userDropdownEl.addEventListener('shown.bs.dropdown', function () {
+                        console.log('Dropdown shown');
+                    });
+
+                    userDropdownEl.addEventListener('hidden.bs.dropdown', function () {
+                        console.log('Dropdown hidden');
+                    });
                 }
-                
+
                 // Initialize other dropdowns
                 document.querySelectorAll('[data-bs-toggle="dropdown"]').forEach(dropdownEl => {
-                    new bootstrap.Dropdown(dropdownEl);
+                    if (dropdownEl.id !== 'userDropdown') {
+                        new bootstrap.Dropdown(dropdownEl, {
+                            boundary: 'viewport',
+                            display: 'dynamic'
+                        });
+                    }
                 });
             } else {
                 console.warn('Bootstrap not loaded, using fallback dropdown handler');
-                
-                // Fallback manual dropdown handler
-                const userDropdownEl = document.getElementById('userDropdown');
-                const userMenuEl = document.querySelector('#userDropdown + .dropdown-menu');
-                
-                if (userDropdownEl && userMenuEl) {
-                    userDropdownEl.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        const isShown = userMenuEl.classList.contains('show');
-                        
-                        // Close all dropdowns first
-                        document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                            menu.classList.remove('show');
-                        });
-                        
-                        if (!isShown) {
-                            userMenuEl.classList.add('show');
-                            userDropdownEl.setAttribute('aria-expanded', 'true');
-                        } else {
-                            userDropdownEl.setAttribute('aria-expanded', 'false');
-                        }
-                    });
-                    
-                    // Close dropdown when clicking outside
-                    document.addEventListener('click', function(e) {
-                        if (!userDropdownEl.contains(e.target) && !userMenuEl.contains(e.target)) {
-                            userMenuEl.classList.remove('show');
-                            userDropdownEl.setAttribute('aria-expanded', 'false');
-                        }
-                    });
+                if (typeof initializeFallbackDropdown === 'function') {
+                    initializeFallbackDropdown();
                 }
+            }
+
+            // Initialize dropdown menu items event handlers
+            if (typeof initializeDropdownMenuHandlers === 'function') {
+                initializeDropdownMenuHandlers();
             }
             
             // Initialize welcome popup with server data

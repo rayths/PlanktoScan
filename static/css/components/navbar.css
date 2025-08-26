@@ -17,32 +17,32 @@
     position: relative;
     z-index: 1000 !important;
     margin-bottom: 0;
+    padding: 0.5rem 0;
 }
 
 .navbar-dashboard .dropdown {
     position: relative !important;
-    z-index: 1001 !important;
+    z-index: 1002 !important;
 }
 
 .navbar-dashboard .user-dropdown-btn {
     position: relative !important;
-    z-index: 1002 !important;
-    border: 2px solid rgba(255, 255, 255, 0.3) !important;
-    background: rgba(255, 255, 255, 0.1) !important;
+    z-index: 1003 !important;
+    border: 2px solid rgba(52, 152, 219, 0.3) !important;
+    background: rgba(52, 152, 219, 0.1) !important;
     backdrop-filter: blur(10px) !important;
-    color: var(--text-primary);
-    pointer-events: auto;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-medium);
-    min-width: 180px;
-    transition: var(--transition-normal);
-    font: 600;
-    font-size: var(--font-size-base);
-    text-decoration: none;
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    padding: 8px 16px !important;
+    border-radius: 8px !important;
+    min-width: 160px !important;
+    transition: all 0.3s ease !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    font-size: 14px !important;
+    text-decoration: none !important;
+    cursor: pointer !important;
 }
 
 .navbar-dashboard .user-dropdown-btn i,
@@ -51,11 +51,15 @@
     margin-right: 4px !important;
 }
 
+.navbar-dashboard .user-dropdown-btn i.fa-user-circle {
+    font-size: 18px !important;
+    color: var(--primary-blue) !important;
+}
+
 .navbar-dashboard .user-dropdown-btn .user-name {
-    color: var(--text-primary);
+    color: var(--text-primary) !important;
     font-weight: 600 !important;
-    letter-spacing: 0.3px !important;
-    max-width: 120px !important;
+    max-width: 100px !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
@@ -64,11 +68,19 @@
 .navbar-dashboard .user-dropdown-btn:hover,
 .navbar-dashboard .user-dropdown-btn:focus,
 .navbar-dashboard .user-dropdown-btn.show {
-    background: rgba(255, 255, 255, 0.2) !important;
-    border-color: rgba(255, 255, 255, 0.5) !important;
+    background: rgba(52, 152, 219, 0.2) !important;
+    border-color: rgba(52, 152, 219, 0.6) !important;
     color: var(--text-primary) !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.25) !important;
+}
+
+.navbar-dashboard .user-dropdown-btn::after {
+    border-top: 5px solid var(--primary-blue) !important;
+    border-right: 4px solid transparent !important;
+    border-left: 4px solid transparent !important;
+    margin-left: auto !important;
+    opacity: 0.8 !important;
 }
 
 .navbar-dashboard .user-dropdown-btn + .dropdown-menu {
@@ -77,45 +89,45 @@
     top: calc(100% + 8px) !important;
     right: 0 !important;
     left: auto !important;
-    display: none !important;
+    transform: translateX(0) !important;
+    border: none !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15) !important;
+    border-radius: 12px !important;
+    padding: 8px !important;
+    min-width: 200px !important;
+    background-color: #fff !important;
     opacity: 0 !important;
     visibility: hidden !important;
-    border: none !important;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
-    border-radius: var(--radius-medium) !important;
-    padding: var(--spacing-sm) !important;
-    min-width: 200px !important;
-    background-color: #fff;
-    transform: translateZ(0) translateY(-10px) !important;
+    transform: translateY(-10px) !important;
     transition: all 0.2s ease-out !important;
-    will-change: transform, opacity !important;
 }
 
 .navbar-dashboard .user-dropdown-btn + .dropdown-menu.show {
-    display: block !important;
     opacity: 1 !important;
     visibility: visible !important;
-    transform: translateZ(0) translateY(0) !important;
-    pointer-events: auto !important;
+    transform: translateY(0) !important;
+    display: block !important;
 }
 
 .navbar-dashboard .user-dropdown-btn + .dropdown-menu .dropdown-item {
     position: relative !important;
     z-index: 10000 !important;
-    pointer-events: auto !important;
-    cursor: pointer !important;
-    padding: var(--spacing-sm) var(--spacing-md) !important;
-    border-radius: var(--radius-small) !important;
-    transition: var(--transition-fast) !important;
+    padding: 10px 16px !important;
+    border-radius: 8px !important;
+    margin: 2px 0 !important;
+    transition: all 0.2s ease !important;
     font-weight: 500 !important;
+    font-size: 14px !important;
     color: var(--text-primary) !important;
-    text-decoration: none;
+    text-decoration: none !important;
     display: flex !important;
     align-items: center !important;
-    gap: var(--spacing-xs) !important;
+    gap: 10px !important;
+    cursor: pointer !important;
 }
 
-.navbar-dashboard .user-dropdown-btn + .dropdown-menu .dropdown-item:hover {
+.navbar-dashboard .user-dropdown-btn + .dropdown-menu .dropdown-item:hover,
+.navbar-dashboard .user-dropdown-btn + .dropdown-menu .dropdown-item:focus {
     background-color: var(--primary-blue) !important;
     color: white !important;
     transform: translateX(2px) !important;
@@ -124,7 +136,7 @@
 .navbar-dashboard .user-dropdown-btn + .dropdown-menu .dropdown-item i {
     width: 16px !important;
     text-align: center !important;
-    font-size: var(--font-size-sm) !important;
+    font-size: 14px !important;
     color: inherit !important;
 }
 
@@ -141,6 +153,12 @@
     opacity: 0.8 !important;
 }
 
+.navbar-dashboard .user-dropdown-btn + .dropdown-menu .dropdown-divider {
+    margin: 8px 0 !important;
+    border-color: var(--border-light) !important;
+    opacity: 0.5 !important;
+}
+
 .navbar-dashboard .user-dropdown-btn.dropdown-toggle:hover::after {
     border-top-color: white !important;
     opacity: 1 !important;
@@ -153,7 +171,7 @@
 
 .navbar-dashboard .container {
     display: flex;
-    justify-content: flex-start;
+    justify-content: space-between;
     align-items: center;
     width: 100%;
 }
@@ -190,4 +208,9 @@
 
 .navbar-brand:hover img {
     transform: scale(1.1);
+}
+
+.navbar-dashboard .d-flex.ms-auto {
+    position: relative !important;
+    z-index: 1001 !important;
 }
