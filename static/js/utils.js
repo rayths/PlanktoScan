@@ -8,7 +8,8 @@ function showError(message) {
             title: "Error",
             text: message,
             icon: "error",
-            timer: 5000
+            timer: 5000,
+            button: "OK"
         });
     } else {
         alert(message);
@@ -21,10 +22,37 @@ function showSuccess(message) {
             title: "Success",
             text: message,
             icon: "success",
-            timer: 3000
+            timer: 3000,
+            button: "OK"
         });
     } else {
         alert(message);
+    }
+}
+
+function showWarning(message) {
+    if (typeof swal !== 'undefined') {
+        swal({
+            title: "Warning",
+            text: message,
+            icon: "warning",
+            button: "OK"
+        });
+    } else {
+        alert('Warning: ' + message);
+    }
+}
+
+function showInfo(message) {
+    if (typeof swal !== 'undefined') {
+        swal({
+            title: "Information",
+            text: message,
+            icon: "info",
+            button: "OK"
+        });
+    } else {
+        alert('Info: ' + message);
     }
 }
 
@@ -78,39 +106,110 @@ function setCookie(name, value, days) {
 // ============================================================================
 
 function logout() {
-    // Show confirmation dialog
-    if (confirm('Are you sure you want to logout?')) {
-        // Show loading state
+    // Show SweetAlert confirmation dialog
+    if (typeof swal !== 'undefined') {
+        swal({
+            title: 'Logout Confirmation',
+            text: 'Are you sure you want to logout?',
+            icon: 'warning',
+            buttons: {
+                cancel: {
+                    text: "Cancel",
+                    value: null,
+                    visible: true,
+                    className: "btn-cancel",
+                    closeModal: true,
+                },
+                confirm: {
+                    text: "Yes, Logout",
+                    value: true,
+                    visible: true,
+                    className: "btn-danger",
+                    closeModal: true
+                }
+            },
+            dangerMode: true,
+        }).then((willLogout) => {
+            if (willLogout) {
+                performLogout();
+            }
+        });
+    } else {
+        // Fallback to regular confirm if SweetAlert not available
+        if (confirm('Are you sure you want to logout?')) {
+            performLogout();
+        }
+    }
+}
+
+function performLogout() {
+    // Show loading state with SweetAlert
+    if (typeof swal !== 'undefined') {
+        swal({
+            title: 'Logging out...',
+            text: 'Please wait while we sign you out',
+            icon: 'info',
+            buttons: false,
+            closeOnClickOutside: false,
+            closeOnEsc: false
+        });
+    } else {
+        // Show loading state on button
         const logoutBtn = document.querySelector('.logout-item');
         if (logoutBtn) {
             logoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging out...';
         }
+    }
 
-        // Send logout request
-        fetch('/logout', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'same-origin'
-        })
-        .then(response => {
-            if (response.ok) {
-                // Redirect to dashboard after successful logout
-                window.location.href = '/';
+    // Send logout request
+    fetch('/logout', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => {
+        if (response.ok) {
+            // Success notification
+            if (typeof swal !== 'undefined') {
+                swal({
+                    title: 'Logged Out Successfully!',
+                    text: 'You have been signed out. Redirecting to homepage...',
+                    icon: 'success',
+                    timer: 2000,
+                    buttons: false,
+                    closeOnClickOutside: false
+                }).then(() => {
+                    window.location.href = '/';
+                });
             } else {
-                throw new Error('Logout failed');
+                window.location.href = '/';
             }
-        })
-        .catch(error => {
-            console.error('Logout error:', error);
+        } else {
+            throw new Error('Logout failed');
+        }
+    })
+    .catch(error => {
+        console.error('Logout error:', error);
+
+        if (typeof swal !== 'undefined') {
+            swal({
+                title: 'Logout Failed',
+                text: 'Unable to logout at this time. Please try again.',
+                icon: 'error',
+                button: "OK",
+                dangerMode: true
+            });
+        } else {
             alert('Logout failed. Please try again.');
             // Reset button text
+            const logoutBtn = document.querySelector('.logout-item');
             if (logoutBtn) {
                 logoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Logout';
             }
-        });
-    }
+        }
+    });
 }
 
 // ============================================================================
@@ -197,12 +296,120 @@ function updatePredictButtonState() {
 }
 
 // ============================================================================
+// ENHANCED ALERT FUNCTIONS
+// ============================================================================
+
+function showConfirmDialog(title, text, onConfirm, onCancel = null) {
+    if (typeof swal !== 'undefined') {
+        swal({
+            title: title,
+            text: text,
+            icon: 'warning',
+            buttons: {
+                cancel: {
+                    text: "Cancel",
+                    value: null,
+                    visible: true,
+                    className: "btn-secondary",
+                    closeModal: true,
+                },
+                confirm: {
+                    text: "Confirm",
+                    value: true,
+                    visible: true,
+                    className: "btn-primary",
+                    closeModal: true
+                }
+            },
+            dangerMode: false,
+        }).then((willProceed) => {
+            if (willProceed && onConfirm) {
+                onConfirm();
+            } else if (!willProceed && onCancel) {
+                onCancel();
+            }
+        });
+    } else {
+        if (confirm(title + '\n' + text)) {
+            if (onConfirm) onConfirm();
+        } else {
+            if (onCancel) onCancel();
+        }
+    }
+}
+
+function showDeleteConfirmDialog(itemName, onConfirm, onCancel = null) {
+    if (typeof swal !== 'undefined') {
+        swal({
+            title: 'Delete Confirmation',
+            text: `Are you sure you want to delete "${itemName}"? This action cannot be undone.`,
+            icon: 'warning',
+            buttons: {
+                cancel: {
+                    text: "Cancel",
+                    value: null,
+                    visible: true,
+                    className: "btn-secondary",
+                    closeModal: true,
+                },
+                confirm: {
+                    text: "Delete",
+                    value: true,
+                    visible: true,
+                    className: "btn-danger",
+                    closeModal: true
+                }
+            },
+            dangerMode: true,
+        }).then((willDelete) => {
+            if (willDelete && onConfirm) {
+                onConfirm();
+            } else if (!willDelete && onCancel) {
+                onCancel();
+            }
+        });
+    } else {
+        if (confirm(`Are you sure you want to delete "${itemName}"? This action cannot be undone.`)) {
+            if (onConfirm) onConfirm();
+        } else {
+            if (onCancel) onCancel();
+        }
+    }
+}
+
+function showLoadingDialog(title = 'Loading...', text = 'Please wait...') {
+    if (typeof swal !== 'undefined') {
+        return swal({
+            title: title,
+            text: text,
+            icon: 'info',
+            buttons: false,
+            closeOnClickOutside: false,
+            closeOnEsc: false
+        });
+    }
+    return null;
+}
+
+function closeLoadingDialog() {
+    if (typeof swal !== 'undefined') {
+        swal.close();
+    }
+}
+
+// ============================================================================
 // GLOBAL EXPORTS
 // ============================================================================
 
 if (typeof window !== 'undefined') {
     window.showError = showError;
     window.showSuccess = showSuccess;
+    window.showWarning = showWarning;
+    window.showInfo = showInfo;
+    window.showConfirmDialog = showConfirmDialog;
+    window.showDeleteConfirmDialog = showDeleteConfirmDialog;
+    window.showLoadingDialog = showLoadingDialog;
+    window.closeLoadingDialog = closeLoadingDialog;
     window.showLoading = showLoading;
     window.hideLoading = hideLoading;
     window.getCookie = getCookie;
@@ -215,4 +422,5 @@ if (typeof window !== 'undefined') {
     window.updateFileInfo = updateFileInfo;
     window.updatePredictButtonState = updatePredictButtonState;
     window.logout = logout;
+    window.performLogout = performLogout;
 }

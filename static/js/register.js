@@ -9,14 +9,20 @@ $(document).ready(function() {
     }
 
     if (typeof swal === 'undefined') {
-        console.error('SweetAlert2 not loaded');
-        // Use basic alert as fallback
+        console.warn('SweetAlert not loaded');
+        // Fallback function
         window.showAlert = function(title, text, icon) {
             alert(title + ': ' + text);
         };
     } else {
+        console.log('SweetAlert loaded successfully');
         window.showAlert = function(title, text, icon) {
-            swal.fire({ title, text, icon });
+            swal({
+                title: title,
+                text: text,
+                icon: icon,
+                button: "OK"
+            });
         };
     }
 

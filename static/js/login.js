@@ -4,6 +4,21 @@
 
 $(document).ready(function() {
     setupLoginHandlers();
+
+    // Global error handler untuk modal cleanup
+    $(document).on('hidden.bs.modal', '#loadingModal', function () {
+        console.log('Loading modal hidden');
+        // Cleanup any remaining backdrop
+        $('.modal-backdrop').remove();
+        $('body').removeClass('modal-open').css('padding-right', '');
+    });
+    
+    // Fallback cleanup saat swal muncul
+    $(document).on('click', '.swal-button', function() {
+        setTimeout(() => {
+            hideLoadingModal();
+        }, 100);
+    });
 });
 
 /**
@@ -53,6 +68,52 @@ function handleLogin(e) {
     
     // Use Firebase authentication instead of direct API calls
     loginWithFirebase(email, password, $submitBtn);
+}
+
+function getFirebaseErrorMessage(errorCode) {
+    const errorMessages = {
+        'auth/user-not-found': {
+            title: 'Account Not Found',
+            message: 'No account is registered with this email address.',
+            showRegister: true
+        },
+        'auth/wrong-password': {
+            title: 'Incorrect Password',
+            message: 'The password you entered is incorrect. Please check your password and try again.',
+            showRegister: false
+        },
+        'auth/invalid-email': {
+            title: 'Invalid Email Format',
+            message: 'Please enter a valid email address.',
+            showRegister: false
+        },
+        'auth/user-disabled': {
+            title: 'Account Disabled',
+            message: 'This account has been disabled. Please contact support for assistance.',
+            showRegister: false
+        },
+        'auth/too-many-requests': {
+            title: 'Too Many Login Attempts',
+            message: 'Too many failed attempts. Please wait a moment before trying again.',
+            showRegister: false
+        },
+        'auth/invalid-login-credentials': {
+            title: 'Invalid Login Credentials',
+            message: 'The email or password is incorrect. Please verify your information.',
+            showRegister: false
+        },
+        'auth/invalid-credential': {
+            title: 'Invalid Credentials',
+            message: 'The email or password you entered is incorrect. Please verify your credentials.',
+            showRegister: false
+        }
+    };
+
+    return errorMessages[errorCode] || {
+        title: 'Login Failed',
+        message: 'An unexpected error occurred. Please try again.',
+        showRegister: false
+    };
 }
 
 /**
@@ -134,34 +195,94 @@ async function loginWithFirebase(email, password, $submitBtn) {
         
         console.error('Login error:', error);
         
+        let errorTitle = 'Login Error';
         let errorMessage = 'Login failed. Please try again.';
+        let showRegisterOption = false;
         
         if (error.code) {
             switch (error.code) {
                 case 'auth/user-not-found':
-                    errorMessage = 'No account found with this email address.';
+                    errorTitle = 'Account Not Found';
+                    errorMessage = `No account is registered with "${email}". Would you like to create a new account?`;
+                    showRegisterOption = true;
                     break;
                 case 'auth/wrong-password':
-                    errorMessage = 'Incorrect password.';
+                    errorTitle = 'Incorrect Password';
+                    errorMessage = 'The password you entered is incorrect. Please check your password and try again.';
                     break;
                 case 'auth/invalid-email':
-                    errorMessage = 'Invalid email address.';
+                    errorTitle = 'Invalid Email';
+                    errorMessage = 'Please enter a valid email address format.';
                     break;
                 case 'auth/user-disabled':
-                    errorMessage = 'This account has been disabled.';
+                    errorTitle = 'Account Disabled';
+                    errorMessage = 'This account has been disabled. Please contact support for assistance.';
                     break;
                 case 'auth/too-many-requests':
-                    errorMessage = 'Too many failed login attempts. Please try again later.';
+                    errorTitle = 'Too Many Attempts';
+                    errorMessage = 'Too many failed login attempts. Please try again later or reset your password.';
+                    break;
+                case 'auth/invalid-login-credentials':
+                case 'auth/invalid-credential':
+                    errorTitle = 'Invalid Credentials';
+                    errorMessage = 'The email or password you entered is incorrect. Please verify your credentials and try again.';
                     break;
                 default:
                     errorMessage = error.message || errorMessage;
             }
         } else if (error.message) {
-            errorMessage = error.message;
+            if (error.message.includes('not found') || error.message.includes('not registered')) {
+                errorTitle = 'Account Not Found';
+                errorMessage = `No account is registered with "${email}". Would you like to create a new account?`;
+                showRegisterOption = true;
+            } else {
+                errorMessage = error.message;
+            }
         }
         
-        showLoginError(errorMessage);
+        // Show appropriate error dialog
+        if (showRegisterOption) {
+            showAccountNotFoundError(email);
+        } else {
+            showLoginError(errorTitle, errorMessage);
+        }
     }
+}
+
+/**
+ * Show account not found error with registration option
+ */
+function showAccountNotFoundError(email) {
+    swal({
+        title: "Account Not Found",
+        text: `No account is registered with "${email}". Would you like to create a new account?`,
+        icon: "warning",
+        buttons: {
+            cancel: {
+                text: "Try Again",
+                value: null,
+                visible: true,
+                className: "btn-secondary",
+                closeModal: true,
+            },
+            confirm: {
+                text: "Create Account",
+                value: true,
+                visible: true,
+                className: "btn-primary",
+                closeModal: true
+            }
+        },
+        dangerMode: false,
+    }).then((willRegister) => {
+        if (willRegister) {
+            // Redirect to registration page with email pre-filled
+            window.location.href = `/register?email=${encodeURIComponent(email)}`;
+        } else {
+            // Clear the email field and focus on it
+            $('#email').val('').focus();
+        }
+    });
 }
 
 /**
@@ -225,14 +346,50 @@ function determineLoginRole(email) {
  * Show loading modal
  */
 function showLoadingModal() {
-    $('#loadingModal').modal('show');
+    try {
+        const modal = $('#loadingModal');
+        if (modal.length) {
+            // Pastikan modal bersih sebelum show
+            modal.modal('hide');
+            $('.modal-backdrop').remove();
+            
+            // Show modal
+            setTimeout(() => {
+                modal.modal('show');
+            }, 100);
+        } else {
+            console.warn('Loading modal element not found');
+        }
+    } catch (error) {
+        console.error('Error showing loading modal:', error);
+    }
 }
 
 /**
  * Hide loading modal
  */
 function hideLoadingModal() {
-    $('#loadingModal').modal('hide');
+    try {
+        const modal = $('#loadingModal');
+        if (modal.length) {
+            modal.modal('hide');
+            
+            // Force remove modal backdrop jika masih ada
+            setTimeout(() => {
+                $('.modal-backdrop').remove();
+                $('body').removeClass('modal-open');
+                $('body').css('padding-right', '');
+            }, 100);
+        }
+    } catch (error) {
+        console.error('Error hiding loading modal:', error);
+        
+        // Fallback: Force remove modal elements
+        $('.modal-backdrop').remove();
+        $('body').removeClass('modal-open');
+        $('body').css('padding-right', '');
+        $('#loadingModal').hide();
+    }
 }
 
 /**
@@ -251,41 +408,115 @@ function showLoginSuccess(role) {
  * Show button loading state
  */
 function showButtonLoading($button) {
-    $button.addClass('loading').prop('disabled', true);
-    $button.data('original-text', $button.html());
-    $button.html('<i class="fas fa-spinner fa-spin"></i> Please wait...');
+    if ($button && $button.length) {
+        $button.addClass('loading').prop('disabled', true);
+        $button.data('original-text', $button.html());
+        $button.html('<i class="fas fa-spinner fa-spin"></i> Please wait...');
+    }
 }
-
 /**
  * Hide button loading state
  */
 function hideButtonLoading($button) {
-    $button.removeClass('loading').prop('disabled', false);
-    if ($button.data('original-text')) {
-        $button.html($button.data('original-text'));
+    if ($button && $button.length) {
+        $button.removeClass('loading').prop('disabled', false);
+        if ($button.data('original-text')) {
+            $button.html($button.data('original-text'));
+        }
     }
+}
+
+function forceCleanupModal() {
+    try {
+        // Hide all modals
+        $('.modal').modal('hide');
+        
+        // Remove all backdrops
+        $('.modal-backdrop').remove();
+        
+        // Reset body
+        $('body').removeClass('modal-open');
+        $('body').css('padding-right', '');
+        
+        // Hide specific loading modal
+        $('#loadingModal').hide().removeClass('show');
+        
+        console.log('Modal cleanup completed');
+    } catch (error) {
+        console.error('Modal cleanup error:', error);
+    }
+}
+
+function showAccountNotFoundError(email) {
+    // Force cleanup sebelum show swal
+    forceCleanupModal();
+    
+    setTimeout(() => {
+        swal({
+            title: "Account Not Found",
+            text: `No account is registered with "${email}". Would you like to create a new account?`,
+            icon: "warning",
+            buttons: {
+                cancel: {
+                    text: "Try Again",
+                    value: null,
+                    visible: true,
+                    className: "btn-secondary",
+                    closeModal: true,
+                },
+                confirm: {
+                    text: "Create Account",
+                    value: true,
+                    visible: true,
+                    className: "btn-primary",
+                    closeModal: true
+                }
+            },
+            dangerMode: false,
+        }).then((willRegister) => {
+            if (willRegister) {
+                // Redirect to registration page with email pre-filled
+                window.location.href = `/register?email=${encodeURIComponent(email)}`;
+            } else {
+                // Clear the email field and focus on it
+                $('#email').val('').focus();
+            }
+        });
+    }, 100);
 }
 
 /**
  * Show login error message
  */
-function showLoginError(message) {
-    swal({
-        title: "Login Error",
-        text: message,
-        icon: "error",
-    });
+function showLoginError(title = "Login Error", message) {
+    // Force cleanup sebelum show swal
+    forceCleanupModal();
+    
+    setTimeout(() => {
+        swal({
+            title: title,
+            text: message,
+            icon: "error",
+            button: "OK",
+            dangerMode: true
+        });
+    }, 100);
 }
 
 /**
  * Show validation error message
  */
 function showValidationError(message) {
-    swal({
-        title: "Validation Error",
-        text: message,
-        icon: "warning",
-    });
+    forceCleanupModal();
+    
+    setTimeout(() => {
+        swal({
+            title: "Please Check Your Input",
+            text: message,
+            icon: "warning",
+            button: "OK"
+        });
+    }, 100);
 }
 
 /**
@@ -335,20 +566,18 @@ function getCookie(name) {
  * Show email verification warning (non-blocking)
  */
 function showEmailVerificationWarning() {
-    // Show a toast-style notification that doesn't block login
-    if (typeof Swal !== 'undefined') {
-        Swal.fire({
+    // Gunakan swal biasa karena Swal mungkin tidak tersedia
+    if (typeof swal !== 'undefined') {
+        swal({
             title: 'Email Not Verified',
             text: 'Your email address is not verified yet. Please check your inbox and verify your email for full account security.',
             icon: 'warning',
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
             timer: 5000,
-            timerProgressBar: true
+            button: false
         });
     } else {
-        // Fallback for systems without SweetAlert
         console.warn('Email verification warning: Please verify your email address for full account security');
     }
 }
+
+
