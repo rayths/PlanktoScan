@@ -125,7 +125,6 @@ p {
     align-items: center;
     gap: 8px;
     font-size: var(--font-size-xl);
-    text-transform: uppercase;
     letter-spacing: 0.5px;
     height: auto;
     line-height: var(--line-height-tight);
@@ -170,6 +169,22 @@ p {
     margin-bottom: var(--spacing-lg);
     text-shadow: 1px 1px 2px rgba(255, 255, 255, 0.80);
     line-height: var(--line-height-normal);
+}
+
+/* Title and Subtitle */
+.login-title, .register-title {
+    font-size: var(--font-size-3xl);
+    font-weight: 900;
+    color: var(--text-primary);
+    margin-bottom: 0;
+    letter-spacing: -0.5px;
+}
+
+.login-subtitle, .register-subtitle {
+    font-size: var(--font-size-lg);
+    color: var(--text-secondary);
+    margin-bottom: 0;
+    font-weight: 600;
 }
 
 /* Button Text */

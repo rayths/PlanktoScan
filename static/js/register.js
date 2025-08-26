@@ -32,18 +32,9 @@ $(document).ready(function() {
         $('input[name="role"]').prop('checked', false);
         $(`#role${role.charAt(0).toUpperCase() + role.slice(1)}`).prop('checked', true);
 
-        // Show/hide conditional fields and email hints
-        if (role === 'basic') {
-            $('#conditionalFields').show();
-            $('#basicHint').show();
-            $('#expertHint').hide();
-            $('#organization').attr('required', true);
-        } else {
-            $('#conditionalFields').hide();
-            $('#expertHint').show();
-            $('#basicHint').hide();
-            $('#organization').attr('required', false);
-        }
+        // Show registration form with animation
+        showRegistrationForm(role);
+
     });
 
     // Email validation
@@ -87,6 +78,10 @@ $(document).ready(function() {
         
         if (!selectedRole) {
             showAlert('Role Required', 'Please select your role (Expert or Basic)', 'warning');
+            // Scroll back to role selection
+            $('html, body').animate({
+                scrollTop: $('.role-selection').offset().top - 100
+            }, 500);
             return;
         }
 
@@ -121,6 +116,53 @@ $(document).ready(function() {
 
         signUpWithGoogle();
     });
+
+    // Show registration form
+    function showRegistrationForm(role) {
+        // Add completed class to role selection
+        $('.role-selection').addClass('completed');
+        
+        // Show the registration form
+        $('#registrationForm').hide().fadeIn(500).addClass('form-reveal');
+        $('#backToLoginSection').hide().fadeIn(600);
+        
+        // Configure role-specific settings
+        if (role === 'basic') {
+            $('#conditionalFields').slideDown(300);
+            $('#basicHint').show();
+            $('#expertHint').hide();
+            $('#organization').attr('required', true);
+        } else {
+            $('#conditionalFields').slideUp(300);
+            $('#expertHint').show();
+            $('#basicHint').hide();
+            $('#organization').attr('required', false);
+        }
+        
+        // Scroll to form smoothly
+        setTimeout(() => {
+            $('html, body').animate({
+                scrollTop: $('#registrationForm').offset().top - 100
+            }, 500);
+        }, 200);
+    }
+
+    // Function to reset form
+    function resetForm() {
+        selectedRole = null;
+        $('.role-card').removeClass('selected');
+        $('.role-selection').removeClass('completed');
+        $('#registrationForm').hide();
+        $('#backToLoginSection').hide();
+        $('#conditionalFields').hide();
+        $('.email-hint').hide();
+        $('input[name="role"]').prop('checked', false);
+        
+        // Reset form fields
+        $('#registerForm')[0].reset();
+        $('.form-control').removeClass('is-invalid');
+        $('.invalid-feedback').text('');
+    }
 
     function validateForm(data) {
         // Basic validation

@@ -17,7 +17,7 @@
     <div class="background">
         <img src="{{ url_for('static', path='assets/background.png') }}" alt="background" class="background-image">
     </div>
-    <div class="login-overlay"></div>
+    <div class="main-overlay"></div>
 
     <!-- Login Container -->
     <div class="login-container">
@@ -27,8 +27,8 @@
                     <div class="main-card">
                         <!-- Header -->
                         <div class="login-header text-center">
+                            <p class="login-title">Welcome to</p>
                             <img src="{{ url_for('static', path='assets/judul.png') }}" alt="PlanktoScan" class="login-logo">
-                            <h2 class="login-title">Welcome to PlanktoScan</h2>
                             <p class="login-subtitle">Please sign in to continue</p>
                         </div>
 
@@ -36,12 +36,12 @@
                         <div class="login-form-container">
                             <form id="loginForm" class="login-form">
                                 <div class="form-group">
-                                    <label for="email" class="form-label">Email</label>
+                                    <label for="email" class="text-label">Email</label>
                                     <input type="email" class="form-control" id="email" name="email" 
                                            placeholder="Enter your email" required>
                                 </div>
                                 <div class="form-group">
-                                    <label for="password" class="form-label">Password</label>
+                                    <label for="password" class="text-label">Password</label>
                                     <input type="password" class="form-control" id="password" name="password" 
                                            placeholder="Enter your password" required>
                                 </div>
@@ -53,13 +53,13 @@
                             
                             <!-- Additional Options -->
                             <div class="login-alternatives text-center">
-                                <p class="mb-2">Don't have an account?</p>
-                                <a href="#" id="registerLink" class="btn btn-outline-primary btn-modern mb-3">
+                                <p class="text-muted">Don't have an account?</p>
+                                <a href="#" id="registerLink" class="btn btn-outline-primary btn-modern mb-0">
                                     <i class="fas fa-user-plus"></i>
                                     Create New Account
                                 </a>
                                 
-                                <div class="divider">
+                                <div class="login-divider">
                                     <span>OR</span>
                                 </div>
                                 
@@ -68,14 +68,6 @@
                                     Continue as Guest
                                 </button>
                             </div>
-                        </div>
-
-                        <!-- Footer -->
-                        <div class="login-footer text-center">
-                            <a href="/" class="btn btn-link">
-                                <i class="fas fa-arrow-left"></i>
-                                Back to Dashboard
-                            </a>
                         </div>
                     </div>
                 </div>

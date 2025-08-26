@@ -51,7 +51,7 @@ body {
     overflow: visible;
 }
 
-.dashboard-overlay {
+.main-overlay {
     position: absolute;
     top: 0;
     left: 0;
@@ -70,15 +70,6 @@ body {
     display: flex;
     justify-content: center;
     align-items: flex-start;
-}
-
-/* Form Layouts */
-.form-group {
-    margin-bottom: var(--spacing-md);
-    position: relative;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
 }
 
 .row.g-4.justify-content-center {

@@ -319,6 +319,65 @@
     transform: scale(1.1);
 }
 
+/* Button Outline */
+.btn-outline-primary {
+    background: transparent;
+    border: 2px solid var(--primary-green);
+    color: var(--primary-green);
+    box-shadow: none;
+}
+
+.btn-outline-primary:hover {
+    background: var(--primary-green);
+    border-color: var(--primary-green);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
+}
+
+.btn-outline-primary:focus {
+    background: var(--primary-green);
+    border-color: var(--primary-green);
+    color: white;
+    box-shadow: 0 0 0 0.2rem rgba(39, 174, 96, 0.25);
+}
+
+.btn-outline-primary:active {
+    background: var(--primary-green-hover);
+    border-color: var(--primary-green-hover);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.btn-outline-secondary {
+    background: transparent;
+    border: 2px solid var(--text-secondary);
+    color: var(--text-secondary);
+    box-shadow: none;
+}
+
+.btn-outline-secondary:hover {
+    background: var(--text-secondary);
+    border-color: var(--text-secondary);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(108, 117, 125, 0.3);
+}
+
+.btn-outline-secondary:focus {
+    background: var(--text-secondary);
+    border-color: var(--text-secondary);
+    color: white;
+    box-shadow: 0 0 0 0.2rem rgba(108, 117, 125, 0.25);
+}
+
+.btn-outline-secondary:active {
+    background: #495057;
+    border-color: #495057;
+    color: white;
+    transform: translateY(-1px);
+}
+
 /* Animations */
 @keyframes spin {
     0% { transform: rotate(0deg); }

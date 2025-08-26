@@ -1,16 +1,5 @@
 /* LOGIN PAGE STYLES */
 
-/* Background & Overlay */
-.login-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(135deg, rgba(0, 123, 255, 0.8), rgba(40, 167, 69, 0.6));
-    z-index: 1;
-}
-
 /* Login Container */
 .login-container {
     position: relative;
@@ -24,28 +13,13 @@
 
 /* Login Header */
 .login-header {
-    margin-bottom: var(--spacing-xl);
+    margin-bottom: var(--spacing-md);
 }
 
 .login-logo {
     max-width: 200px;
     height: auto;
-    margin-bottom: var(--spacing-md);
-}
-
-.login-title {
-    font-size: var(--font-size-3xl);
-    font-weight: 700;
-    color: var(--text-primary);
     margin-bottom: var(--spacing-xs);
-    letter-spacing: -0.5px;
-}
-
-.login-subtitle {
-    font-size: var(--font-size-lg);
-    color: var(--text-secondary);
-    margin-bottom: 0;
-    font-weight: 400;
 }
 
 /* Login Options */
@@ -127,46 +101,11 @@
     margin-top: 20px;
 }
 
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-label {
-    font-weight: 600;
-    color: #495057;
-    margin-bottom: 8px;
-}
-
-.form-control {
-    border: 2px solid #e9ecef;
-    border-radius: 10px;
-    padding: 12px 15px;
-    font-size: 1rem;
-    transition: all 0.3s ease;
-}
-
-.form-control:focus {
-    border-color: #007bff;
-    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-}
-
-.form-control.is-invalid {
-    border-color: #dc3545;
-}
-
-.invalid-feedback {
-    display: block;
-    width: 100%;
-    margin-top: 0.25rem;
-    font-size: 0.875rem;
-    color: #dc3545;
-}
-
 /* Login Divider */
 .login-divider {
     text-align: center;
     position: relative;
-    margin: var(--spacing-md) 0;
+    margin: var(--spacing-sm) 0;
 }
 
 .login-divider::before {
@@ -192,34 +131,99 @@
     letter-spacing: 0.5px;
 }
 
-/* Login Footer */
-.login-footer {
-    margin-top: var(--spacing-xl);
-    padding-top: var(--spacing-lg);
-    border-top: 1px solid var(--border-light);
+/* Register Page Styles */
+.role-selection {
+    margin: var(--spacing-md) 0;
 }
 
-.login-footer .btn-link {
-    color: var(--text-secondary);
-    text-decoration: none;
-    font-weight: 500;
-    transition: var(--transition-fast);
+.role-card {
+    border: 2px solid var(--border-light);
+    border-radius: var(--radius-medium);
+    padding: var(--spacing-md);
+    margin-bottom: var(--spacing-sm);
+    cursor: pointer;
+    transition: var(--transition-normal);
+    background: var(--bg-card);
 }
 
-.login-footer .btn-link:hover {
-    color: var(--primary-blue);
-    text-decoration: none;
+.role-card:hover {
+    border-color: var(--primary-blue);
+    background-color: var(--bg-overlay);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
 }
 
-.help-text {
-    margin-bottom: 20px;
+.role-card.selected {
+    border-color: var(--primary-blue);
+    background-color: var(--bg-overlay);
+    box-shadow: var(--shadow-light);
 }
 
-.help-text p {
-    color: #495057;
+.role-card input[type="radio"] {
+    display: none;
+}
+
+/* Form reveal animation */
+.form-reveal {
+    animation: slideDown 0.5s ease-out;
+}
+
+/* Role Badges */
+.role-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-xl);
+    font-size: var(--font-size-xs);
     font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.help-text small {
-    line-height: 1.4;
+/* Badge Expert */
+.badge-expert {
+    background: var(--gradient-secondary);
+    color: white;
+    border: none;
+}
+
+/* Badge Basic */
+.badge-basic {
+    background: var(--gradient-primary);
+    color: white;
+    border: none;
+}
+
+.conditional-fields {
+    margin-top: var(--spacing-sm);
+}
+
+.email-hint {
+    font-size: var(--font-size-sm);
+    margin-top: var(--spacing-xs);
+    padding: var(--spacing-xs);
+    border-radius: var(--radius-small);
+    display: none;
+    line-height: var(--line-height-normal);
+}
+
+.expert-hint {
+    background-color: rgba(39, 174, 96, 0.1);
+    color: var(--primary-green);
+    border: 1px solid var(--border-success);
+}
+
+.basic-hint {
+    background-color: var(--bg-overlay);
+    color: var(--primary-blue);
+    border: 1px solid var(--border-primary);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
