@@ -222,13 +222,13 @@
                                                     <td class="actions-cell">
                                                         <div class="action-buttons">
                                                             <a href="/result/{{ classification.id }}" 
-                                                               class="btn btn-primary btn-sm action-btn" 
+                                                               class="btn btn-outline-secondary btn-sm action-btn" 
                                                                title="View Details">
                                                                 <i class="fas fa-eye"></i>
                                                             </a>
                                                             {% if is_expert_or_admin %}
                                                                 <a href="/feedback/{{ classification.id }}" 
-                                                                   class="btn btn-warning btn-sm action-btn" 
+                                                                   class="btn btn-outline-primary btn-sm action-btn" 
                                                                    title="{% if classification.user_feedback %}Edit Feedback{% else %}Add Feedback{% endif %}">
                                                                     <i class="fas fa-comment-medical"></i>
                                                                 </a>

@@ -1,280 +1,449 @@
-/**
- * Feedback management module for PlanktoScan
- */
+// ============================================================================
+// EXPERT FEEDBACK STATE
+// ============================================================================
+
+const ExpertFeedbackApp = {
+    isInitialized: false,
+    currentValue: null,
+    isEditMode: false
+};
+
+// ============================================================================
+// DROPDOWN MANAGEMENT FOR CLASSIFICATION ACCURACY
+// ============================================================================
 
 /**
- * Set rating value and update UI
- * @param {number} rating - Rating value (1-5)
+ * Handle accuracy dropdown selection
+ * @param {Element} element - Clicked dropdown item
+ * @param {string} value - Selected value (true/false)
+ * @param {string} displayText - Text to display on button
  */
-function setRating(rating) {
-    document.getElementById('feedback-rating').value = rating;
-    
-    // Update visual stars
-    const stars = document.querySelectorAll('.btn-rating');
-    stars.forEach((star, index) => {
-        if (index < rating) {
-            star.classList.add('active');
-        } else {
-            star.classList.remove('active');
+function selectAccuracy(element, value, displayText) {
+    try {
+        // Update display text
+        const selectedText = document.getElementById('selectedAccuracy');
+        if (selectedText) {
+            selectedText.textContent = displayText;
         }
-    });
-    
-    console.log('Rating set to:', rating);
+        
+        // Update hidden input value
+        const hiddenInput = document.getElementById('is_correct');
+        if (hiddenInput) {
+            hiddenInput.value = value;
+            ExpertFeedbackApp.currentValue = value;
+        }
+        
+        // Remove active class from all items
+        document.querySelectorAll('#accuracyDropdown + .dropdown-menu .dropdown-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Add active class to selected item
+        element.classList.add('active');
+        
+        // Close dropdown
+        const dropdown = bootstrap.Dropdown.getInstance(document.getElementById('accuracyDropdown'));
+        if (dropdown) {
+            dropdown.hide();
+        }
+        
+        // Toggle correct class field
+        toggleCorrectClassField();
+        
+        // Add visual feedback
+        const dropdownBtn = document.getElementById('accuracyDropdown');
+        if (dropdownBtn) {
+            dropdownBtn.style.borderColor = value === 'true' ? '#28a745' : '#dc3545';
+            dropdownBtn.style.backgroundColor = value === 'true' ? '#f8fff9' : '#fff5f5';
+        }
+        
+        console.log('Expert feedback accuracy selected:', value, displayText);
+        
+    } catch (error) {
+        console.error('Error in selectAccuracy:', error);
+    }
 }
 
 /**
- * Reset feedback form to initial state
+ * Toggle correct classification field based on accuracy selection
  */
-function resetFeedbackForm() {
-    const feedbackForm = document.getElementById('feedback-form');
-    if (feedbackForm) {
-        feedbackForm.reset();
+function toggleCorrectClassField() {
+    const isCorrect = document.getElementById('is_correct')?.value;
+    const correctClassField = document.getElementById('correct-class-field');
+    const correctClassInput = document.getElementById('correct_class');
+    
+    if (isCorrect === 'false') {
+        if (correctClassField) correctClassField.style.display = 'block';
+        if (correctClassInput) correctClassInput.required = true;
+    } else {
+        if (correctClassField) correctClassField.style.display = 'none';
+        if (correctClassInput) {
+            correctClassInput.required = false;
+            correctClassInput.value = '';
+        }
     }
-    
-    const feedbackRating = document.getElementById('feedback-rating');
-    if (feedbackRating) {
-        feedbackRating.value = '';
+}
+
+// ============================================================================
+// FORM MANAGEMENT
+// ============================================================================
+
+/**
+ * Reset expert feedback form to initial state
+ */
+function resetForm() {
+    try {
+        const elements = {
+            userFeedback: document.getElementById('user_feedback'),
+            isCorrect: document.getElementById('is_correct'),
+            correctClass: document.getElementById('correct_class'),
+            charCount: document.getElementById('char-count'),
+            selectedAccuracy: document.getElementById('selectedAccuracy')
+        };
+        
+        if (elements.userFeedback) elements.userFeedback.value = '';
+        if (elements.isCorrect) elements.isCorrect.value = '';
+        if (elements.correctClass) elements.correctClass.value = '';
+        if (elements.charCount) elements.charCount.textContent = '0';
+        if (elements.selectedAccuracy) elements.selectedAccuracy.textContent = '-- Select Status --';
+        
+        // Remove active class from dropdown items
+        document.querySelectorAll('#accuracyDropdown + .dropdown-menu .dropdown-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Reset dropdown button styling
+        const dropdownBtn = document.getElementById('accuracyDropdown');
+        if (dropdownBtn) {
+            dropdownBtn.style.borderColor = '';
+            dropdownBtn.style.backgroundColor = '';
+        }
+        
+        // Reset state
+        ExpertFeedbackApp.currentValue = null;
+        
+        toggleCorrectClassField();
+        
+        console.log('Expert feedback form reset successfully');
+        
+    } catch (error) {
+        console.error('Error resetting expert feedback form:', error);
     }
-    
-    // Reset rating stars
-    const stars = document.querySelectorAll('.btn-rating');
-    stars.forEach(star => star.classList.remove('active'));
-    
-    // Reset character counter
-    updateCharCount();
-    
-    console.log('Feedback form reset');
 }
 
 /**
- * Update character counter for textarea
+ * Enable edit mode for existing feedback
+ */
+function enableEdit() {
+    try {
+        const alertSuccess = document.querySelector('.alert-success');
+        const editForm = document.getElementById('edit-form');
+        
+        if (alertSuccess) alertSuccess.style.display = 'none';
+        if (editForm) editForm.style.display = 'block';
+        
+        ExpertFeedbackApp.isEditMode = true;
+        console.log('Expert feedback edit mode enabled');
+        
+    } catch (error) {
+        console.error('Error enabling edit mode:', error);
+    }
+}
+
+/**
+ * Cancel edit mode
+ */
+function cancelEdit() {
+    try {
+        const alertSuccess = document.querySelector('.alert-success');
+        const editForm = document.getElementById('edit-form');
+        
+        if (alertSuccess) alertSuccess.style.display = 'block';
+        if (editForm) editForm.style.display = 'none';
+        
+        ExpertFeedbackApp.isEditMode = false;
+        console.log('Expert feedback edit mode cancelled');
+        
+    } catch (error) {
+        console.error('Error cancelling edit mode:', error);
+    }
+}
+
+// ============================================================================
+// CHARACTER COUNTER
+// ============================================================================
+
+/**
+ * Update character counter for expert feedback textarea
  */
 function updateCharCount() {
-    const textarea = document.getElementById('feedback-message');
+    const textarea = document.getElementById('user_feedback');
     const counter = document.getElementById('char-count');
     
     if (textarea && counter) {
-        const currentLength = textarea.value.length;
-        counter.textContent = currentLength;
+        const current = textarea.value.length;
+        counter.textContent = current;
         
         // Change color based on length
-        if (currentLength > 800) {
-            counter.style.color = '#e74c3c';
-        } else if (currentLength > 600) {
-            counter.style.color = '#f39c12';
+        if (current > 1800) {
+            counter.style.color = '#dc3545';
+        } else if (current > 1500) {
+            counter.style.color = '#ffc107';
         } else {
             counter.style.color = '#6c757d';
         }
     }
 }
 
+// ============================================================================
+// FORM VALIDATION & SUBMISSION
+// ============================================================================
+
 /**
- * Edit existing feedback (show form again)
+ * Validate expert feedback form
+ * @returns {Object} Validation result
  */
-function editFeedback() {
-    swal({
-        title: "Edit Feedback",
-        text: "Apakah Anda ingin mengubah feedback yang sudah dikirim?",
-        icon: "question",
-        buttons: {
-            cancel: "Batal",
-            confirm: "Ya, Edit"
-        }
-    }).then((willEdit) => {
-        if (willEdit) {
-            // Reload page with edit parameter
-            window.location.href = window.location.href + '?edit_feedback=1';
-        }
-    });
+function validateExpertFeedback() {
+    const feedback = document.getElementById('user_feedback')?.value.trim() || '';
+    const accuracy = document.getElementById('is_correct')?.value || '';
+    const correctClass = document.getElementById('correct_class')?.value.trim() || '';
+    
+    const validation = {
+        isValid: true,
+        errors: []
+    };
+    
+    // Validate feedback length
+    if (feedback.length < 10) {
+        validation.isValid = false;
+        validation.errors.push({
+            field: 'user_feedback',
+            message: 'Please provide more detailed expert analysis (minimum 10 characters)',
+            title: 'Feedback Too Short'
+        });
+    }
+    
+    // Validate accuracy selection
+    if (!accuracy) {
+        validation.isValid = false;
+        validation.errors.push({
+            field: 'is_correct',
+            message: 'Please select whether the classification is correct or incorrect',
+            title: 'Classification Status Required'
+        });
+    }
+    
+    // Validate correct class if incorrect is selected
+    if (accuracy === 'false' && !correctClass) {
+        validation.isValid = false;
+        validation.errors.push({
+            field: 'correct_class',
+            message: 'Please specify the correct classification when marking as incorrect',
+            title: 'Correct Classification Required'
+        });
+    }
+    
+    return validation;
 }
 
 /**
- * Submit feedback form with validation
- * @param {Event} event - Form submit event
+ * Handle expert feedback form submission
+ * @param {Event} e - Form submit event
  */
-function submitFeedback(event) {
-    event.preventDefault();
+function submitFeedback(e) {
+    const validation = validateExpertFeedback();
     
-    const form = document.getElementById('feedback-form');
-    if (!form) {
-        console.error('Feedback form not found');
-        return;
-    }
-    
-    const formData = new FormData(form);
-    
-    // Validate required fields
-    const status = formData.get('status');
-    const message = formData.get('message');
-    
-    if (!status) {
-        swal({
-            title: "Status Diperlukan",
-            text: "Silakan pilih status analisis (Sesuai atau Belum Sesuai)",
-            icon: "warning"
-        });
-        return;
-    }
-    
-    if (!message || message.trim().length < 10) {
-        swal({
-            title: "Pesan Terlalu Pendek",
-            text: "Silakan berikan masukan yang lebih detail (minimal 10 karakter)",
-            icon: "warning"
-        });
-        return;
-    }
-    
-    // Show loading state
-    const submitBtn = document.getElementById('submit-feedback-btn');
-    if (!submitBtn) {
-        console.error('Submit button not found');
-        return;
-    }
-    
-    const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengirim...';
-    submitBtn.disabled = true;
-    
-    // Submit feedback
-    fetch('/submit-feedback', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            swal({
-                title: "Feedback Berhasil Dikirim",
-                text: "Terima kasih atas feedback Anda. Masukan Anda sangat berharga!",
-                icon: "success"
-            }).then(() => {
-                // Reload page to show submitted feedback
-                window.location.reload();
+    if (!validation.isValid) {
+        e.preventDefault();
+        
+        const firstError = validation.errors[0];
+        
+        // Use SweetAlert if available, otherwise use regular alert
+        if (typeof swal !== 'undefined') {
+            swal.fire({
+                title: firstError.title,
+                text: firstError.message,
+                icon: 'warning',
+                confirmButtonText: 'OK'
             });
         } else {
-            throw new Error(data.message || 'Gagal mengirim feedback');
+            alert(`${firstError.title}: ${firstError.message}`);
         }
-    })
-    .catch(error => {
-        console.error('Error submitting feedback:', error);
-        swal({
-            title: "Gagal Mengirim Feedback",
-            text: error.message || "Terjadi kesalahan. Silakan coba lagi.",
-            icon: "error"
-        });
-    })
-    .finally(() => {
-        // Reset button state
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
-    });
+        
+        // Focus on the problematic field
+        const field = document.getElementById(firstError.field);
+        if (field) {
+            if (firstError.field === 'is_correct') {
+                // Highlight dropdown
+                const dropdownBtn = document.getElementById('accuracyDropdown');
+                if (dropdownBtn) {
+                    dropdownBtn.style.borderColor = '#dc3545';
+                    dropdownBtn.style.backgroundColor = '#fff5f5';
+                    dropdownBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            } else {
+                field.focus();
+                field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+        
+        return;
+    }
+
+    // Show loading modal if available
+    const loadingModal = document.getElementById('loadingModal');
+    if (loadingModal && typeof bootstrap !== 'undefined') {
+        const modal = new bootstrap.Modal(loadingModal);
+        modal.show();
+    }
+
+    // Disable submit button
+    const submitBtn = document.getElementById('submit-feedback-btn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+    }
+    
+    console.log('Expert feedback form submitted successfully');
+}
+
+// ============================================================================
+// INITIALIZATION
+// ============================================================================
+
+/**
+ * Initialize expert feedback dropdown with existing values
+ */
+function initializeDropdown() {
+    const currentValue = document.getElementById('is_correct')?.value;
+    
+    if (currentValue) {
+        const displayText = currentValue === 'true' 
+            ? 'Correct - Classification is accurate' 
+            : 'Incorrect - Classification needs correction';
+        
+        const selectedAccuracy = document.getElementById('selectedAccuracy');
+        if (selectedAccuracy) {
+            selectedAccuracy.textContent = displayText;
+        }
+        
+        // Set active state
+        const targetItem = document.querySelector(`[data-value="${currentValue}"]`);
+        if (targetItem) {
+            targetItem.classList.add('active');
+            selectAccuracy(targetItem, currentValue, displayText);
+        }
+        
+        ExpertFeedbackApp.currentValue = currentValue;
+    }
 }
 
 /**
- * Initialize feedback form with event handlers
+ * Initialize expert feedback form
  */
 function initializeFeedbackForm() {
-    try {
-        // Character counter for textarea
-        const textarea = document.getElementById('feedback-message');
-        if (textarea) {
-            textarea.removeEventListener('input', updateCharCount); // Remove existing listener
-            textarea.addEventListener('input', updateCharCount);
-            updateCharCount(); // Initial count
-            console.log('Feedback textarea initialized');
-        }
-        
-        // Form submission
-        const feedbackForm = document.getElementById('feedback-form');
-        if (feedbackForm) {
-            feedbackForm.removeEventListener('submit', submitFeedback); // Remove existing listener
-            feedbackForm.addEventListener('submit', submitFeedback);
-            console.log('Feedback form submission handler attached');
-        }
-        
-        // Rating hover effects and click handlers
-        const ratingButtons = document.querySelectorAll('.btn-rating');
-        if (ratingButtons.length > 0) {
-            ratingButtons.forEach((button, index) => {
-                // Remove existing listeners
-                button.removeEventListener('mouseenter', handleRatingHover);
-                button.removeEventListener('mouseleave', handleRatingLeave);
-                button.removeEventListener('click', handleRatingClick);
-                
-                // Add new listeners
-                button.addEventListener('mouseenter', () => handleRatingHover(index, ratingButtons));
-                button.addEventListener('mouseleave', () => handleRatingLeave(ratingButtons));
-                button.addEventListener('click', () => handleRatingClick(index + 1));
-            });
-            console.log(`Feedback rating buttons initialized (${ratingButtons.length} buttons)`);
-        }
-        
-        console.log('Feedback form fully initialized');
-        
-    } catch (error) {
-        console.error('Error initializing feedback form:', error);
-    }
-}
-
-/**
- * Handle rating button hover
- */
-function handleRatingHover(index, ratingButtons) {
-    // Highlight stars up to hovered star
-    ratingButtons.forEach((star, starIndex) => {
-        if (starIndex <= index) {
-            star.style.color = '#ffc107';
-        } else {
-            star.style.color = '#ddd';
-        }
-    });
-}
-
-/**
- * Handle rating button leave
- */
-function handleRatingLeave(ratingButtons) {
-    // Reset to actual rating
-    const ratingInput = document.getElementById('feedback-rating');
-    const currentRating = ratingInput ? parseInt(ratingInput.value) || 0 : 0;
-    ratingButtons.forEach((star, starIndex) => {
-        if (starIndex < currentRating) {
-            star.style.color = '#ffc107';
-        } else {
-            star.style.color = '#ddd';
-        }
-    });
-}
-
-/**
- * Handle rating button click
- */
-function handleRatingClick(rating) {
-    setRating(rating);
-}
-
-/**
- * Setup feedback event handlers
- */
-function setupFeedbackHandlers() {
-    // Initialize feedback form on DOM load
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeFeedbackForm);
-    } else {
-        initializeFeedbackForm();
+    if (ExpertFeedbackApp.isInitialized) {
+        console.log('Expert feedback already initialized');
+        return;
     }
     
-    console.log('Feedback event handlers setup complete');
+    try {
+        console.log('Initializing expert feedback module...');
+        
+        // Initialize character counter
+        const textarea = document.getElementById('user_feedback');
+        if (textarea) {
+            textarea.removeEventListener('input', updateCharCount);
+            textarea.addEventListener('input', updateCharCount);
+            updateCharCount(); // Initial count
+        }
+        
+        // Initialize form submission
+        const form = document.querySelector('form[action*="/feedback/"]');
+        if (form) {
+            form.removeEventListener('submit', submitFeedback);
+            form.addEventListener('submit', submitFeedback);
+        }
+        
+        // Initialize dropdown
+        initializeDropdown();
+        toggleCorrectClassField();
+        
+        // Check for URL error parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const error = urlParams.get('error');
+        
+        if (error) {
+            let errorMessage = 'An error occurred while submitting feedback.';
+            if (error === 'save_failed') {
+                errorMessage = 'Failed to save feedback to database. Please try again.';
+            } else if (error === 'general') {
+                errorMessage = 'An unexpected error occurred. Please try again.';
+            }
+            
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Submission Failed',
+                    text: errorMessage,
+                    icon: 'error',
+                    confirmButtonText: 'Try Again'
+                });
+            } else {
+                alert(`Submission Failed: ${errorMessage}`);
+            }
+        }
+        
+        ExpertFeedbackApp.isInitialized = true;
+        console.log('Expert feedback module initialized successfully');
+        
+    } catch (error) {
+        console.error('Error initializing expert feedback:', error);
+    }
 }
 
-// Export to global scope
+// ============================================================================
+// LEGACY COMPATIBILITY (if needed)
+// ============================================================================
+
+/**
+ * Legacy function for basic rating (kept for compatibility)
+ * @param {number} rating - Rating value (1-5)
+ */
+function setRating(rating) {
+    console.log('setRating called with:', rating);
+    // This function is kept for legacy compatibility but not used in expert feedback
+}
+
+/**
+ * Reset feedback form (alias for resetForm)
+ */
+function resetFeedbackForm() {
+    resetForm();
+}
+
+// ============================================================================
+// DOCUMENT READY & EXPORTS
+// ============================================================================
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', initializeFeedbackForm);
+
+// Export to global scope for onclick handlers
 if (typeof window !== 'undefined') {
-    window.setRating = setRating;
-    window.resetFeedbackForm = resetFeedbackForm;
+    // Expert feedback functions
+    window.selectAccuracy = selectAccuracy;
+    window.toggleCorrectClassField = toggleCorrectClassField;
+    window.resetForm = resetForm;
+    window.enableEdit = enableEdit;
+    window.cancelEdit = cancelEdit;
     window.updateCharCount = updateCharCount;
-    window.editFeedback = editFeedback;
     window.submitFeedback = submitFeedback;
     window.initializeFeedbackForm = initializeFeedbackForm;
-    window.setupFeedbackHandlers = setupFeedbackHandlers;
+    
+    // Legacy compatibility
+    window.setRating = setRating;
+    window.resetFeedbackForm = resetFeedbackForm;
+    
+    // Module export
+    window.ExpertFeedbackApp = ExpertFeedbackApp;
 }
