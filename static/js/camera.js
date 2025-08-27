@@ -102,22 +102,68 @@ function updateUIState(state, fileName = '') {
 
 // Capture photo
 function capturePhoto() {
-    if (!CameraElements.video || !CameraElements.canvas || !CameraElements.container) return;
+    if (!CameraElements.video || !CameraElements.canvas || !CameraElements.container) {
+        console.error('Camera elements not available for capture');
+        return;
+    }
+    
+    console.log('=== Starting Photo Capture ===');
     
     const ctx = CameraElements.canvas.getContext('2d');
-    Object.assign(CameraElements.canvas, { 
-        width: CameraElements.video.videoWidth, 
-        height: CameraElements.video.videoHeight 
-    });
     
+    // Set canvas dimensions to match video
+    CameraElements.canvas.width = CameraElements.video.videoWidth;
+    CameraElements.canvas.height = CameraElements.video.videoHeight;
+    
+    console.log(`Canvas dimensions: ${CameraElements.canvas.width}x${CameraElements.canvas.height}`);
+    
+    // Draw video frame to canvas
     ctx.drawImage(CameraElements.video, 0, 0);
     
+    // Convert to blob and create file
     CameraElements.canvas.toBlob(blob => {
-        const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
-        const dataURL = CameraElements.canvas.toDataURL('image/jpeg', 1);
+        if (!blob) {
+            console.error('Failed to create blob from canvas');
+            showError('Failed to capture photo. Please try again.');
+            return;
+        }
         
-        Object.assign(PlanktoScanApp, { capturedImageFile: file, uploadedImagePath: dataURL });
-        uploadCapturedImage(file, dataURL, CameraElements.container);
+        console.log('Photo captured successfully, blob size:', blob.size);
+        
+        // Create file object
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `camera-capture-${timestamp}.jpg`;
+        const file = new File([blob], filename, { type: 'image/jpeg' });
+        
+        // Create data URL for preview
+        const dataURL = CameraElements.canvas.toDataURL('image/jpeg', 0.9);
+        
+        // Store in global state for prediction
+        window.capturedImageFile = file;
+        PlanktoScanApp.capturedImageFile = file;
+        PlanktoScanApp.uploadedFile = file; // IMPORTANT: Also set this for compatibility
+        PlanktoScanApp.uploadedImagePath = dataURL;
+        
+        console.log('=== Photo Capture State Set ===');
+        console.log('capturedImageFile:', !!window.capturedImageFile);
+        console.log('PlanktoScanApp.capturedImageFile:', !!PlanktoScanApp.capturedImageFile);
+        console.log('PlanktoScanApp.uploadedFile:', !!PlanktoScanApp.uploadedFile);
+        console.log('filename:', filename);
+        
+        // Update UI immediately
+        updateUIState('captured', filename);
+        createCameraPreview(dataURL, 'captured');
+        
+        // Show success message
+        if (typeof showSuccess === 'function') {
+            showSuccess('Photo captured successfully!');
+        }
+        
+        // Update predict button state
+        if (typeof updatePredictButtonState === 'function') {
+            updatePredictButtonState();
+        }
+        
     }, 'image/jpeg', 0.9);
 }
 
@@ -296,27 +342,39 @@ function updateCameraPreviewSuccess() {
 
 // Reset camera capture
 function resetCameraCapture() {
+    console.log('=== Resetting Camera Capture ===');
+    
+    // Clear all file states
     window.capturedImageFile = null;
+    PlanktoScanApp.capturedImageFile = null;
+    PlanktoScanApp.uploadedFile = null;
     PlanktoScanApp.uploadedImagePath = '';
     
-    if (CameraElements.locationInput && (!gpsState?.lastKnownPosition)) {
-        CameraElements.locationInput.value = 'Unknown';
+    // Reset location if no GPS
+    if (CameraElements.locationInput && (!window.gpsState?.lastKnownPosition)) {
+        CameraElements.locationInput.value = '';
+        console.log('Location reset to empty');
     }
     
+    // Update UI
     updateUIState('reset');
     if (CameraElements.container) CameraElements.container.classList.remove('success');
     cleanCameraState();
     
+    // Restart camera after short delay
     setTimeout(async () => {
         try {
-            if (PlanktoScanApp.currentStream) {
+            if (window.isCameraActive) {
                 await manageCamera('stop');
                 await new Promise(resolve => setTimeout(resolve, 300));
             }
             await manageCamera('start');
+            console.log('Camera restarted successfully');
         } catch (error) {
             console.error('Failed to restart camera:', error);
-            showError('Failed to restart camera');
+            if (typeof showError === 'function') {
+                showError('Failed to restart camera');
+            }
         }
     }, 100);
 }

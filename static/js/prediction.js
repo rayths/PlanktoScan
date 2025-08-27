@@ -3,17 +3,36 @@
 // ============================================================================
 
 function handlePredictButtonClick() {
-    // Check if we have either uploaded file or captured image
+    console.log('=== Prediction Button Clicked ===');
+    
+    // Enhanced file detection
     const hasUploadedFile = PlanktoScanApp.uploadedFile || 
                            (document.getElementById('file-image-upload')?.files?.[0]);
-    const hasCapturedFile = window.capturedImageFile;
+    const hasCapturedFile = window.capturedImageFile || PlanktoScanApp.capturedImageFile;
     
+    console.log('File detection results:');
+    console.log('- hasUploadedFile:', !!hasUploadedFile);
+    console.log('- hasCapturedFile:', !!hasCapturedFile);
+    console.log('- window.capturedImageFile:', !!window.capturedImageFile);
+    console.log('- PlanktoScanApp.capturedImageFile:', !!PlanktoScanApp.capturedImageFile);
+    console.log('- PlanktoScanApp.uploadedFile:', !!PlanktoScanApp.uploadedFile);
+    
+    // Check if we have any valid file
     if (!hasUploadedFile && !hasCapturedFile) {
-        return swal({ 
-            title: "No Image Selected",
-            text: "Please upload an image or capture a photo first.", 
-            icon: "error" 
-        });
+        console.error('No valid image file found');
+        
+        // Show more specific error message
+        if (typeof swal !== 'undefined') {
+            return swal({ 
+                title: "No Image Selected",
+                text: "Please upload an image or capture a photo first.", 
+                icon: "error" 
+            });
+        } else if (typeof showError === 'function') {
+            return showError("Please upload an image or capture a photo first.");
+        } else {
+            return alert("Please upload an image or capture a photo first.");
+        }
     }
 
     // Re-initialize dropdowns to ensure values are set
@@ -38,47 +57,84 @@ function handlePredictButtonClick() {
 
     // Final validation
     if (!modelOption || modelOption === 'null' || modelOption === 'undefined') {
-        return swal({
-            title: "Model Error",
-            text: "Classification model not properly selected. Please refresh and try again.",
-            icon: "error"
-        });
+        const errorMsg = "Classification model not properly selected. Please refresh and try again.";
+        if (typeof swal !== 'undefined') {
+            return swal({
+                title: "Model Error",
+                text: errorMsg,
+                icon: "error"
+            });
+        } else if (typeof showError === 'function') {
+            return showError(errorMsg);
+        } else {
+            return alert(errorMsg);
+        }
     }
 
     // Create FormData
     const formData = new FormData();
-
     formData.append('location', locationValue.trim());
     formData.append('model_option', String(modelOption));
 
-    // Handle file source
+    // Handle file source with better priority
+    let fileToUse = null;
+    let fileSource = '';
+    
     if (window.capturedImageFile) {
-        // Use captured image file
-        formData.append('img_path', window.capturedImageFile);
-        console.log('Using captured image file for prediction');
+        fileToUse = window.capturedImageFile;
+        fileSource = 'window.capturedImageFile';
+    } else if (PlanktoScanApp.capturedImageFile) {
+        fileToUse = PlanktoScanApp.capturedImageFile;
+        fileSource = 'PlanktoScanApp.capturedImageFile';
     } else if (PlanktoScanApp.uploadedFile) {
-        // Use stored uploaded file
-        formData.append('img_path', PlanktoScanApp.uploadedFile);
-        console.log('Using stored uploaded file for prediction');
+        fileToUse = PlanktoScanApp.uploadedFile;
+        fileSource = 'PlanktoScanApp.uploadedFile';
     } else {
-        // Fallback: get from file input
         const fileInput = document.getElementById('file-image-upload');
         if (fileInput?.files?.[0]) {
-            formData.append('img_path', fileInput.files[0]);
-            console.log('Using file input for prediction');
-        } else {
+            fileToUse = fileInput.files[0];
+            fileSource = 'file input';
+        }
+    }
+    
+    if (!fileToUse) {
+        console.error('No file could be determined for prediction');
+        const errorMsg = "Unable to access image file. Please try again.";
+        if (typeof swal !== 'undefined') {
             return swal({
                 title: "File Error",
-                text: "Unable to access image file. Please try again.",
+                text: errorMsg,
                 icon: "error"
             });
+        } else if (typeof showError === 'function') {
+            return showError(errorMsg);
+        } else {
+            return alert(errorMsg);
+        }
+    }
+    
+    console.log(`Using file from: ${fileSource}`);
+    console.log(`File name: ${fileToUse.name}`);
+    console.log(`File size: ${fileToUse.size} bytes`);
+    console.log(`File type: ${fileToUse.type}`);
+    
+    // Append file to FormData
+    formData.append('img_path', fileToUse);
+
+    console.log('=== Sending Prediction Request ===');
+    console.log('FormData contents:');
+    for (let [key, value] of formData.entries()) {
+        if (value instanceof File) {
+            console.log(`${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
+        } else {
+            console.log(`${key}: ${value}`);
         }
     }
 
-    console.log('Sending prediction request with correct parameters');
-
     // Show loading state
-    showLoading();
+    if (typeof showLoading === 'function') {
+        showLoading();
+    }
 
     // Submit prediction request
     submitPrediction(formData);

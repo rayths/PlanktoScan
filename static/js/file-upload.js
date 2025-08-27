@@ -337,41 +337,23 @@ function switchToFileMode() {
     if (uploadZone) uploadZone.style.display = 'block';
     if (cameraContainer) cameraContainer.style.display = 'none';
     
-    // Clean camera state
+    // Clean camera state but preserve files if they exist
     if (typeof cleanCameraState === 'function') {
         cleanCameraState();
     }
     
-    // Reset state variables
-    window.capturedImageFile = null;
-    
-    // Hide camera preview overlay if exists
-    const previewOverlay = document.getElementById('camera-preview-overlay');
-    if (previewOverlay) {
-        previewOverlay.style.display = 'none';
-    }
-    
-    // Show video again if exists
-    const video = document.getElementById('camera-preview');
-    if (video) {
-        video.style.display = 'block';
-    }
-    
-    // Show camera controls again
-    const cameraControls = document.querySelector('.camera-controls');
-    if (cameraControls) {
-        cameraControls.style.display = 'flex';
-    }
+    // Don't reset captured file when switching modes
+    // Only reset the camera UI state
     
     // Stop camera if it's running
     if (typeof stopCamera === 'function') {
         stopCamera();
     }
 
-    // Update predict button state
-    if (typeof updatePredictButtonState === 'function') {
+    // Update predict button state based on current files
+    setTimeout(() => {
         updatePredictButtonState();
-    }
+    }, 100);
 
     console.log('Switched to file mode');
 }

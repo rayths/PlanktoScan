@@ -274,24 +274,26 @@ function updateFileInfo(fileName, show = true) {
 
 function updatePredictButtonState() {
     const $predictButton = $('.btn-predict-image');
-    if (!$predictButton.length) return;
     
-    const hasImage = window.capturedImageFile || 
-                     PlanktoScanApp.uploadedFile || 
-                     PlanktoScanApp.uploadedImagePath ||
-                     (document.getElementById('file-image-upload')?.files?.[0]);
-                     
-    const hasLocation = $('#sampling-location').val().trim() !== '';
-    const hasModel = $('#classification-model').val() !== '';
+    // Check for any valid file
+    const hasUploadedFile = PlanktoScanApp.uploadedFile || 
+                           (document.getElementById('file-image-upload')?.files?.[0]);
+    const hasCapturedFile = window.capturedImageFile || PlanktoScanApp.capturedImageFile;
+    const hasValidFile = hasUploadedFile || hasCapturedFile;
     
-    const shouldEnable = hasImage && hasLocation && hasModel;
+    console.log('updatePredictButtonState check:');
+    console.log('- hasUploadedFile:', !!hasUploadedFile);
+    console.log('- hasCapturedFile:', !!hasCapturedFile);
+    console.log('- hasValidFile:', hasValidFile);
     
-    $predictButton.prop('disabled', !shouldEnable);
-    
-    if (shouldEnable) {
+    if (hasValidFile) {
+        $predictButton.prop('disabled', false);
         $predictButton.removeClass('btn-disabled').addClass('btn-enabled');
+        console.log('Predict button ENABLED');
     } else {
+        $predictButton.prop('disabled', true);
         $predictButton.removeClass('btn-enabled').addClass('btn-disabled');
+        console.log('Predict button DISABLED');
     }
 }
 
