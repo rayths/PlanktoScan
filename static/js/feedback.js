@@ -214,11 +214,11 @@ function validateExpertFeedback() {
     };
     
     // Validate feedback length
-    if (feedback.length < 10) {
+    if (feedback.length < 1) {
         validation.isValid = false;
         validation.errors.push({
             field: 'user_feedback',
-            message: 'Please provide more detailed expert analysis (minimum 10 characters)',
+            message: 'Please provide more detailed expert analysis',
             title: 'Feedback Too Short'
         });
     }
@@ -259,17 +259,12 @@ function submitFeedback(e) {
         const firstError = validation.errors[0];
         
         // Use SweetAlert if available, otherwise use regular alert
-        if (typeof swal !== 'undefined') {
-            swal.fire({
-                title: firstError.title,
-                text: firstError.message,
-                icon: 'warning',
-                confirmButtonText: 'OK'
-            });
+        if (typeof showWarning === 'function') {
+            showWarning(firstError.message);
         } else {
+            // Fallback if utils.js not loaded
             alert(`${firstError.title}: ${firstError.message}`);
-        }
-        
+        }        
         // Focus on the problematic field
         const field = document.getElementById(firstError.field);
         if (field) {
@@ -380,17 +375,8 @@ function initializeFeedbackForm() {
             } else if (error === 'general') {
                 errorMessage = 'An unexpected error occurred. Please try again.';
             }
-            
-            if (typeof Swal !== 'undefined') {
-                Swal.fire({
-                    title: 'Submission Failed',
-                    text: errorMessage,
-                    icon: 'error',
-                    confirmButtonText: 'Try Again'
-                });
-            } else {
-                alert(`Submission Failed: ${errorMessage}`);
-            }
+
+            showError("Submission Failed", errorMessage);
         }
         
         ExpertFeedbackApp.isInitialized = true;

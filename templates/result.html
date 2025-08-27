@@ -141,100 +141,88 @@
 
                         <!-- Expert Feedback Section -->
                         {% if current_user and current_user.role.value in ['expert', 'admin'] %}
-                        <div class="results-card mt-4" id="expert-feedback-section">
-                            <div class="card-header d-flex align-items-center justify-content-between">
-                                <div>
-                                    <i class="fas fa-user-md text-success"></i>
-                                    <span class="text-label ms-2">Expert Evaluation</span>
-                                </div>
+                        <div class="results-card" id="expert-feedback-section">
+                            <label class="text-label">
+                                <i class="fas fa-user-md"></i> Expert Evaluation
                                 {% if classification.user_feedback %}
-                                <div class="feedback-status">
-                                    <span class="badge bg-{{ 'success' if classification.is_correct else 'warning' }}">
-                                        {{ 'Verified Correct' if classification.is_correct else 'Marked Incorrect' }}
-                                    </span>
-                                </div>
+                                <span class="badge bg-{{ 'success' if classification.is_correct else 'warning' }} ms-2">
+                                    {{ 'Verified Correct' if classification.is_correct else 'Marked Incorrect' }}
+                                </span>
                                 {% endif %}
-                            </div>
+                            </label>
+                        
+                            {% if classification.user_feedback %}
+                                <!-- Show existing expert feedback summary -->
+                                <div class="alert alert-info mb-4">
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="fas fa-check-circle me-2"></i>
+                                        <strong>Expert evaluation completed</strong>
+                                        <span class="badge bg-{{ 'success' if classification.is_correct else 'warning' }} ms-2">
+                                            {{ 'Correct Classification' if classification.is_correct else 'Incorrect Classification' }}
+                                        </span>
+                                    </div>
 
-                            <div class="card-body">
-                                {% if classification.user_feedback %}
-                                    <!-- Show existing expert feedback summary -->
-                                    <div class="alert alert-info">
-                                        <div class="d-flex align-items-center mb-2">
-                                            <i class="fas fa-check-circle me-2"></i>
-                                            <strong>Expert evaluation completed</strong>
-                                            <span class="badge bg-{{ 'success' if classification.is_correct else 'warning' }} ms-2">
-                                                {{ 'Correct Classification' if classification.is_correct else 'Incorrect Classification' }}
-                                            </span>
-                                        </div>
-                                        
-                                        {% if not classification.is_correct and classification.correct_class %}
-                                        <p class="mb-2">
-                                            <strong>Correct Classification:</strong> 
-                                            <span class="badge bg-info">{{ classification.correct_class }}</span>
-                                        </p>
-                                        {% endif %}
-                                        
-                                        <p class="mb-3">{{ classification.user_feedback[:200] }}{% if classification.user_feedback|length > 200 %}...{% endif %}</p>
-                                        
-                                        <a href="/feedback/{{ result_id }}" class="btn btn-outline-primary">
-                                            <i class="fas fa-edit"></i> View/Edit Expert Feedback
-                                        </a>
-                                    </div>
-                                {% else %}
-                                    <!-- Prompt for expert feedback -->
-                                    <div class="text-center py-4">
-                                        <div class="mb-3">
-                                            <i class="fas fa-user-md fa-3x text-success"></i>
-                                        </div>
-                                        <h5 class="mb-3">Expert Evaluation Needed</h5>
-                                        <p class="text-muted mb-4">
-                                            As a BRIN expert, your professional evaluation helps improve our classification system.
-                                        </p>
-                                        <a href="/feedback/{{ result_id }}" class="btn btn-success">
-                                            <i class="fas fa-microscope"></i> Provide Expert Feedback
-                                        </a>
-                                    </div>
-                                {% endif %}
-                                
-                                <!-- Expert Info -->
-                                <div class="expert-info mt-3 p-3 bg-light rounded">
-                                    <small class="text-muted">
-                                        <i class="fas fa-user-md"></i> Expert: <strong>{{ current_user.display_name or current_user.email }}</strong>
-                                        <span class="badge bg-success ms-1">BRIN Expert</span>
-                                        {% if current_user.organization %}
-                                        <br><i class="fas fa-building"></i> {{ current_user.organization }}
-                                        {% endif %}
-                                    </small>
+                                    {% if not classification.is_correct and classification.correct_class %}
+                                    <p class="mb-2">
+                                        <strong>Correct Classification:</strong> 
+                                        <span class="badge bg-info">{{ classification.correct_class }}</span>
+                                    </p>
+                                    {% endif %}
+
+                                    <p class="mb-3">{{ classification.user_feedback[:200] }}{% if classification.user_feedback|length > 200 %}...{% endif %}</p>
+
+                                    <a href="/feedback/{{ result_id }}" class="btn btn-outline-primary">
+                                        <i class="fas fa-edit"></i> View/Edit Expert Feedback
+                                    </a>
                                 </div>
+                            {% else %}
+                                <!-- Prompt for expert feedback -->
+                                <div class="text-center py-4">
+                                    <div class="mb-3">
+                                        <i class="fas fa-user-md fa-3x text-success"></i>
+                                    </div>
+                                    <h5 class="mb-3">Expert Evaluation Needed</h5>
+                                    <p class="text-muted mb-4">
+                                        As a BRIN expert, your professional evaluation helps improve our classification system.
+                                    </p>
+                                    <a href="/feedback/{{ result_id }}" class="btn btn-success">
+                                        <i class="fas fa-microscope"></i> Provide Expert Feedback
+                                    </a>
+                                </div>
+                            {% endif %}
+                            
+                            <!-- Expert Info -->
+                            <div class="expert-info mt-3 p-3 bg-light rounded">
+                                <small class="text-muted">
+                                    <i class="fas fa-user-md"></i> Expert: <strong>{{ current_user.display_name or current_user.email }}</strong>
+                                    <span class="badge bg-success ms-1">BRIN Expert</span>
+                                    {% if current_user.organization %}
+                                    <br><i class="fas fa-building"></i> {{ current_user.organization }}
+                                    {% endif %}
+                                </small>
                             </div>
                         </div>
                         {% else %}
                             <!-- Non-expert users see limited info -->
                             {% if classification.user_feedback %}
-                            <div class="results-card mt-4" id="expert-validation-info">
-                                <div class="card-header">
-                                    <div>
-                                        <i class="fas fa-certificate text-primary"></i>
-                                        <span class="text-label ms-2">Expert Validation</span>
+                            <div class="results-card mt-4">
+                                <label class="text-label">
+                                    <i class="fas fa-certificate"></i> Expert Validation
+                                </label>
+                                <div class="alert alert-success">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-check-circle me-2"></i>
+                                        <span>This classification has been reviewed by a BRIN expert</span>
+                                        <span class="badge bg-{{ 'success' if classification.is_correct else 'warning' }} ms-2">
+                                            {{ 'Verified Correct' if classification.is_correct else 'Corrected by Expert' }}
+                                        </span>
                                     </div>
-                                </div>
-                                <div class="card-body">
-                                    <div class="alert alert-success">
-                                        <div class="d-flex align-items-center">
-                                            <i class="fas fa-check-circle me-2"></i>
-                                            <span>This classification has been reviewed by a BRIN expert</span>
-                                            <span class="badge bg-{{ 'success' if classification.is_correct else 'warning' }} ms-2">
-                                                {{ 'Verified Correct' if classification.is_correct else 'Corrected by Expert' }}
-                                            </span>
-                                        </div>
-                                        {% if not classification.is_correct and classification.correct_class %}
-                                        <p class="mb-0 mt-2">
-                                            <strong>Expert Correction:</strong> 
-                                            <span class="badge bg-info">{{ classification.correct_class }}</span>
-                                        </p>
-                                        {% endif %}
-                                    </div>
+                                    {% if not classification.is_correct and classification.correct_class %}
+                                    <p class="mb-0 mt-2">
+                                        <strong>Expert Correction:</strong> 
+                                        <span class="badge bg-info">{{ classification.correct_class }}</span>
+                                    </p>
+                                    {% endif %}
                                 </div>
                             </div>
                             {% endif %}
@@ -265,17 +253,37 @@
             const feedbackSuccess = urlParams.get('feedback_success');
             
             if (feedbackSuccess === '1') {
-                Swal.fire({
-                    title: 'Feedback Submitted Successfully!',
-                    text: 'Thank you for your expert evaluation. Your feedback helps improve our classification system.',
-                    icon: 'success',
-                    confirmButtonText: 'Continue'
-                }).then(() => {
+                if (typeof showSuccess === 'function') {
+                    showSuccess('Feedback submitted successfully! Thank you for your expert evaluation. Your feedback helps improve our classification system.');
+                    
+                    // Clean up URL parameters after showing success message
+                    setTimeout(() => {
+                        const url = new URL(window.location);
+                        url.searchParams.delete('feedback_success');
+                        window.history.replaceState({}, document.title, url.toString());
+                    }, 1500); // Wait for showSuccess animation to complete
+                } 
+                else if (typeof swal !== 'undefined') {
+                    swal({
+                        title: 'Feedback Submitted Successfully!',
+                        text: 'Thank you for your expert evaluation. Your feedback helps improve our classification system.',
+                        icon: 'success',
+                        button: 'Continue'
+                    }).then(() => {
+                        // Clean up URL parameters
+                        const url = new URL(window.location);
+                        url.searchParams.delete('feedback_success');
+                        window.history.replaceState({}, document.title, url.toString());
+                    });
+                }
+                // Ultimate fallback to regular alert
+                else {
+                    alert('Feedback Submitted Successfully!\nThank you for your expert evaluation. Your feedback helps improve our classification system.');
                     // Clean up URL parameters
                     const url = new URL(window.location);
                     url.searchParams.delete('feedback_success');
                     window.history.replaceState({}, document.title, url.toString());
-                });
+                }
             }
         });
     </script>

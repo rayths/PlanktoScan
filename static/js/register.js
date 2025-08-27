@@ -209,6 +209,32 @@ $(document).ready(function() {
 
         return true;
     }
+    
+    function showSuccessWithHTML(title, htmlContent, callback = null) {
+        if (typeof swal !== 'undefined') {
+            swal({
+                title: title,
+                content: {
+                    element: "div",
+                    attributes: {
+                        innerHTML: htmlContent,
+                    },
+                },
+                icon: 'success',
+                button: {
+                    text: "Continue to Login",
+                    closeModal: true,
+                }
+            }).then(() => {
+                if (callback) callback();
+            });
+        } else {
+            // Fallback to regular alert
+            const textContent = htmlContent.replace(/<[^>]*>/g, ''); // Strip HTML tags
+            alert(title + '\n' + textContent);
+            if (callback) callback();
+        }
+    }
 
     async function registerWithFirebase(formData) {
         try {
@@ -279,22 +305,14 @@ $(document).ready(function() {
             $('#submitBtn').prop('disabled', false);
 
             if (response.ok && result.success) {
-                if (typeof swal !== 'undefined') {
-                    swal.fire({
-                        title: 'Account Created Successfully!',
-                        html: `
-                            <p>Your ${formData.role} account has been created.</p>
-                            <p><strong>Please check your email to verify your account.</strong></p>
-                        `,
-                        icon: 'success',
-                        confirmButtonText: 'Continue to Login'
-                    }).then(() => {
-                        window.location.href = '/login';
-                    });
-                } else {
-                    alert('Account created successfully! Please check your email and then login.');
+                const htmlContent = `
+                    <p>Your ${formData.role} account has been created.</p>
+                    <p><strong>Please check your email to verify your account.</strong></p>
+                `;
+                
+                showSuccessWithHTML('Account Created Successfully!', htmlContent, () => {
                     window.location.href = '/login';
-                }
+                });
             } else {
                 throw new Error(result.message || 'Registration failed');
             }
@@ -381,19 +399,12 @@ $(document).ready(function() {
             $('#loadingModal').modal('hide');
 
             if (result.success) {
-                if (typeof swal !== 'undefined') {
-                    swal.fire({
-                        title: 'Account Created Successfully!',
-                        text: `Welcome to PlanktoScan! Your ${selectedRole} account is ready.`,
-                        icon: 'success',
-                        confirmButtonText: 'Continue'
-                    }).then(() => {
-                        window.location.href = result.redirect_url || '/';
-                    });
-                } else {
-                    alert('Account created successfully! Welcome to PlanktoScan!');
+                showSuccess(`Welcome to PlanktoScan! Your ${selectedRole} account is ready.`);
+                
+                // Redirect after showing success message
+                setTimeout(() => {
                     window.location.href = result.redirect_url || '/';
-                }
+                }, 2000); // Wait for success message timer
             } else {
                 throw new Error(result.message || 'Registration failed');
             }

@@ -142,20 +142,8 @@ class FirebaseConfigLoader {
         console.error('Firebase configuration error:', error);
         
         const message = error.message || 'Authentication system failed to load. Please refresh the page.';
-        
-        if (typeof Swal !== 'undefined') {
-            Swal.fire({
-                title: 'Configuration Error',
-                text: message,
-                icon: 'error',
-                confirmButtonText: 'Refresh Page'
-            }).then(() => {
-                window.location.reload();
-            });
-        } else {
-            alert(message);
-            window.location.reload();
-        }
+
+        showError(message);
     }
 
     /**
